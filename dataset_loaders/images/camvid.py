@@ -56,6 +56,10 @@ class CamvidDataset(ThreadedDataset):
             self.image_path = os.path.join(self.path, "test")
             self.mask_path = os.path.join(self.path, "testannot")
 
+        # constructing the ThreadedDataset
+        # it also creates/copies the dataset in self.path if not already there
+        super(CamvidDataset, self).__init__(*args, **kwargs)
+
         # Get file names for this set and year
         filenames = []
         with open(os.path.join(self.path, self.which_set + '.txt')) as f:
@@ -65,8 +69,6 @@ class CamvidDataset(ThreadedDataset):
                 raw_name = raw_name.strip()
                 filenames.append(raw_name)
         self.filenames = filenames
-
-        super(CamvidDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         sequences = []
