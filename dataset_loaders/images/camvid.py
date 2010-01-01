@@ -87,7 +87,7 @@ class CamvidDataset(ThreadedDataset):
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames[:max_num_sequences]]:
+                for el in [(prefix, f) for f in frames[:max_num_sequences:self.overlap]]:
                     sequences.append(el)
             else:
                 if max_num_sequences < seq_per_video:
@@ -228,9 +228,11 @@ def test1():
 def test2():
     d = CamvidDataset(
         which_set='train',
+        with_filenames=True,
         batch_size=5,
         seq_per_video=0,
-        seq_length=0,
+        seq_length=10,
+        overlap=10,
         get_one_hot=True,
         crop_size=(224, 224))
     for i, _ in enumerate(range(d.epoch_length)):
@@ -238,9 +240,10 @@ def test2():
         if image_group is None:
             raise NotImplementedError()
         sh = image_group[0].shape
+        print(image_group[2])
         if sh[1] != 2:
             raise RuntimeError()
 
 
 if __name__ == '__main__':
-    test1()
+    test2()
