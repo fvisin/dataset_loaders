@@ -1,0 +1,7 @@
+identify -format "%w %h %f\n" *.tiff | sort -n -r -k 1 | more
+
+Biggest image on gatech:854 480 62_92.tiff
+Biggest image on gatech test:640 480 9_99.tiff
+
+Biggest image on change det: 720 576 48_96.jpg
+Biggest image on change det: 
