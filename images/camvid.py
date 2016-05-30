@@ -1,166 +1,188 @@
-import os
-import time
 import numpy as np
+import os
 from skimage import io
-from dataset_helpers import random_crop, convert_01c_to_c01
-from batchiterator import BatchIterator, threaded_generator
+import time
+
+from theano import config
+
+from parallel_loader import ThreadedDataset
 
 
-class CAMVIDdataset(BatchIterator):
-    def __init__(self,
-                 camvid_path="/Tmp/romerosa/datasets/camvid/segnet/",
-                 which_set="train",
-                 data_format="b01c",
-                 minibatch_size=10,
-                 crop_size="no_crop",
-                 normalize=False,
-                 predictions=False,
-                 teacher_temperature=1.):
+floatX = config.floatX
 
-        self.which_set = which_set
-        self.data_format = data_format
-        self.camvid_path = camvid_path
-        self.n_classes = 12
-        self.image_shape = [3, 360, 480]
-        self.image_shape_out = [21, 360, 480]
-        self.crop_size = crop_size
-        self.normalize = normalize
-        self.data_format = data_format
-        self.minibatch_size = minibatch_size
-        self.random_state = np.random.RandomState(0xbeef)
-        self.predictions = predictions
-        self.teacher_temperature = teacher_temperature
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [atoi(c) for c in re.split('(\d+)', text)]
+
+
+class CamvidDataset(ThreadedDataset):
+    name = 'camvid'
+    input_shape = (360, 480, 3)
+    nclasses = 12
+    void_labels = [11]
+    cmap = np.array([
+        (255, 128, 0),    # sky
+        (255, 0, 0),      # building
+        (0, 130, 180),    # column_pole
+        (0, 255, 0),      # road
+        (255, 255, 0),    # sidewalk
+        (120, 0, 255),    # tree
+        (255, 0, 255),    # sign
+        (160, 160, 160),  # fence
+        (64, 64, 64),     # car
+        (0, 0, 255),      # pedestrian
+        (128, 128, 128),  # byciclist
+        (0, 0, 0)])       # void
+    cmap = cmap / 255.
+    labels = ('sky', 'building', 'column_pole', 'road', 'sidewalk',
+              'tree', 'sign', 'fence', 'car', 'pedestrian', 'byciclist',
+              'void')
+
+    def __init__(self, which_set='train', with_filenames=False, *args,
+                 **kwargs):
+
+        self.which_set = "val" if which_set == "valid" else which_set
+        self.with_filenames = with_filenames
+        self.path = "./datasets/camvid/segnet/"
 
         if self.which_set == "train":
-            self.image_path = os.path.join(self.camvid_path, "train")
-            self.mask_path = os.path.join(self.camvid_path, "trainannot")
+            self.image_path = os.path.join(self.path, "train")
+            self.mask_path = os.path.join(self.path, "trainannot")
         elif self.which_set == "val":
-            self.image_path = os.path.join(self.camvid_path, "val")
-            self.mask_path = os.path.join(self.camvid_path, "valannot")
+            self.image_path = os.path.join(self.path, "val")
+            self.mask_path = os.path.join(self.path, "valannot")
         elif self.which_set == "test":
-            self.image_path = os.path.join(self.camvid_path, "test")
-            self.mask_path = os.path.join(self.camvid_path, "testannot")
+            self.image_path = os.path.join(self.path, "test")
+            self.mask_path = os.path.join(self.path, "testannot")
 
-        self.pred_path = os.path.join(self.camvid_path,
-                                      self.which_set +
-                                      "_teacher_temp1")
+        # Get file names for this set and year
+        filenames = []
+        with open(self.path + self.which_set + ".txt") as f:
+            for fi in f.readlines():
+                raw_name = fi.strip()
+                raw_name = raw_name.split("/")[4]
+                raw_name = raw_name.strip()
+                filenames.append(raw_name)
+        self.filenames = filenames
 
-        data_list = self.get_names()
+        # set dataset specific arguments
+        kwargs.update({
+            'is_one_hot': False,
+            'nclasses': CamvidDataset.nclasses,
+            'data_dim_ordering': 'tf'})
 
-        if self.which_set == "test":
-            testing = True
-        else:
-            testing = False
-
-        super(CAMVIDdataset, self).__init__(minibatch_size,
-                                            data_list,
-                                            testing)
-
-    def get_image_shape(self):
-        return self.image_shape
-
-    def get_image_shape_out(self):
-        return self.image_shape_out
-
-    def get_n_classes(self):
-        return self.n_classes
+        super(CamvidDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
-        filenames = []
+        sequences = []
+        seq_length = self.seq_length
 
-        for directory, _, images in os.walk(self.image_path):
-            filenames.extend([im for im in images if ".png" in im])
+        prefix_list = np.unique(np.array([el[:6] for el in self.filenames]))
 
-        filenames = sorted(filenames)
+        self.video_length = {}
+        # cycle through the different videos
+        for prefix in prefix_list:
+            seq_per_video = self.seq_per_video
+            frames = [el for el in self.filenames if prefix in el]
+            video_length = len(frames)
+            self.video_length[prefix] = video_length
 
-        return filenames
+            # Fill sequences with (prefix, frame_idx)
+            if (not self.seq_length or not self.seq_per_video or
+                    self.seq_length >= video_length):
+                # Use all possible frames
+                for el in [(prefix, f) for f in frames]:
+                    sequences.append(el)
+            else:
+                # If there are not enough frames, cap seq_per_video to
+                # the number of available frames
+                max_num_sequences = video_length - seq_length + 1
+                if max_num_sequences < seq_per_video:
+                    print("/!\ Warning : you asked {} sequences of {} "
+                          "frames each but video {} only has {} "
+                          "frames".format(seq_per_video, seq_length,
+                                          prefix, video_length))
+                    seq_per_video = max_num_sequences
 
-    def fetch_from_dataset(self, batch_to_load):
+                # pick `seq_per_video` random indexes between 0 and
+                # (video length - sequence length)
+                first_frame_indexes = self.rng.random.permutation(range(
+                    max_num_sequences))[0:seq_per_video]
 
-        image_batch = []
-        mask_batch = []
-        pred_batch = []
+                for i in first_frame_indexes:
+                    sequences.append((prefix, frames[i]))
 
-        for img_name in batch_to_load:
+        return np.array(sequences)
 
-            # Load image
-            try:
-                img = io.imread(os.path.join(self.image_path,
-                                             img_name))
-            except IOError:
-                print("Failed to load image " + img_name)
-                continue
+    def load_sequence(self, first_frame):
+        """
+        Load ONE clip/sequence
 
-            # Load mask
-            try:
-                mask = io.imread(os.path.join(self.mask_path,
-                                              img_name))
-            except IOError:
-                print("Failed to load mask " + img_name)
+        Auxiliary function which loads a sequence of frames with
+        the corresponding ground truth and potentially filenames.
+        Returns images in [0, 1]
+        """
+        X = []
+        Y = []
+        F = []
 
-            # Load teacher predictions and soft predictions
-            try:
-                if self.predictions:
-                    # Predictions
-                    pred = np.load(os.path.join(self.pred_path,
-                                                img_name[:-3] +
-                                                "npy"))
+        prefix, first_frame_name = first_frame
 
-            except IOError:
-                print("Failed to load teacher (soft) prediction " +
-                      img_name[:-3] + "npy")
-                continue
+        if (self.seq_length is None or
+                self.seq_length > self.video_length[prefix]):
+            seq_length = self.video_length[prefix]
+        else:
+            seq_length = self.seq_length
 
-            # Convert image to c01 format
-            if self.data_format == "bc01":
-                img = convert_01c_to_c01(img)
+        start_idx = self.filenames.index(first_frame_name)
+        for frame in self.filenames[start_idx:start_idx + seq_length]:
+            img = io.imread(os.path.join(self.image_path, frame))
+            mask = io.imread(os.path.join(self.mask_path, frame))
 
-            # Normalize
-            if self.normalize:
-                raise NotImplementedError
+            img = img.astype(floatX) / 255.
+            mask = mask.astype('int32')
 
-            # Crop if necessary
-            if not self.crop_size == 'no_crop' and \
-               not self.which_set == "test":
-                if self.predictions:
-                    img, mask, pred, soft = random_crop(img,
-                                                        mask,
-                                                        self.random_state,
-                                                        self.crop_size,
-                                                        teacher_pred=pred)
-                else:
-                    img, mask = random_crop(img,
-                                            mask,
-                                            self.random_state,
-                                            self.crop_size)
+            X.append(img)
+            Y.append(mask)
+            F.append(frame)
 
-            image_batch.append(img)
-            mask_batch.append(mask)
-
-            if self.predictions:
-                pred_batch.append(pred)
-
-        return image_batch, mask_batch, batch_to_load, pred_batch
+        if self.with_filenames:
+            return np.array(X), np.array(Y), np.array(F)
+        else:
+            return np.array(X), np.array(Y)
 
 
 if __name__ == '__main__':
-    batchiter = CAMVIDdataset(which_set="train",
-                              minibatch_size=100,
-                              data_format="bc01",
-                              predictions=False)
-
+    d = CamvidDataset(
+        which_set='train',
+        batch_size=5,
+        seq_per_video=4,
+        seq_length=20,
+        crop_size=(224, 224))
     start = time.time()
-    max_epochs = 2
-    n_batches = batchiter.get_n_batches()
-
-    batchiter = threaded_generator(batchiter, 10)
-
-    for epoch in range(max_epochs):
-        for mb in range(n_batches):
-            image_batch, _, filenames, _ = batchiter.next()
-            # time.sleep approximates running some model
-            time.sleep(1)
-            stop = time.time()
-            tot = stop - start
-            print("Threaded time: %s" % (tot))
-            print("Minibatch %s" % str(mb))
+    n_minibatches_to_run = 1000
+    itr = 1
+    while True:
+        image_group = d.next()
+        if image_group is None:
+            raise NotImplementedError()
+        # time.sleep approximates running some model
+        time.sleep(1)
+        stop = time.time()
+        tot = stop - start
+        print("Minibatch %s" % str(itr))
+        print("Time ratio (s per minibatch): %s" % (tot / float(itr)))
+        print("Tot time: %s" % (tot))
+        itr += 1
+        # test
+        if itr >= n_minibatches_to_run:
+            break
