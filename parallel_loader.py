@@ -7,7 +7,7 @@ from threading import Condition, Thread
 from time import sleep
 
 import numpy as np
-from numpy.random import shuffle
+from numpy.random import RandomState
 
 
 def fetch_data(names_queue, out_queue, _reset_lock, one_hot_fetch):
@@ -67,18 +67,31 @@ class ThreadedDataset(object):
     def __init__(self,
                  is_one_hot,
                  nclasses,
-                 minibatch_size=1,
+                 seq_per_video=0,  # if 0 all frames
+                 seq_length=0,  # if 0, return 4D
+                 crop_size=None,
+                 batch_size=1,
                  queues_size=5,
                  use_threads=False,
                  convert_to_one_hot=True,
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
                  data_dim_ordering='tf',
-                 get_dim_ordering='tf'):
+                 get_dim_ordering='tf',
+                 rng=RandomState(0xbeef),
+                 **kwargs):
 
+        if len(kwargs):
+            print('Ignored arguments: {}'.format(kwargs.keys()))
         self.is_one_hot = is_one_hot
         self.nclasses = nclasses
-        self.minibatch_size = minibatch_size
+        self.seq_per_video = seq_per_video
+        self.return_sequence = seq_length != 0
+        self.seq_length = seq_length if seq_length else 1
+        if crop_size and tuple(crop_size) == (0, 0):
+            crop_size = None
+        self.crop_size = crop_size
+        self.batch_size = batch_size
         self.queues_size = queues_size
         self.use_threads = use_threads
         self.convert_to_one_hot = convert_to_one_hot
@@ -86,6 +99,7 @@ class ThreadedDataset(object):
         self.infinite_iterator = infinite_iterator
         self.data_dim_ordering = data_dim_ordering
         self.get_dim_ordering = get_dim_ordering
+        self.rng = rng
 
         self.names = self.get_names()
 
@@ -111,11 +125,60 @@ class ThreadedDataset(object):
     def get_names(self):
         raise NotImplementedError
 
-    def fetch_from_dataset(self, batch_to_load):
+    def load_sequence(self, first_frame):
+        """ Loads ONE 4D batch or 5D sequence.
+
+        Should return a *list* of 2+ elements. The first two have to
+        be input and labels. If no label is available, return None
+        """
         raise NotImplementedError
 
+    def fetch_from_dataset(self, to_load):
+        """
+        Return *batches* of 5D sequences/clips or 4D images.
+        """
+        X = []
+        Y = []
+        other = []
+        # el is the first frame
+        for el in to_load:
+            if el is None:
+                continue
+            ret = self.load_sequence(el)
+            seq_x, seq_y = ret[0:2]
+            crop = self.crop_size
+            height, width = seq_x.shape[-3:-1]
+
+            if self.crop_size:
+                if crop[0] < height:
+                    top = self.rng.random.randint(height - crop[0])
+                else:
+                    print('Crop size exceeds image size')
+                    top = 0
+                    crop[0] = height
+                if crop[1] < width:
+                    left = self.rng.random.randint(width - crop[1])
+                else:
+                    print('Crop size exceeds image size')
+                    left = 0
+                    crop[1] = width
+                seq_x = np.array([el[top:top+crop[0], left:left+crop[1]]
+                                  for el in seq_x])
+                seq_y = np.array([el[top:top+crop[0], left:left+crop[1]]
+                                  for el in seq_y])
+
+            if not self.return_sequence:
+                seq_x, seq_y = seq_x[0, ...], seq_y[0, ...]
+            X.append(seq_x)
+            Y.append(seq_y)
+        if len(ret) > 2:
+            return [np.array(X), np.array(Y), np.array(ret[2:])]
+        else:
+            return [np.array(X), np.array(Y)]
+
     def one_hot_fetch(self, batch_to_load):
-        x, y = self.fetch_from_dataset(batch_to_load)
+        ret = self.fetch_from_dataset(batch_to_load)
+        x, y = ret[:2]
         if self.data_dim_ordering != self.get_dim_ordering:
             if self.get_dim_ordering == 'th':
                 # b,s,0,1,c --> b,s,c,0,1
@@ -135,18 +198,18 @@ class ThreadedDataset(object):
             if self.get_dim_ordering == 'th':
                 # b,s,0,1,c --> b,s,c,0,1
                 y_hot = y_hot.transpose([0, 1, 4, 2, 3])
-        else:
-            y_hot = y
-        return x, y_hot
+            ret[1] = y_hot
+        ret[0] = x
+        return ret
 
     def reset(self, shuffle_at_each_epoch):
         # Shuffle data
         if shuffle_at_each_epoch:
-            shuffle(self.names)
+            self.rng.shuffle(self.names)
 
         # Group data into minibatches
         name_batches = [el for el in izip_longest(
-            fillvalue=None, *[iter(self.names)] * self.minibatch_size)]
+            fillvalue=None, *[iter(self.names)] * self.batch_size)]
         self.epoch_length = len(name_batches)
         self.name_batches = iter(name_batches)
 
