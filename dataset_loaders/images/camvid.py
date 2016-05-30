@@ -5,7 +5,7 @@ import time
 
 from theano import config
 
-from parallel_loader import ThreadedDataset
+from ..parallel_loader import ThreadedDataset
 
 
 floatX = config.floatX

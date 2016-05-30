@@ -5,8 +5,8 @@ import time
 
 from theano import config
 
-from parallel_loader import ThreadedDataset
-from utils_parallel_loader import get_frame_size, get_video_size
+from ..parallel_loader import ThreadedDataset
+from ..utils_parallel_loader import get_frame_size, get_video_size
 
 
 floatX = config.floatX
