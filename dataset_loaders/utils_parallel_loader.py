@@ -1,4 +1,5 @@
 import os
+import re
 from skimage import io
 
 
@@ -31,3 +32,16 @@ def get_frame_size(path, video_index, extension="tiff"):
     img = io.imread(os.path.join(im_path, filename))
 
     return img.shape[0:2]
+
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [atoi(c) for c in re.split('(\d+)', text)]

@@ -5,6 +5,7 @@ import numpy as np
 from skimage import io
 from theano import config
 
+import dataset_loaders
 from ..parallel_loader import ThreadedDataset
 from ..utils_parallel_loader import get_frame_size, get_video_size
 
@@ -13,6 +14,7 @@ floatX = config.floatX
 
 
 class PolypDataset(ThreadedDataset):
+    name = 'polyp'
     nclasses = 2
 
     def __init__(self,
@@ -26,15 +28,11 @@ class PolypDataset(ThreadedDataset):
             crop_size = None
         self.crop_size = crop_size
         self.threshold_masks = threshold_masks
-        self.path = ('/data/lisatmp4/dejoieti/data/data_colo/' +
-                     'polyp_video_frames/Images')
-
-        # set dataset specific arguments
-        raise NotImplementedError('Check the dataset arguments!!!!')
-        kwargs.update({
-            'is_one_hot': False,
-            'nclasses': PolypDataset.nclasses,
-            'data_dim_ordering': 'tf'})
+        self.path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets',
+            'polyp_video_frames', 'Images')
+        self.sharedpath = ('/data/lisatmp4/dejoieti/data/data_colo/' +
+                           'polyp_video_frames/Images')
 
         super(PolypDataset, self).__init__(*args, **kwargs)
 

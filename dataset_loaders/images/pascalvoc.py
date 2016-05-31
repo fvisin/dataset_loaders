@@ -3,9 +3,10 @@ import os
 import numpy as np
 from skimage import io
 from PIL import Image
-from dataset_helpers import convert_01c_to_c01
 
 from batchiterator import BatchIterator, threaded_generator
+from dataset_helpers import convert_01c_to_c01
+import dataset_loaders
 
 
 class VOCdataset(BatchIterator):
@@ -13,14 +14,16 @@ class VOCdataset(BatchIterator):
                  which_set="train",
                  threshold_masks=False,
                  data_format="b01c",
-                 voc_path="/Tmp/romerosa/datasets/PASCAL-VOC/VOCdevkit/",
                  year="VOC2012",
                  predictions=False,
                  normalize=False,
                  teacher_temperature=1,
                  minibatch_size=1):
 
-        self.voc_path = voc_path
+        self.path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC',
+            'VOCdevkit')
+        self.sharedpath = '/data/lisa/data/PASCAL-VOC/'
         self.year = year
         self.which_set = which_set
 
@@ -43,12 +46,12 @@ class VOCdataset(BatchIterator):
         else:
             testing = False
 
-        self.txt_path = os.path.join(self.voc_path, self.year,
+        self.txt_path = os.path.join(self.path, self.year,
                                      "ImageSets", "Segmentation")
-        self.image_path = os.path.join(self.voc_path, self.year, "JPEGImages")
-        self.mask_path = os.path.join(self.voc_path, self.year,
+        self.image_path = os.path.join(self.path, self.year, "JPEGImages")
+        self.mask_path = os.path.join(self.path, self.year,
                                       "SegmentationClass")
-        self.pred_path = os.path.join(self.voc_path, self.which_set,
+        self.pred_path = os.path.join(self.path, self.which_set,
                                       "teacher_pred_temp1")
 
         data_list = self.get_names()

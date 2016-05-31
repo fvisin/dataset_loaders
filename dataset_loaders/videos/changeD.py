@@ -5,8 +5,9 @@ import numpy as np
 from skimage import io
 from theano import config
 
-from ..utils_parallel_loader import get_frame_size, get_video_size
+import dataset_loaders
 from ..parallel_loader import ThreadedDataset
+from ..utils_parallel_loader import get_frame_size, get_video_size
 
 
 floatX = config.floatX
@@ -14,7 +15,12 @@ class_ids = {'0': 0, '50': 1, '85': 4, '170': 2, '255': 3}
 
 
 class ChangeDetectionDataset(ThreadedDataset):
+    name = 'change_detection'
     nclasses = 5
+    _is_one_hot = False
+    _is_01c = True
+    debug_shape = (360, 640, 3)  # TODO MODIFY WITH AN APPROPRIATE SHAPE
+
     void_labels = [4]
 
     def __init__(self, which_set='train', threshold_masks=False,
@@ -30,7 +36,11 @@ class ChangeDetectionDataset(ThreadedDataset):
         self.crop_size = crop_size
         self.video_indexes = list(video_indexes)
         self.split = split
-        self.path = ('/data/lisatmp4/dejoieti/data/Change_Detection/Images')
+        self.path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'Change_Detection',
+            'Images')
+        self.sharedpath = ('/data/lisatmp4/dejoieti/data/Change_Detection/'
+                           'Images')
 
         if which_set in ['train', 'valid']:
             rng = np.random.RandomState(16)
@@ -44,12 +54,6 @@ class ChangeDetectionDataset(ThreadedDataset):
             print('No mask for the test set!!')
         else:
             raise RuntimeError('unknown set')
-
-        # set dataset specific arguments
-        kwargs.update({
-            'is_one_hot': False,
-            'nclasses': ChangeDetectionDataset.nclasses,
-            'data_dim_ordering': 'tf'})
 
         super(ChangeDetectionDataset, self).__init__(*args, **kwargs)
 

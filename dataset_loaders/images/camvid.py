@@ -5,29 +5,24 @@ import time
 
 from theano import config
 
+import dataset_loaders
 from ..parallel_loader import ThreadedDataset
 
 
 floatX = config.floatX
 
 
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-
-def natural_keys(text):
-    '''
-    alist.sort(key=natural_keys) sorts in human order
-    http://nedbatchelder.com/blog/200712/human_sorting.html
-    (See Toothy's implementation in the comments)
-    '''
-    return [atoi(c) for c in re.split('(\d+)', text)]
-
-
 class CamvidDataset(ThreadedDataset):
     name = 'camvid'
-    input_shape = (360, 480, 3)
     nclasses = 12
+    _is_one_hot = False
+    _is_01c = True
+    debug_shape = (360, 480, 3)
+
+    # optional arguments
+    data_shape = (360, 480, 3)
+    mean = 0.
+    std = 1.
     void_labels = [11]
     cmap = np.array([
         (255, 128, 0),    # sky
@@ -52,7 +47,9 @@ class CamvidDataset(ThreadedDataset):
 
         self.which_set = "val" if which_set == "valid" else which_set
         self.with_filenames = with_filenames
-        self.path = "./datasets/camvid/segnet/"
+        self.path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'camvid', 'segnet')
+        self.sharedpath = '/data/lisa/exp/visin/datasets/camvid/segnet'
 
         if self.which_set == "train":
             self.image_path = os.path.join(self.path, "train")
@@ -66,19 +63,13 @@ class CamvidDataset(ThreadedDataset):
 
         # Get file names for this set and year
         filenames = []
-        with open(self.path + self.which_set + ".txt") as f:
+        with open(os.path.join(self.path, self.which_set + '.txt')) as f:
             for fi in f.readlines():
                 raw_name = fi.strip()
                 raw_name = raw_name.split("/")[4]
                 raw_name = raw_name.strip()
                 filenames.append(raw_name)
         self.filenames = filenames
-
-        # set dataset specific arguments
-        kwargs.update({
-            'is_one_hot': False,
-            'nclasses': CamvidDataset.nclasses,
-            'data_dim_ordering': 'tf'})
 
         super(CamvidDataset, self).__init__(*args, **kwargs)
 

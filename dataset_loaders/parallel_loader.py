@@ -3,6 +3,8 @@ try:
     import Queue
 except ImportError:
     import queue as Queue
+import os
+import shutil
 from threading import Condition, Thread
 from time import sleep
 
@@ -10,7 +12,7 @@ import numpy as np
 from numpy.random import RandomState
 
 
-def fetch_data(names_queue, out_queue, _reset_lock, one_hot_fetch):
+def threaded_fetch(names_queue, out_queue, _reset_lock, fetch_from_dataset):
     """
     Fill the out_queue.
 
@@ -25,7 +27,7 @@ def fetch_data(names_queue, out_queue, _reset_lock, one_hot_fetch):
                 batch_to_load = names_queue.get(False)
 
                 # Load the data
-                minibatch_data = one_hot_fetch(batch_to_load)
+                minibatch_data = fetch_from_dataset(batch_to_load)
                 if isinstance(minibatch_data, np.ndarray):
                     gt = minibatch_data[1].flatten()
                     gt_out = np.zeros((gt.shape[0], 63), dtype='int32')
@@ -60,31 +62,47 @@ class ThreadedDataset(object):
 
     This is an abstract class and should not be used as is. Each
     specific dataset class should implement its `get_names` and
-    `fetch_from_dataset` functions to load the list of filenames to be
+    `load_sequence` functions to load the list of filenames to be
     loaded and define how to load the data from the dataset,
     respectively.
     """
     def __init__(self,
-                 is_one_hot,
-                 nclasses,
                  seq_per_video=0,  # if 0 all frames
                  seq_length=0,  # if 0, return 4D
                  crop_size=None,
                  batch_size=1,
-                 queues_size=5,
+                 queues_size=10,
+                 get_one_hot=False,
+                 get_01c=False,
                  use_threads=False,
-                 convert_to_one_hot=True,
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
-                 data_dim_ordering='tf',
-                 get_dim_ordering='tf',
                  rng=RandomState(0xbeef),
                  **kwargs):
 
         if len(kwargs):
             print('Ignored arguments: {}'.format(kwargs.keys()))
-        self.is_one_hot = is_one_hot
-        self.nclasses = nclasses
+
+        #for attr in ['name', 'nclasses', '_is_one_hot', '_is_01c',
+        #             'debug_shape', 'path', 'sharedpath']:
+        #    assert attr in dir(self), (
+        #        '{} did not set the mandatory attribute {}'.format(
+        #            self.__class__.name, attr))
+        ds = getattr(self.__class__, 'data_shape', (None, None, 3))
+        if get_01c == self._is_01c:
+            self.data_shape = ds
+        elif self._is_01c:
+            self.data_shape = ds[2], ds[0], ds[1]
+        else:
+            self.data_shape = ds[1], ds[2], ds[0]
+
+        # Copy the data to the local path if not existing
+        if not os.path.exists(self.path):
+            print('The local path {} does not exist. Copying '
+                  'dataset...'.format(self.path))
+            shutil.copytree(self.sharedpath, self.path)
+            print('Done.')
+
         self.seq_per_video = seq_per_video
         self.return_sequence = seq_length != 0
         self.seq_length = seq_length if seq_length else 1
@@ -93,15 +111,16 @@ class ThreadedDataset(object):
         self.crop_size = crop_size
         self.batch_size = batch_size
         self.queues_size = queues_size
+        self.get_one_hot = get_one_hot
+        self.get_01c = get_01c
         self.use_threads = use_threads
-        self.convert_to_one_hot = convert_to_one_hot
         self.shuffle_at_each_epoch = shuffle_at_each_epoch
         self.infinite_iterator = infinite_iterator
-        self.data_dim_ordering = data_dim_ordering
-        self.get_dim_ordering = get_dim_ordering
         self.rng = rng
 
-        self.names = self.get_names()
+        self.names_list = self.get_names()
+        if len(self.names_list) == 0:
+            raise RuntimeError('The name list cannot be empty')
 
         # initialize
         if self.use_threads:
@@ -111,9 +130,9 @@ class ThreadedDataset(object):
 
             # Start the data fetcher thread
             data_fetcher = Thread(
-                target=fetch_data,
+                target=threaded_fetch,
                 args=(self.names_queue, self.out_queue, self._reset_lock,
-                      self.one_hot_fetch))
+                      self.fetch_from_dataset))
             data_fetcher.setDaemon(True)
             data_fetcher.start()
             self.data_fetcher = data_fetcher
@@ -133,83 +152,120 @@ class ThreadedDataset(object):
         """
         raise NotImplementedError
 
-    def fetch_from_dataset(self, to_load):
+    def fetch_from_dataset(self, batch_to_load):
         """
         Return *batches* of 5D sequences/clips or 4D images.
+
+        `batch_to_load` contains the indices of the first frame/image of
+        each element of the batch.
+        `load_sequence` should return a numpy array of 2 or more
+        elements, the first of which 4-dimensional (frame, 0, 1, c)
+        or (frame, c, 0, 1) containing the data and the second 3D or 4D
+        containing the label.
         """
         X = []
         Y = []
-        other = []
-        # el is the first frame
-        for el in to_load:
+        Other = []
+
+        # Create batches
+        for el in batch_to_load:
             if el is None:
                 continue
+            # (s, 0, 1, c) or (s, c, 0, 1)
             ret = self.load_sequence(el)
             seq_x, seq_y = ret[0:2]
-            crop = self.crop_size
-            height, width = seq_x.shape[-3:-1]
+            assert seq_x.ndim == 4
 
-            if self.crop_size:
-                if crop[0] < height:
-                    top = self.rng.random.randint(height - crop[0])
-                else:
-                    print('Crop size exceeds image size')
-                    top = 0
-                    crop[0] = height
-                if crop[1] < width:
-                    left = self.rng.random.randint(width - crop[1])
-                else:
-                    print('Crop size exceeds image size')
-                    left = 0
-                    crop[1] = width
-                seq_x = np.array([el[top:top+crop[0], left:left+crop[1]]
-                                  for el in seq_x])
-                seq_y = np.array([el[top:top+crop[0], left:left+crop[1]]
-                                  for el in seq_y])
-
-            if not self.return_sequence:
-                seq_x, seq_y = seq_x[0, ...], seq_y[0, ...]
             X.append(seq_x)
             Y.append(seq_y)
-        if len(ret) > 2:
-            return [np.array(X), np.array(Y), np.array(ret[2:])]
-        else:
-            return [np.array(X), np.array(Y)]
+            Other.append(ret[2:])
+        # (b, s, 0, 1, c) or (b, s, c, 0, 1)
+        X, Y, Other = np.array(X), np.array(Y), np.array(Other)
 
-    def one_hot_fetch(self, batch_to_load):
-        ret = self.fetch_from_dataset(batch_to_load)
-        x, y = ret[:2]
-        if self.data_dim_ordering != self.get_dim_ordering:
-            if self.get_dim_ordering == 'th':
+        # Crop
+        crop = self.crop_size
+        if crop:
+            if self._is_01c:
+                height, width = X.shape[-3:-1]
+            else:
+                height, width = X.shape[-2:]
+            if crop[0] < height:
+                top = self.rng.randint(height - crop[0])
+            else:
+                print('Crop size exceeds image size')
+                top = 0
+                crop[0] = height
+            if crop[1] < width:
+                left = self.rng.randint(width - crop[1])
+            else:
+                print('Crop size exceeds image size')
+                left = 0
+                crop[1] = width
+            if self._is_01c and self._is_one_hot:
+                X = X[..., top:top+crop[0], left:left+crop[1], :]
+                Y = Y[..., top:top+crop[0], left:left+crop[1], :]
+            elif self._is_01c and not self._is_one_hot:
+                X = X[..., top:top+crop[0], left:left+crop[1], :]
+                Y = Y[..., top:top+crop[0], left:left+crop[1]]
+            elif not self._is_01c and self._is_one_hot:
+                X = X[..., :, top:top+crop[0], left:left+crop[1]]
+                Y = Y[..., :, top:top+crop[0], left:left+crop[1]]
+            else:
+                X = X[..., :, top:top+crop[0], left:left+crop[1]]
+                Y = Y[..., top:top+crop[0], left:left+crop[1]]
+
+        # get_01c
+        if self._is_01c != self.get_01c:
+            if self._is_01c and self._is_one_hot:
                 # b,s,0,1,c --> b,s,c,0,1
-                x = x.transpose([0, 1, 4, 2, 3])
-            elif self.get_dim_ordering == 'tf':
+                X = X.transpose([0, 1, 4, 2, 3])
+                Y = Y.transpose([0, 1, 4, 2, 3])
+            elif self._is_01c and not self._is_one_hot:
+                # b,s,0,1,c --> b,s,c,0,1
+                X = X.transpose([0, 1, 4, 2, 3])
+            elif not self._is_01c and self._is_one_hot:
                 # b,s,c,0,1 --> b,s,0,1,c
-                x = x.transpose([0, 1, 3, 4, 2])
+                X = X.transpose([0, 1, 3, 4, 2])
+            else:
+                # b,s,c,0,1 --> b,s,0,1,c
+                X = X.transpose([0, 1, 3, 4, 2])
+                Y = Y.transpose([0, 1, 3, 4, 2])
 
-        if not self.is_one_hot and self.convert_to_one_hot:
-            nc = self.nclasses
-            sh = y.shape
-            y = y.flatten()
-            y_hot = np.zeros((y.shape[0], nc), dtype='int32')
-            y = y.astype('int32')
-            y_hot[range(y.shape[0]), y] = 1
-            y_hot = y_hot.reshape(sh + (nc,))
-            if self.get_dim_ordering == 'th':
-                # b,s,0,1,c --> b,s,c,0,1
-                y_hot = y_hot.transpose([0, 1, 4, 2, 3])
-            ret[1] = y_hot
-        ret[0] = x
-        return ret
+        # get_one_hot
+        if self._is_one_hot != self.get_one_hot:
+            if self._is_one_hot and self.get_01c:
+                Y = Y.argmax(-1)
+            elif self._is_one_hot and not self.get_01c:
+                Y = Y.argmax(-3)
+            else:
+                nc = self.nclasses
+                sh = Y.shape
+                Y = Y.flatten()
+                Y_hot = np.zeros((Y.shape[0], nc), dtype='int32')
+                Y = Y.astype('int32')
+                Y_hot[range(Y.shape[0]), Y] = 1
+                Y_hot = Y_hot.reshape(sh + (nc,))
+                if not self.get_01c:
+                    # b,s,0,1,c --> b,s,c,0,1
+                    Y_hot = Y_hot.transpose([0, 1, 4, 2, 3])
+                Y = Y_hot
+
+        if not self.return_sequence:
+            X, Y = X[0, ...], Y[0, ...]
+
+        if len(Other) == 0:
+            return X, Y
+        else:
+            return X, Y, Other
 
     def reset(self, shuffle_at_each_epoch):
         # Shuffle data
         if shuffle_at_each_epoch:
-            self.rng.shuffle(self.names)
+            self.rng.shuffle(self.names_list)
 
         # Group data into minibatches
         name_batches = [el for el in izip_longest(
-            fillvalue=None, *[iter(self.names)] * self.batch_size)]
+            fillvalue=None, *[iter(self.names_list)] * self.batch_size)]
         self.epoch_length = len(name_batches)
         self.name_batches = iter(name_batches)
 
@@ -271,7 +327,7 @@ class ThreadedDataset(object):
         else:
             try:
                 name_batch = self.name_batches.next()
-                data_batch = self.one_hot_fetch(name_batch)
+                data_batch = self.fetch_from_dataset(name_batch)
             except StopIteration:
                 self.reset(self.shuffle_at_each_epoch)
                 if not self.infinite_iterator:
@@ -285,3 +341,18 @@ class ThreadedDataset(object):
 
     def finish(self):
         self.data_fetcher.join()
+
+    def get_mean(self):
+        return getattr(self, 'mean', [])
+
+    def get_std(self):
+        return getattr(self, 'std', [])
+
+    def get_void_labels(self):
+        return getattr(self, 'void_labels', [])
+
+    def get_cmap(self):
+        return getattr(self, 'cmap', [])
+
+    def get_labels(self):
+        return getattr(self, 'labels', [])
