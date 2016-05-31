@@ -251,7 +251,7 @@ class ThreadedDataset(object):
         if not self.return_sequence:
             X, Y = X[0, ...], Y[0, ...]
 
-        if len(Other) == 0:
+        if len(Other[0]) == 0:
             return X, Y
         else:
             return X, Y, Other
