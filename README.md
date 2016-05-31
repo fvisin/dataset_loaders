@@ -1,9 +1,11 @@
 This repository contains some loaders for commonly used datasets.
 
 ### How to use it:
-1. Clone the repository *somewhere*.
-2. Add *somewhere* to the PYTHONPATH, i.e. in Linux add to `~/.bashrc` 
-   `export PYTHONPATH=$PYTHONPATH:/path/to/somewhere`.
-3. Create a symbolic link named `datasets` to wherever you have the datasets:
-   `ln -s /path/to/datasets/ /path/to/somewhere/dataset_loaders/datasets`
-   Be sure to use a full path (from `/`) or the symbolic link won't work.
+1. Clone the repository *somewhere*, e.g. `~/dataset_loaders`
+2. Add it to the PYTHONPATH, i.e. in Linux add something like this to your
+   `~/.bashrc`: `export PYTHONPATH=$PYTHONPATH:$HOME/dataset_loaders`.
+3. In the `dataset_loaders` directory inside the repository (the inner one) 
+   create a symbolic link named `datasets` to wherever you have the datasets:
+   `ln -s /path/to/datasets/ $HOME/dataset_loaders/dataset_loaders/datasets`
+   Be sure to use a full path (from `/` or `$HOME`) or the symbolic link won't
+   work.
