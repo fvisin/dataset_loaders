@@ -249,7 +249,7 @@ class ThreadedDataset(object):
                 Y = Y_hot
 
         if not self.return_sequence:
-            X, Y = X[0, ...], Y[0, ...]
+            X, Y = X[:, 0, ...], Y[:, 0, ...]
 
         if len(Other[0]) == 0:
             return X, Y
@@ -261,7 +261,7 @@ class ThreadedDataset(object):
         if shuffle_at_each_epoch:
             self.rng.shuffle(self.names_list)
 
-        # Group data into minibatches
+        # Group names into minibatches
         name_batches = [el for el in izip_longest(
             fillvalue=None, *[iter(self.names_list)] * self.batch_size)]
         self.epoch_length = len(name_batches)
