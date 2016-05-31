@@ -174,6 +174,9 @@ class ThreadedDataset(object):
             # (s, 0, 1, c) or (s, c, 0, 1)
             ret = self.load_sequence(el)
             seq_x, seq_y = ret[0:2]
+            if seq_x.ndim == 3:
+                seq_x = seq_x[np.newaxis, ...]
+                seq_y = seq_y[np.newaxis, ...]
             assert seq_x.ndim == 4
 
             X.append(seq_x)
