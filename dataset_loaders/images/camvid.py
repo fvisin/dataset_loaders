@@ -25,18 +25,18 @@ class CamvidDataset(ThreadedDataset):
     std = 1.
     void_labels = [11]
     cmap = np.array([
-        (255, 128, 0),    # sky
-        (255, 0, 0),      # building
-        (0, 130, 180),    # column_pole
-        (0, 255, 0),      # road
-        (255, 255, 0),    # sidewalk
-        (120, 0, 255),    # tree
-        (255, 0, 255),    # sign
-        (160, 160, 160),  # fence
-        (64, 64, 64),     # car
-        (0, 0, 255),      # pedestrian
-        (128, 128, 128),  # byciclist
-        (0, 0, 0)])       # void
+        (128, 128, 128),    # sky
+        (128, 0, 0),        # building
+        (192, 192, 128),    # column_pole
+        (128, 64, 128),     # road
+        (0, 0, 192),        # sidewalk
+        (128, 128, 0),      # Tree
+        (192, 128, 128),    # SignSymbol
+        (64, 64, 128),      # Fence
+        (64, 0, 128),       # Car
+        (64, 64, 0),        # Pedestrian
+        (0, 128, 192),      # Bicyclist
+        (0, 0, 0)])         # Void
     cmap = cmap / 255.
     labels = ('sky', 'building', 'column_pole', 'road', 'sidewalk',
               'tree', 'sign', 'fence', 'car', 'pedestrian', 'byciclist',
