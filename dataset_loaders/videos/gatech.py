@@ -5,6 +5,7 @@ import numpy as np
 from skimage import io
 from theano import config
 
+import dataset_loaders
 from ..parallel_loader import ThreadedDataset
 from ..utils_parallel_loader import natural_keys
 
