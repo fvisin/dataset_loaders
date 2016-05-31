@@ -28,11 +28,6 @@ def threaded_fetch(names_queue, out_queue, _reset_lock, fetch_from_dataset):
 
                 # Load the data
                 minibatch_data = fetch_from_dataset(batch_to_load)
-                if isinstance(minibatch_data, np.ndarray):
-                    gt = minibatch_data[1].flatten()
-                    gt_out = np.zeros((gt.shape[0], 63), dtype='int32')
-                    gt_out[range(gt.shape[0]), gt] = 1
-                    minibatch_data[1] = gt_out
 
                 # Place it in out_queue
                 out_queue.put(minibatch_data)
