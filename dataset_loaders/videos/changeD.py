@@ -7,170 +7,144 @@ from theano import config
 
 import dataset_loaders
 from ..parallel_loader import ThreadedDataset
-from ..utils_parallel_loader import get_frame_size, get_video_size
-
+from ..utils_parallel_loader import natural_keys
 
 floatX = config.floatX
+
 class_ids = {'0': 0, '50': 1, '85': 4, '170': 2, '255': 3}
 
 
 class ChangeDetectionDataset(ThreadedDataset):
-    name = 'change_detection'
+    name = 'changeD'
     nclasses = 5
+    void_labels = [4]
     _is_one_hot = False
     _is_01c = True
-    debug_shape = (360, 640, 3)  # TODO MODIFY WITH AN APPROPRIATE SHAPE
 
-    void_labels = [4]
+    debug_shape = (500, 500, 3)  # whatever...
 
-    def __init__(self, which_set='train', threshold_masks=False,
-                 seq_per_video=20, sequence_length=20, crop_size=None,
-                 video_indexes=range(0, 53), split=0.75, *args, **kwargs):
+    # static, shadow, ground, solid (buildings, etc), porous, cars, humans,
+    # vert mix, main mix
+    cmap = np.array([
+        (0, 0, 0),          # static
+        (255, 0, 0),        # shadow (red)
+        (0, 255, 0),        # unknown (green)
+        (255, 255, 255),    # moving (white)
+        (127, 127, 127)])   # non-roi (grey)
+    cmap = cmap / 255.
+    labels = ('static', 'shadow', 'unknown', 'moving', 'non-roi')
 
-        self.which_set = which_set
+    def __init__(self,
+                 which_set='train',
+                 threshold_masks=False,
+                 with_filenames=False,
+                 split=.75, *args, **kwargs):
+
+        self.which_set = 'val' if which_set == 'valid' else which_set
         self.threshold_masks = threshold_masks
-        self.seq_per_video = seq_per_video
-        self.sequence_length = sequence_length
-        if crop_size and tuple(crop_size) == (0, 0):
-            crop_size = None
-        self.crop_size = crop_size
-        self.video_indexes = list(video_indexes)
-        self.split = split
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'Change_Detection',
-            'Images')
-        self.sharedpath = ('/data/lisatmp4/dejoieti/data/Change_Detection/'
-                           'Images')
+        self.with_filenames = with_filenames
 
-        if which_set in ['train', 'valid']:
-            rng = np.random.RandomState(16)
-            rng.shuffle(self.video_indexes)
-            len_train = int(split*len(self.video_indexes))
-            if which_set == 'train':
-                self.video_indexes = self.video_indexes[:len_train]
-            else:
-                self.video_indexes = self.video_indexes[len_train:]
-        elif which_set in ['test', 'test_all']:
+        self.void_labels = ChangeDetectionDataset.void_labels
+
+        # Prepare data paths
+        self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
+                                 'CHANGED')
+        self.sharedpath = \
+            '/data/lisatmp4/dejoieti/data/Change_Detection/Images'
+
+        if self.which_set in ['train', 'val']:
+            self.image_path = os.path.join(self.path, 'Original')
+            self.mask_path = os.path.join(self.path, 'Ground_Truth')
+            self.split = split if self.which_set == "train" else (1 - split)
+        elif self.which_set in ['test', 'test_all']:
+            self.split = split
             print('No mask for the test set!!')
         else:
             raise RuntimeError('unknown set')
+
+        # Get file names for this set
+        self.filenames = os.listdir(self.image_path)
+        self.filenames.sort(key=natural_keys)
 
         super(ChangeDetectionDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         sequences = []
-        seq_per_video = self.seq_per_video
-        sequence_length = self.sequence_length
+        seq_length = self.seq_length
 
-        _, self.lengths = get_video_size(self.path)
+        all_prefix_list = np.unique(np.array([el[:el.index('_')]
+                                              for el in self.filenames]))
+
+        nvideos = len(all_prefix_list)
+        nvideos_set = int(nvideos*self.split)
+        prefix_list = all_prefix_list[-nvideos_set:] \
+            if self.which_set == "val" else all_prefix_list[:nvideos_set]
+
+        # update filenames list
+        self.filenames = [f for f in self.filenames if f[:f.index('_')]
+                          in prefix_list]
+
+        self.video_length = {}
         # cycle through the different videos
-        for video_index in self.video_indexes:
-            video_length = self.lengths[video_index]
+        for prefix in prefix_list:
+            seq_per_video = self.seq_per_video
+            new_prefix = prefix + '_'
+            frames = [el for el in self.filenames if new_prefix in el and
+                      el.index(prefix+'_') == 0]
+            video_length = len(frames)
+            self.video_length[prefix] = video_length
 
-            # Fill sequences with (video_idx, frame_idx)
-            if (self.sequence_length is None or
-                    self.which_set == 'test_all' or
-                    self.sequence_length >= video_length):
-                sequences.append((video_index, 0))
+            # Fill sequences with (prefix, frame_idx)
+            if (not self.seq_length or not self.seq_per_video or
+                    self.seq_length >= video_length):
+                # Use all possible frames
+                for el in [(prefix, f) for f in frames]:
+                    sequences.append(el)
             else:
-                if video_length - sequence_length < seq_per_video:
+                # If there are not enough frames, cap seq_per_video to
+                # the number of available frames
+                max_num_sequences = video_length - seq_length + 1
+                if max_num_sequences < seq_per_video:
                     print("/!\ Warning : you asked {} sequences of {} "
                           "frames each but video {} only has {} "
-                          "frames".format(seq_per_video, sequence_length,
-                                          video_index, video_length))
-                    seq_per_video = video_length - self.sequence_length
+                          "frames".format(seq_per_video, seq_length,
+                                          prefix, video_length))
+                    seq_per_video = max_num_sequences
 
                 # pick `seq_per_video` random indexes between 0 and
-                # (video length = sequence length)
+                # (video length - sequence length)
                 first_frame_indexes = np.random.permutation(range(
-                    video_length - sequence_length))[0:seq_per_video]
+                    max_num_sequences))[0:seq_per_video]
 
                 for i in first_frame_indexes:
-                    sequences.append((video_index, i))
+                    sequences.append((prefix, frames[i]))
 
         return np.array(sequences)
 
-    def fetch_from_dataset(self, to_load):
+    def load_sequence(self, first_frame):
         """
-        This returns a list of sequences or clips or batches.
+        Load ONE clip/sequence
+        Auxiliary function which loads a sequence of frames with
+        the corresponding ground truth and potentially filenames.
+        Returns images in [0, 1]
         """
         X = []
         Y = []
-        for el in to_load:
-            if el is None:
-                continue
-            video_index, first_frame_index = el
-            height, width = get_frame_size(self.path, video_index, 'jpg')
-            if not self.crop_size:
-                top = 0
-                left = 0
-            else:
-                top = np.random.randint(height - self.crop_size[0])
-                left = np.random.randint(width - self.crop_size[1])
-            top_left = [top, left]
+        F = []
 
-            sequence_original, sequence_ground_truth = self.load_sequence(
-                video_index,
-                first_frame_index,
-                top_left)
+        prefix, first_frame_name = first_frame
 
-            X.append(sequence_original)
-            Y.append(sequence_ground_truth)
-
-        return np.array(X), np.array(Y)
-
-    def load_sequence(
-            self,
-            video_index,
-            first_frame_index,
-            top_left):
-        """
-        Loading a sequence.
-
-        Auxiliary function which loads a squence of frames width
-        the corresponding ground truth.
-
-        :video_index: index of the video in which the sequence is taken
-        :crop_size: (height, width) or None, frame cropping size
-        :top_left: (top, left), top left corner for cropping purposes
-        :path: path of the dataset
-        """
-        # TODO : take rgb, 0, 1 and 0, 1, rgb into account
-
-        im_path = os.path.join(self.path, 'Original')
-        mask_path = os.path.join(self.path, 'Ground_Truth')
-
-        sequence_image = []
-        sequence_ground_truth = []
-
-        video_length = self.lengths[video_index]
-        if (self.sequence_length is None or
-                self.which_set == 'test_all'or
-                self.sequence_length > video_length):
-            sequence_length = video_length
+        if (self.seq_length is None or
+                self.seq_length > self.video_length[prefix]):
+            seq_length = self.video_length[prefix]
         else:
-            sequence_length = self.sequence_length
+            seq_length = self.seq_length
 
-        for frame_index in range(
-                    first_frame_index, first_frame_index + sequence_length):
-            filename = str(video_index) + "_" + str(frame_index) + ".jpg"
-            img = io.imread(os.path.join(im_path, filename))
-            mask = io.imread(os.path.join(mask_path, filename[:-4]+".png"))
-
-            if self.crop_size:
-                img = img[top_left[0]:top_left[0]+self.crop_size[0],
-                          top_left[1]:top_left[1]+self.crop_size[1]]
-                mask = mask[top_left[0]:top_left[0]+self.crop_size[0],
-                            top_left[1]:top_left[1]+self.crop_size[1]]
-
-            if self.threshold_masks:
-                masklow = mask < 128
-                maskhigh = mask >= 128
-                mask[masklow] = 0
-                mask[maskhigh] = 1
-
-                assert 0. <= np.min(mask) <= 1
-                assert 0 <= np.max(mask) <= 1
+        start_idx = self.filenames.index(first_frame_name)
+        for frame in self.filenames[start_idx:start_idx + seq_length]:
+            img = io.imread(os.path.join(self.image_path, frame))
+            mask = io.imread(os.path.join(self.mask_path, frame[:-3] +
+                                          'png'))
 
             img = img.astype(floatX) / 255.
             mask = mask.astype('int32')
@@ -178,28 +152,47 @@ class ChangeDetectionDataset(ThreadedDataset):
             for gt_id, c_id in class_ids.iteritems():
                 mask[mask == int(gt_id)] = c_id
 
-            # TODO : raise an error when top_left_corner + crop_size is
-            # out of bound.
-            sequence_image.append(img)
-            sequence_ground_truth.append(mask)
+            X.append(img)
+            Y.append(mask)
+            F.append(frame)
 
-        return np.array(sequence_image), np.array(sequence_ground_truth)
+        if self.with_filenames:
+            return np.array(X), np.array(Y), np.array(F)
+        else:
+            return np.array(X), np.array(Y)
+
+    def get_void_labels(self):
+        return self.void_labels
 
 
 if __name__ == '__main__':
-    d = ChangeDetectionDataset(
+    trainiter = ChangeDetectionDataset(
         which_set='train',
-        minibatch_size=5,
-        seq_per_video=4,
-        sequence_length=20,
-        crop_size=(224, 224))
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(224, 224),
+        split=.75)
+    validiter = ChangeDetectionDataset(
+        which_set='valid',
+        batch_size=1,
+        seq_per_video=0,
+        seq_length=0,
+        split=.75)
+    train_nsamples = trainiter.get_n_samples()
+    valid_nsamples = validiter.get_n_samples()
+
+    print("Train %d, valid %d" % (train_nsamples, valid_nsamples))
+
     start = time.time()
     n_minibatches_to_run = 1000
     itr = 1
     while True:
-        image_group = d.next()
-        if image_group is None:
-            raise NotImplementedError()
+        train_group = trainiter.next()
+        valid_group = validiter.next()
+
+        if train_group is None or valid_group is None:
+            raise ValueError('.next() returned None!')
         # time.sleep approximates running some model
         time.sleep(1)
         stop = time.time()

@@ -6,81 +6,70 @@ from skimage import io
 from theano import config
 
 import dataset_loaders
-from dataset_loaders.parallel_loader import ThreadedDataset
-from dataset_loaders.utils_parallel_loader import natural_keys
+from ..parallel_loader import ThreadedDataset
+from ..utils_parallel_loader import natural_keys
 
 floatX = config.floatX
 
 
-class GatechDataset(ThreadedDataset):
-    name = 'gatech'
-    nclasses = 9
-    void_labels = [0]
+class PolypVideoDataset(ThreadedDataset):
+    name = 'colonoscopyVideos'
+    nclasses = 2
+    void_labels = []
     _is_one_hot = False
     _is_01c = True
-    debug_shape = (360, 640, 3)
-    # wtf, sky, ground, solid (buildings, etc), porous, cars, humans,
-    # vert mix, main mix
+    debug_shape = (288, 384, 3)
+
     cmap = np.array([
-        (255, 128, 0),      # wtf
-        (255, 0, 0),        # sky (red)
-        (0, 130, 180),      # ground (blue)
-        (0, 255, 0),        # solid (buildings, etc) (green)
-        (255, 255, 0),      # porous (yellow)
-        (120, 0, 255),      # cars
-        (255, 0, 255),      # humans (purple)
-        (160, 160, 160),    # vert mix
-        (64, 64, 64)])      # main mix
-    cmap = cmap / 255.
-    labels = ('wtf', 'sky', 'ground', 'solid', 'porous',
-              'cars', 'humans', 'vert mix', 'gen mix')
+        (255, 255, 255),  # polyp
+        (0, 0, 0)])  # background
+    cmap = cmap / 255
+    labels = ('polyp', 'background')
 
     def __init__(self,
                  which_set='train',
-                 threshold_masks=False,
+                 threshold_masks=True,
                  with_filenames=False,
-                 split=.75,
-                 *args, **kwargs):
+                 split=.75, *args, **kwargs):
 
-        self.which_set = which_set
+        self.which_set = "val" if which_set == "valid" else which_set
         self.threshold_masks = threshold_masks
         self.with_filenames = with_filenames
 
-        self.void_labels = GatechDataset.void_labels
-
-        self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                                 'GATECH')
-        self.sharedpath = '/data/lisatmp4/dejoieti/data/GATECH/'
+        self.void_labels = PolypVideoDataset.void_labels
 
         # Prepare data paths
-        if 'train' in self.which_set or 'val' in self.which_set:
+        self.path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'POLYP_VIDEOS')
+        self.sharedpath = ('/data/lisatmp4/dejoieti/data/data_colo/')
+        if self.which_set == "train" or self.which_set == "val":
+            self.image_path = os.path.join(self.path,
+                                           'polyp_video_frames',
+                                           'Images', 'Original')
+            self.mask_path = os.path.join(self.path,
+                                          'polyp_video_frames',
+                                          'Images', 'Ground_Truth')
             self.split = split if self.which_set == "train" else (1 - split)
-            if 'fcn8' in self.which_set:
-                self.image_path = os.path.join(self.path, 'Images',
-                                               'After_fcn8')
-            else:
-                self.image_path = os.path.join(self.path, 'Images',
-                                               'Original')
-            self.mask_path = os.path.join(self.path, 'Images', 'Ground_Truth')
-        elif 'test' in self.which_set:
-            self.image_path = \
-                os.path.join(self.path, 'Images_test', 'Original')
-            self.mask_path = os.path.join(self.path, 'Images_test',
+        elif self.which_set == "test":
+            self.image_path = os.path.join(self.path,
+                                           'polyp_video_frames_test',
+                                           'noBlackBand',
+                                           'Original')
+            self.mask_path = os.path.join(self.path,
+                                          'poly_video_frames_test',
+                                          'noBlackBand',
                                           'Ground_Truth')
-            self.split = split
-            if 'fcn8' in self.which_set:
-                raise RuntimeError('FCN8 outputs not available for test set')
-        else:
-            raise RuntimeError('Unknown set')
+            self.split = 1.
 
-        super(GatechDataset, self).__init__(*args, **kwargs)
+        # Get file names for this set
+        self.filenames = os.listdir(self.image_path)
+        self.filenames.sort(key=natural_keys)
+
+        super(PolypVideoDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         sequences = []
         seq_length = self.seq_length
-
-        self.filenames = os.listdir(self.image_path)
-        self.filenames.sort(key=natural_keys)
 
         all_prefix_list = np.unique(np.array([el[:el.index('_')]
                                               for el in self.filenames]))
@@ -88,7 +77,7 @@ class GatechDataset(ThreadedDataset):
         nvideos = len(all_prefix_list)
         nvideos_set = int(nvideos*self.split)
         prefix_list = all_prefix_list[-nvideos_set:] \
-            if "val" in self.which_set else all_prefix_list[:nvideos_set]
+            if self.which_set == "val" else all_prefix_list[:nvideos_set]
 
         # update filenames list
         self.filenames = [f for f in self.filenames if f[:f.index('_')]
@@ -158,6 +147,12 @@ class GatechDataset(ThreadedDataset):
             img = img.astype(floatX) / 255.
             mask = mask.astype('int32')
 
+            if self.threshold_masks:
+                masklow = mask < 127
+                maskhigh = mask >= 127
+                mask[masklow] = 0
+                mask[maskhigh] = 1
+
             X.append(img)
             Y.append(mask)
             F.append(frame)
@@ -170,34 +165,24 @@ class GatechDataset(ThreadedDataset):
     def get_void_labels(self):
         return self.void_labels
 
-
-def test():
-    trainiter = GatechDataset(
+if __name__ == '__main__':
+    trainiter = PolypVideoDataset(
         which_set='train',
         batch_size=5,
         seq_per_video=0,
         seq_length=0,
         crop_size=(224, 224),
         split=.75)
-    validiter = GatechDataset(
+    validiter = PolypVideoDataset(
         which_set='valid',
         batch_size=1,
         seq_per_video=0,
         seq_length=0,
         split=.75)
-    testiter = GatechDataset(
-        which_set='test',
-        batch_size=1,
-        seq_per_video=0,
-        seq_length=0,
-        split=1.)
-
     train_nsamples = trainiter.get_n_samples()
     valid_nsamples = validiter.get_n_samples()
-    test_nsamples = testiter.get_n_samples()
 
-    print("Train %d, valid %d, test %d" % (train_nsamples, valid_nsamples,
-                                           test_nsamples))
+    print("Train %d, valid %d" % (train_nsamples, valid_nsamples))
 
     start = time.time()
     n_minibatches_to_run = 1000
@@ -205,9 +190,8 @@ def test():
     while True:
         train_group = trainiter.next()
         valid_group = validiter.next()
-        test_group = testiter.next()
 
-        if train_group is None or valid_group is None or test_group is None:
+        if train_group is None or valid_group is None:
             raise ValueError('.next() returned None!')
         # time.sleep approximates running some model
         time.sleep(1)
@@ -220,7 +204,3 @@ def test():
         # test
         if itr >= n_minibatches_to_run:
             break
-
-
-if __name__ == '__main__':
-    test()

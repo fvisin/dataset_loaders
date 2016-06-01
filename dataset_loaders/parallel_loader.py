@@ -147,6 +147,15 @@ class ThreadedDataset(object):
         """
         raise NotImplementedError
 
+    def get_n_classes(self):
+        return self.nclasses
+
+    def get_n_batches(self):
+        return self.nbatches
+
+    def get_n_samples(self):
+        return len(self.names_list)
+
     def fetch_from_dataset(self, batch_to_load):
         """
         Return *batches* of 5D sequences/clips or 4D images.
