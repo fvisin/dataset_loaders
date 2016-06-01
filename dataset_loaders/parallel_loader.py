@@ -264,6 +264,7 @@ class ThreadedDataset(object):
         # Group names into minibatches
         name_batches = [el for el in izip_longest(
             fillvalue=None, *[iter(self.names_list)] * self.batch_size)]
+        self.nsamples = len(self.names_list)
         self.epoch_length = len(name_batches)
         self.name_batches = iter(name_batches)
 
