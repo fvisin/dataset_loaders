@@ -16,8 +16,6 @@ class GatechDataset(ThreadedDataset):
     name = 'gatech'
     nclasses = 9
     void_labels = [0]
-    _is_one_hot = False
-    _is_01c = True
     debug_shape = (360, 640, 3)
     # wtf, sky, ground, solid (buildings, etc), porous, cars, humans,
     # vert mix, main mix
@@ -105,26 +103,26 @@ class GatechDataset(ThreadedDataset):
             self.video_length[prefix] = video_length
 
             # Fill sequences with (prefix, frame_idx)
+            max_num_frames = video_length - seq_length + 1
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames]:
+                for el in [(prefix, f) for f in frames[:max_num_frames]]:
                     sequences.append(el)
             else:
                 # If there are not enough frames, cap seq_per_video to
                 # the number of available frames
-                max_num_sequences = video_length - seq_length + 1
-                if max_num_sequences < seq_per_video:
+                if max_num_frames < seq_per_video:
                     print("/!\ Warning : you asked {} sequences of {} "
                           "frames each but video {} only has {} "
                           "frames".format(seq_per_video, seq_length,
                                           prefix, video_length))
-                    seq_per_video = max_num_sequences
+                    seq_per_video = max_num_frames
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)
                 first_frame_indexes = np.random.permutation(range(
-                    max_num_sequences))[0:seq_per_video]
+                    max_num_frames))[0:seq_per_video]
 
                 for i in first_frame_indexes:
                     sequences.append((prefix, frames[i]))
@@ -178,23 +176,47 @@ def test():
         seq_per_video=0,
         seq_length=0,
         crop_size=(224, 224),
-        split=.75)
+        split=.75,
+        get_one_hot=True,
+        get_01c=True)
     validiter = GatechDataset(
         which_set='valid',
         batch_size=1,
         seq_per_video=0,
         seq_length=0,
-        split=.75)
+        split=.75,
+        get_one_hot=False,
+        get_01c=True)
+    validiter2 = GatechDataset(
+        which_set='valid',
+        batch_size=1,
+        seq_per_video=0,
+        seq_length=10,
+        split=.75,
+        get_one_hot=False,
+        get_01c=True)
     testiter = GatechDataset(
         which_set='test',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_video=10,
+        seq_length=10,
+        split=1.,
+        get_one_hot=False,
+        get_01c=False)
+    testiter2 = GatechDataset(
+        which_set='test',
+        batch_size=1,
+        seq_per_video=10,
         seq_length=0,
-        split=1.)
+        split=1.,
+        get_one_hot=True,
+        get_01c=False,
+        with_filenames=True)
 
     train_nsamples = trainiter.get_n_samples()
     valid_nsamples = validiter.get_n_samples()
     test_nsamples = testiter.get_n_samples()
+    nclasses = testiter.get_n_classes()
 
     print("Train %d, valid %d, test %d" % (train_nsamples, valid_nsamples,
                                            test_nsamples))
@@ -203,12 +225,65 @@ def test():
     n_minibatches_to_run = 1000
     itr = 1
     while True:
+
         train_group = trainiter.next()
         valid_group = validiter.next()
+        valid2_group = validiter2.next()
         test_group = testiter.next()
-
-        if train_group is None or valid_group is None or test_group is None:
+        test2_group = testiter2.next()
+        if train_group is None or valid_group is None or test_group is None or\
+           valid2_group is None or test2_group is None:
             raise ValueError('.next() returned None!')
+
+        # train_group checks
+        assert train_group[0].ndim == 4
+        assert train_group[0].shape[0] == 5
+        assert train_group[0].shape[1] == 224
+        assert train_group[0].shape[2] == 224
+        assert train_group[0].shape[3] == 3
+        assert train_group[1].ndim == 4
+        assert train_group[1].shape[0] == 5
+        assert train_group[1].shape[1] == 224
+        assert train_group[1].shape[2] == 224
+        assert train_group[1].shape[3] == nclasses
+
+        # valid_group checks
+        assert valid_group[0].ndim == 4
+        assert valid_group[0].shape[0] == 1
+        assert valid_group[0].shape[3] == 3
+        assert valid_group[1].ndim == 3
+        assert valid_group[1].shape[0] == 1
+        assert valid_group[1].max() < nclasses
+
+        # valid2_group checks
+        assert valid2_group[0].ndim == 5
+        assert valid2_group[0].shape[0] == 1
+        assert valid2_group[0].shape[1] == 10
+        assert valid2_group[0].shape[4] == 3
+        assert valid2_group[1].ndim == 4
+        assert valid2_group[1].shape[0] == 1
+        assert valid2_group[1].shape[1] == 10
+        assert valid2_group[1].max() < nclasses
+
+        # test_group checks
+        assert test_group[0].ndim == 5
+        assert test_group[0].shape[0] == 1
+        assert test_group[0].shape[1] == 10
+        assert test_group[0].shape[2] == 3
+        assert test_group[1].ndim == 4
+        assert test_group[1].shape[0] == 1
+        assert test_group[1].shape[1] == 10
+        assert test_group[1].max() < nclasses
+
+        # test2_group checks
+        assert len(test2_group) == 3
+        assert test2_group[0].ndim == 4
+        assert test2_group[0].shape[0] == 1
+        assert test2_group[0].shape[1] == 3
+        assert test2_group[1].ndim == 4
+        assert test2_group[1].shape[0] == 1
+        assert test2_group[1].shape[1] == nclasses
+
         # time.sleep approximates running some model
         time.sleep(1)
         stop = time.time()

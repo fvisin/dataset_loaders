@@ -78,18 +78,14 @@ class ThreadedDataset(object):
         if len(kwargs):
             print('Ignored arguments: {}'.format(kwargs.keys()))
 
-        #for attr in ['name', 'nclasses', '_is_one_hot', '_is_01c',
+        # for attr in ['name', 'nclasses', '_is_one_hot', '_is_01c',
         #             'debug_shape', 'path', 'sharedpath']:
         #    assert attr in dir(self), (
         #        '{} did not set the mandatory attribute {}'.format(
         #            self.__class__.name, attr))
         ds = getattr(self.__class__, 'data_shape', (None, None, 3))
-        if get_01c == self._is_01c:
-            self.data_shape = ds
-        elif self._is_01c:
-            self.data_shape = ds[2], ds[0], ds[1]
-        else:
-            self.data_shape = ds[1], ds[2], ds[0]
+
+        self.data_shape = ds[2], ds[0], ds[1]
 
         # Copy the data to the local path if not existing
         if not os.path.exists(self.path):
@@ -147,15 +143,6 @@ class ThreadedDataset(object):
         """
         raise NotImplementedError
 
-    def get_n_classes(self):
-        return self.nclasses
-
-    def get_n_batches(self):
-        return self.nbatches
-
-    def get_n_samples(self):
-        return len(self.names_list)
-
     def fetch_from_dataset(self, batch_to_load):
         """
         Return *batches* of 5D sequences/clips or 4D images.
@@ -173,9 +160,11 @@ class ThreadedDataset(object):
 
         # Create batches
         for el in batch_to_load:
+
             if el is None:
                 continue
-            # (s, 0, 1, c) or (s, c, 0, 1)
+
+            # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
             seq_x, seq_y = ret[0:2]
             if seq_x.ndim == 3:
@@ -183,87 +172,81 @@ class ThreadedDataset(object):
                 seq_y = seq_y[np.newaxis, ...]
             assert seq_x.ndim == 4
 
+            # Crop
+            crop = self.crop_size
+            if crop:
+                height, width = seq_x.shape[-3:-1]
+
+                if crop[0] < height:
+                    top = self.rng.randint(height - crop[0])
+                else:
+                    print('Crop size exceeds image size')
+                    top = 0
+                    crop[0] = height
+                if crop[1] < width:
+                    left = self.rng.randint(width - crop[1])
+                else:
+                    print('Crop size exceeds image size')
+                    left = 0
+                    crop[1] = width
+
+                seq_x = seq_x[..., top:top+crop[0], left:left+crop[1], :]
+                seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
+                # if not _is_one_hot:
+                #     seq_x = seq_x[..., top:top+crop[0], left:left+crop[1], :]
+                #     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
+
+            # Transform targets seq_y to one hot code if get_one_hot is
+            # true
+            if self.get_one_hot:
+                nc = self.nclasses
+                sh = seq_y.shape
+                seq_y = seq_y.flatten()
+                seq_y_hot = np.zeros((seq_y.shape[0], nc),
+                                     dtype='int32')
+                seq_y = seq_y.astype('int32')
+                seq_y_hot[range(seq_y.shape[0]), seq_y] = 1
+                seq_y_hot = seq_y_hot.reshape(sh + (nc,))
+                seq_y = seq_y_hot
+
+            # Dimshuffle if get_01c is False
+            if not self.get_01c:
+                # s,0,1,c --> s,c,0,1
+                seq_x = seq_x.transpose([0, 3, 1, 2])
+                if self.get_one_hot:
+                    seq_y = seq_y.transpose([0, 3, 1, 2])
+
+            # if self._is_one_hot != self.get_one_hot:
+            #     if self._is_one_hot and self.get_01c:
+            #         seq_y = seq_y.argmax(-1)
+            #     elif self._is_one_hot and not self.get_01c:
+            #         seq_y = seq_y.argmax(-3)
+            #     else:
+            #         nc = self.nclasses
+            #         sh = seq_y.shape
+            #         seq_y = seq_y.flatten()
+            #         seq_y_hot = np.zeros((seq_y.shape[0], nc), dtype='int32')
+            #         seq_y = seq_y.astype('int32')
+            #         seq_y_hot[range(seq_y.shape[0]), Y] = 1
+            #         seq_y_hot = seq_y_hot.reshape(sh + (nc,))
+            #         if not self.get_01c:
+            #             # b,s,0,1,c --> b,s,c,0,1
+            #             seq_y_hot = seq_y_hot.transpose([0, 1, 4, 2, 3])
+            #         seq_y = seq_y_hot
+
+            # Return 4D images
+            if not self.return_sequence:
+                seq_x, seq_y = seq_x[0, ...], seq_y[0, ...]
+
+            # Append stuff to minibatch list
             X.append(seq_x)
             Y.append(seq_y)
             Other.append(ret[2:])
-        # (b, s, 0, 1, c) or (b, s, c, 0, 1)
-        X, Y, Other = np.array(X), np.array(Y), np.array(Other)
-
-        # Crop
-        crop = self.crop_size
-        if crop:
-            if self._is_01c:
-                height, width = X.shape[-3:-1]
-            else:
-                height, width = X.shape[-2:]
-            if crop[0] < height:
-                top = self.rng.randint(height - crop[0])
-            else:
-                print('Crop size exceeds image size')
-                top = 0
-                crop[0] = height
-            if crop[1] < width:
-                left = self.rng.randint(width - crop[1])
-            else:
-                print('Crop size exceeds image size')
-                left = 0
-                crop[1] = width
-            if self._is_01c and self._is_one_hot:
-                X = X[..., top:top+crop[0], left:left+crop[1], :]
-                Y = Y[..., top:top+crop[0], left:left+crop[1], :]
-            elif self._is_01c and not self._is_one_hot:
-                X = X[..., top:top+crop[0], left:left+crop[1], :]
-                Y = Y[..., top:top+crop[0], left:left+crop[1]]
-            elif not self._is_01c and self._is_one_hot:
-                X = X[..., :, top:top+crop[0], left:left+crop[1]]
-                Y = Y[..., :, top:top+crop[0], left:left+crop[1]]
-            else:
-                X = X[..., :, top:top+crop[0], left:left+crop[1]]
-                Y = Y[..., top:top+crop[0], left:left+crop[1]]
-
-        # get_01c
-        if self._is_01c != self.get_01c:
-            if self._is_01c and self._is_one_hot:
-                # b,s,0,1,c --> b,s,c,0,1
-                X = X.transpose([0, 1, 4, 2, 3])
-                Y = Y.transpose([0, 1, 4, 2, 3])
-            elif self._is_01c and not self._is_one_hot:
-                # b,s,0,1,c --> b,s,c,0,1
-                X = X.transpose([0, 1, 4, 2, 3])
-            elif not self._is_01c and self._is_one_hot:
-                # b,s,c,0,1 --> b,s,0,1,c
-                X = X.transpose([0, 1, 3, 4, 2])
-            else:
-                # b,s,c,0,1 --> b,s,0,1,c
-                X = X.transpose([0, 1, 3, 4, 2])
-                Y = Y.transpose([0, 1, 3, 4, 2])
-
-        # get_one_hot
-        if self._is_one_hot != self.get_one_hot:
-            if self._is_one_hot and self.get_01c:
-                Y = Y.argmax(-1)
-            elif self._is_one_hot and not self.get_01c:
-                Y = Y.argmax(-3)
-            else:
-                nc = self.nclasses
-                sh = Y.shape
-                Y = Y.flatten()
-                Y_hot = np.zeros((Y.shape[0], nc), dtype='int32')
-                Y = Y.astype('int32')
-                Y_hot[range(Y.shape[0]), Y] = 1
-                Y_hot = Y_hot.reshape(sh + (nc,))
-                if not self.get_01c:
-                    # b,s,0,1,c --> b,s,c,0,1
-                    Y_hot = Y_hot.transpose([0, 1, 4, 2, 3])
-                Y = Y_hot
-
-        if not self.return_sequence:
-            X, Y = X[:, 0, ...], Y[:, 0, ...]
 
         if len(Other[0]) == 0:
-            return X, Y
+            return np.array(X), np.array(Y)
         else:
-            return X, Y, Other
+            return np.array(X), np.array(Y), np.array(Other)
 
     def reset(self, shuffle_at_each_epoch):
         # Shuffle data
@@ -364,3 +347,12 @@ class ThreadedDataset(object):
 
     def get_labels(self):
         return getattr(self, 'labels', [])
+
+    def get_n_classes(self):
+        return self.nclasses
+
+    def get_n_batches(self):
+        return self.nbatches
+
+    def get_n_samples(self):
+        return len(self.names_list)
