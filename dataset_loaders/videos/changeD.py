@@ -93,12 +93,12 @@ class ChangeDetectionDataset(ThreadedDataset):
                       el.index(prefix+'_') == 0]
             video_length = len(frames)
             self.video_length[prefix] = video_length
-
             # Fill sequences with (prefix, frame_idx)
+            max_num_frames = video_length - seq_length + 1
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames]:
+                for el in [(prefix, f) for f in frames[:max_num_frames]]:
                     sequences.append(el)
             else:
                 # If there are not enough frames, cap seq_per_video to

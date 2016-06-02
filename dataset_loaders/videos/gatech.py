@@ -172,13 +172,14 @@ class GatechDataset(ThreadedDataset):
 def test():
     trainiter = GatechDataset(
         which_set='train',
-        batch_size=5,
+        batch_size=20,
         seq_per_video=0,
         seq_length=0,
         crop_size=(224, 224),
         split=.75,
         get_one_hot=True,
-        get_01c=True)
+        get_01c=True,
+        use_threads=True)
     validiter = GatechDataset(
         which_set='valid',
         batch_size=1,
@@ -186,7 +187,8 @@ def test():
         seq_length=0,
         split=.75,
         get_one_hot=False,
-        get_01c=True)
+        get_01c=True,
+        use_threads=True)
     validiter2 = GatechDataset(
         which_set='valid',
         batch_size=1,
@@ -194,7 +196,8 @@ def test():
         seq_length=10,
         split=.75,
         get_one_hot=False,
-        get_01c=True)
+        get_01c=True,
+        use_threads=True)
     testiter = GatechDataset(
         which_set='test',
         batch_size=1,
@@ -202,7 +205,8 @@ def test():
         seq_length=10,
         split=1.,
         get_one_hot=False,
-        get_01c=False)
+        get_01c=False,
+        use_threads=True)
     testiter2 = GatechDataset(
         which_set='test',
         batch_size=1,
@@ -211,91 +215,140 @@ def test():
         split=1.,
         get_one_hot=True,
         get_01c=False,
-        with_filenames=True)
+        with_filenames=True,
+        use_threads=True)
 
     train_nsamples = trainiter.get_n_samples()
     valid_nsamples = validiter.get_n_samples()
     test_nsamples = testiter.get_n_samples()
     nclasses = testiter.get_n_classes()
+    nbatches = trainiter.get_n_batches()
+    train_batch_size = trainiter.get_batch_size()
+    valid_batch_size = validiter.get_batch_size()
+    test_batch_size = testiter.get_batch_size()
 
     print("Train %d, valid %d, test %d" % (train_nsamples, valid_nsamples,
                                            test_nsamples))
 
     start = time.time()
-    n_minibatches_to_run = 1000
-    itr = 1
-    while True:
+    max_epochs = 2
 
-        train_group = trainiter.next()
-        valid_group = validiter.next()
-        valid2_group = validiter2.next()
-        test_group = testiter.next()
-        test2_group = testiter2.next()
-        if train_group is None or valid_group is None or test_group is None or\
-           valid2_group is None or test2_group is None:
-            raise ValueError('.next() returned None!')
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+            valid_group = validiter.next()
+            valid2_group = validiter2.next()
+            test_group = testiter.next()
+            test2_group = testiter2.next()
+            if train_group is None or valid_group is None or \
+               test_group is None or valid2_group is None or \
+               test2_group is None:
+                raise ValueError('.next() returned None!')
 
-        # train_group checks
-        assert train_group[0].ndim == 4
-        assert train_group[0].shape[0] == 5
-        assert train_group[0].shape[1] == 224
-        assert train_group[0].shape[2] == 224
-        assert train_group[0].shape[3] == 3
-        assert train_group[1].ndim == 4
-        assert train_group[1].shape[0] == 5
-        assert train_group[1].shape[1] == 224
-        assert train_group[1].shape[2] == 224
-        assert train_group[1].shape[3] == nclasses
+            # train_group checks
+            assert train_group[0].ndim == 4
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1] == 224
+            assert train_group[0].shape[2] == 224
+            assert train_group[0].shape[3] == 3
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 4
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1] == 224
+            assert train_group[1].shape[2] == 224
+            assert train_group[1].shape[3] == nclasses
 
-        # valid_group checks
-        assert valid_group[0].ndim == 4
-        assert valid_group[0].shape[0] == 1
-        assert valid_group[0].shape[3] == 3
-        assert valid_group[1].ndim == 3
-        assert valid_group[1].shape[0] == 1
-        assert valid_group[1].max() < nclasses
+            # valid_group checks
+            assert valid_group[0].ndim == 4
+            assert valid_group[0].shape[0] <= valid_batch_size
+            assert valid_group[0].shape[3] == 3
+            assert valid_group[1].ndim == 3
+            assert valid_group[1].shape[0] <= valid_batch_size
+            assert valid_group[1].max() < nclasses
 
-        # valid2_group checks
-        assert valid2_group[0].ndim == 5
-        assert valid2_group[0].shape[0] == 1
-        assert valid2_group[0].shape[1] == 10
-        assert valid2_group[0].shape[4] == 3
-        assert valid2_group[1].ndim == 4
-        assert valid2_group[1].shape[0] == 1
-        assert valid2_group[1].shape[1] == 10
-        assert valid2_group[1].max() < nclasses
+            # valid2_group checks
+            assert valid2_group[0].ndim == 5
+            assert valid2_group[0].shape[0] <= valid_batch_size
+            assert valid2_group[0].shape[1] == 10
+            assert valid2_group[0].shape[4] == 3
+            assert valid2_group[1].ndim == 4
+            assert valid2_group[1].shape[0] <= valid_batch_size
+            assert valid2_group[1].shape[1] == 10
+            assert valid2_group[1].max() < nclasses
 
-        # test_group checks
-        assert test_group[0].ndim == 5
-        assert test_group[0].shape[0] == 1
-        assert test_group[0].shape[1] == 10
-        assert test_group[0].shape[2] == 3
-        assert test_group[1].ndim == 4
-        assert test_group[1].shape[0] == 1
-        assert test_group[1].shape[1] == 10
-        assert test_group[1].max() < nclasses
+            # test_group checks
+            assert test_group[0].ndim == 5
+            assert test_group[0].shape[0] <= test_batch_size
+            assert test_group[0].shape[1] == 10
+            assert test_group[0].shape[2] == 3
+            assert test_group[1].ndim == 4
+            assert test_group[1].shape[0] <= test_batch_size
+            assert test_group[1].shape[1] == 10
+            assert test_group[1].max() < nclasses
 
-        # test2_group checks
-        assert len(test2_group) == 3
-        assert test2_group[0].ndim == 4
-        assert test2_group[0].shape[0] == 1
-        assert test2_group[0].shape[1] == 3
-        assert test2_group[1].ndim == 4
-        assert test2_group[1].shape[0] == 1
-        assert test2_group[1].shape[1] == nclasses
+            # test2_group checks
+            assert len(test2_group) == 3
+            assert test2_group[0].ndim == 4
+            assert test2_group[0].shape[0] <= test_batch_size
+            assert test2_group[0].shape[1] == 3
+            assert test2_group[1].ndim == 4
+            assert test2_group[1].shape[0] <= test_batch_size
+            assert test2_group[1].shape[1] == nclasses
 
-        # time.sleep approximates running some model
-        time.sleep(1)
-        stop = time.time()
-        tot = stop - start
-        print("Minibatch %s" % str(itr))
-        print("Time ratio (s per minibatch): %s" % (tot / float(itr)))
-        print("Tot time: %s" % (tot))
-        itr += 1
-        # test
-        if itr >= n_minibatches_to_run:
-            break
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            tot = stop - start
+            print("Threaded time: %s" % (tot))
+            print("Minibatch %s" % str(mb))
 
 
+def test2():
+    trainiter = GatechDataset(
+        which_set='train',
+        batch_size=500,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(224, 224),
+        split=.75,
+        get_one_hot=True,
+        get_01c=True,
+        use_threads=True)
+
+    train_nsamples = trainiter.get_n_samples()
+    nclasses = trainiter.get_n_classes()
+    nbatches = trainiter.get_n_batches()
+    train_batch_size = trainiter.get_batch_size()
+
+    print("Train %d" % (train_nsamples))
+
+    start = time.time()
+    max_epochs = 2
+
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+
+            # train_group checks
+            assert train_group[0].ndim == 4
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1] == 224
+            assert train_group[0].shape[2] == 224
+            assert train_group[0].shape[3] == 3
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 4
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1] == 224
+            assert train_group[1].shape[2] == 224
+            assert train_group[1].shape[3] == nclasses
+
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            tot = stop - start
+            print("Threaded time: %s" % (tot))
+            print("Minibatch %s" % str(mb))
 if __name__ == '__main__':
-    test()
+    test2()

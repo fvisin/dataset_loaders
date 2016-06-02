@@ -66,7 +66,7 @@ class ThreadedDataset(object):
                  seq_length=0,  # if 0, return 4D
                  crop_size=None,
                  batch_size=1,
-                 queues_size=10,
+                 queues_size=50,
                  get_one_hot=False,
                  get_01c=False,
                  use_threads=False,
@@ -250,13 +250,16 @@ class ThreadedDataset(object):
 
     def reset(self, shuffle_at_each_epoch):
         # Shuffle data
+        self.end_of_epoch = False
         if shuffle_at_each_epoch:
             self.rng.shuffle(self.names_list)
+            print("shuffle %s" % self.names_list[0])
 
         # Group names into minibatches
         name_batches = [el for el in izip_longest(
             fillvalue=None, *[iter(self.names_list)] * self.batch_size)]
         self.nsamples = len(self.names_list)
+        self.nbatches = len(name_batches)
         self.epoch_length = len(name_batches)
         self.name_batches = iter(name_batches)
 
@@ -280,8 +283,11 @@ class ThreadedDataset(object):
 
     def _init_names_queue(self):
         for _ in range(self.queues_size):
-            name_batch = self.name_batches.next()
-            self.names_queue.put(name_batch)
+            try:
+                name_batch = self.name_batches.next()
+                self.names_queue.put(name_batch)
+            except StopIteration:
+                break
 
     def __iter__(self):
         return self
@@ -305,14 +311,20 @@ class ThreadedDataset(object):
                 try:
                     name_batch = self.name_batches.next()
                     self.names_queue.put(name_batch)
+                    self.end_of_epoch = True
                 except StopIteration:
                     pass
                 self.out_queue.task_done()
             except Queue.Empty:
-                # No more minibatches in the out queue
-                self.reset(self.shuffle_at_each_epoch)
-                if not self.infinite_iterator:
-                    raise StopIteration
+                if self.end_of_epoch:
+                    # No more minibatches in the out queue
+                    print "reseting in threads"
+                    import ipdb; ipdb.set_trace()
+                    self.reset(self.shuffle_at_each_epoch)
+                    if not self.infinite_iterator:
+                        raise StopIteration
+                    else:
+                        data_batch = self._step()
                 else:
                     data_batch = self._step()
         else:
@@ -327,7 +339,7 @@ class ThreadedDataset(object):
                     data_batch = self._step()
 
         if data_batch is None:
-            pass
+            raise RuntimeError("ẀTF")
         return data_batch
 
     def finish(self):
@@ -356,3 +368,6 @@ class ThreadedDataset(object):
 
     def get_n_samples(self):
         return len(self.names_list)
+
+    def get_batch_size(self):
+        return self.batch_size
