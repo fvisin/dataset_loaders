@@ -25,6 +25,7 @@ def threaded_fetch(names_queue, out_queue, sentinel, fetch_from_dataset):
             batch_to_load = names_queue.get()
 
             if batch_to_load is sentinel:
+                names_queue.task_done()
                 break
 
             # Load the data
@@ -35,12 +36,9 @@ def threaded_fetch(names_queue, out_queue, sentinel, fetch_from_dataset):
 
             # Signal to the names queue that the job is done
             names_queue.task_done()
-
         except IOError as e:
             print("Image in image_group corrupted!")
             print "I/O error({0}): {1}".format(e.errno, e.strerror)
-        except Queue.Empty:
-            pass
         except:
             # If any uncaught exception, die
             raise
@@ -133,7 +131,6 @@ class ThreadedDataset(object):
         # Shuffle data
         if shuffle_at_each_epoch:
             self.rng.shuffle(self.names_list)
-            print("shuffle %s" % self.names_list[0])
 
         # Group names into minibatches
         name_batches = [el for el in izip_longest(
@@ -198,8 +195,7 @@ class ThreadedDataset(object):
             done = False
             while not done:
                 # Kill main process if fetcher died
-                if not any([df.isAlive() for df in self.data_fetchers]):
-                    print('All data fetchers died')
+                if all([not df.isAlive() for df in self.data_fetchers]):
                     import sys
                     sys.exit(0)
                 try:
@@ -211,18 +207,13 @@ class ThreadedDataset(object):
                     try:
                         name_batch = self.name_batches.next()
                         self.names_queue.put(name_batch)
-                        print('read one')
                     except StopIteration:
-                        # no name left
-                        for _ in self.data_fetchers:
-                            self.names_queue.put(self.sentinel)
+                        pass
                 except Queue.Empty:
-                    if any([df.isAlive() for df in self.data_fetchers]):
+                    if self.names_queue.unfinished_tasks:
                         sleep(self.wait_time)
-                        continue
                     else:
                         # No more minibatches in the out queue
-                        print "resetting in threads"
                         self.reset(self.shuffle_at_each_epoch)
                         if not self.infinite_iterator:
                             raise StopIteration
