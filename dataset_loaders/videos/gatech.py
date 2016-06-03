@@ -314,7 +314,8 @@ def test2():
         split=.75,
         get_one_hot=True,
         get_01c=True,
-        use_threads=True)
+        use_threads=True,
+        nthreads=5)
 
     train_nsamples = trainiter.get_n_samples()
     nclasses = trainiter.get_n_classes()
