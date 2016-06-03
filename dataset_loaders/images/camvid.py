@@ -6,7 +6,7 @@ import time
 from theano import config
 
 import dataset_loaders
-from ..parallel_loader import ThreadedDataset
+from dataset_loaders.parallel_loader import ThreadedDataset
 
 
 floatX = config.floatX
@@ -152,7 +152,57 @@ class CamvidDataset(ThreadedDataset):
             return np.array(X), np.array(Y)
 
 
-if __name__ == '__main__':
+def test2():
+    trainiter = CamvidDataset(
+        which_set='train',
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(224, 224),
+        split=.75,
+        get_one_hot=True,
+        get_01c=True,
+        use_threads=True,
+        nthreads=5)
+
+    train_nsamples = trainiter.get_n_samples()
+    nclasses = trainiter.get_n_classes()
+    nbatches = trainiter.get_n_batches()
+    train_batch_size = trainiter.get_batch_size()
+    print("Train %d" % (train_nsamples))
+
+    start = time.time()
+    max_epochs = 5
+
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+
+            # train_group checks
+            assert train_group[0].ndim == 4
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1] == 224
+            assert train_group[0].shape[2] == 224
+            assert train_group[0].shape[3] == 3
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 3
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1] == 224
+            assert train_group[1].shape[2] == 224
+            assert train_group[1].shape[3] == nclasses
+
+            # time.sleep approximates running some model
+            time.sleep(0.1)
+            stop = time.time()
+            tot = stop - start
+            print("Threaded time: %s" % (tot))
+            print("Minibatch %s" % str(mb))
+        print('ended epoch --> should reset!')
+        time.sleep(2)
+
+
+def test1():
     d = CamvidDataset(
         which_set='train',
         batch_size=5,
@@ -177,3 +227,6 @@ if __name__ == '__main__':
         # test
         if itr >= n_minibatches_to_run:
             break
+
+if __name__ == '__main__':
+    test2()
