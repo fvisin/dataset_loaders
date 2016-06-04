@@ -128,6 +128,9 @@ class ThreadedDataset(object):
         sleep(1)
 
     def reset(self, shuffle_at_each_epoch):
+        # Reload the names list, so a different subset is selected when
+        # not all the possible sequences are picked
+        self.names_list = self.get_names()
         # Shuffle data
         if shuffle_at_each_epoch:
             self.rng.shuffle(self.names_list)
