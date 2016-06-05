@@ -84,8 +84,9 @@ class ThreadedDataset(object):
         #        '{} did not set the mandatory attribute {}'.format(
         #            self.__class__.name, attr))
         ds = getattr(self.__class__, 'data_shape', (None, None, 3))
-
         self.data_shape = ds[2], ds[0], ds[1]
+
+        self.has_GT = getattr(self, 'has_GT', True)
 
         # Copy the data to the local path if not existing
         if not os.path.exists(self.path):
@@ -295,14 +296,15 @@ class ThreadedDataset(object):
                     crop[1] = width
 
                 seq_x = seq_x[..., top:top+crop[0], left:left+crop[1], :]
-                seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
+                if self.has_GT:
+                    seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
                 # if not _is_one_hot:
                 #     seq_x = seq_x[..., top:top+crop[0], left:left+crop[1], :]
                 #     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
 
             # Transform targets seq_y to one hot code if get_one_hot is
             # true
-            if self.get_one_hot:
+            if self.has_GT and self.get_one_hot:
                 nc = self.nclasses
                 sh = seq_y.shape
                 seq_y = seq_y.flatten()
@@ -317,7 +319,7 @@ class ThreadedDataset(object):
             if not self.get_01c:
                 # s,0,1,c --> s,c,0,1
                 seq_x = seq_x.transpose([0, 3, 1, 2])
-                if self.get_one_hot:
+                if self.has_GT and self.get_one_hot:
                     seq_y = seq_y.transpose([0, 3, 1, 2])
 
             # if self._is_one_hot != self.get_one_hot:
@@ -340,7 +342,9 @@ class ThreadedDataset(object):
 
             # Return 4D images
             if not self.return_sequence:
-                seq_x, seq_y = seq_x[0, ...], seq_y[0, ...]
+                seq_x = seq_x[0, ...]
+                if self.has_GT:
+                    seq_y = seq_y[0, ...]
 
             # Append stuff to minibatch list
             X.append(seq_x)
