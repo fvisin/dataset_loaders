@@ -195,9 +195,9 @@ class ThreadedDataset(object):
         return self._step()
 
     def _step(self):
-        if self.use_threads:
-            done = False
-            while not done:
+        done = False
+        while not done:
+            if self.use_threads:
                 # Kill main process if fetcher died
                 if all([not df.isAlive() for df in self.data_fetchers]):
                     import sys
@@ -222,16 +222,19 @@ class ThreadedDataset(object):
                         if not self.infinite_iterator:
                             raise StopIteration
                         # else, it will cycle again in the while loop
-        else:
-            try:
-                name_batch = self.name_batches.next()
-                data_batch = self.fetch_from_dataset(name_batch)
-            except StopIteration:
-                self.reset(self.shuffle_at_each_epoch)
-                if not self.infinite_iterator:
-                    raise
-                else:
-                    data_batch = self._step()
+            else:
+                try:
+                    name_batch = self.name_batches.next()
+                    data_batch = self.fetch_from_dataset(name_batch)
+                    done = True
+                except StopIteration:
+                    self.reset(self.shuffle_at_each_epoch)
+                    if not self.infinite_iterator:
+                        raise
+                    # else, loop to the next image
+                except IOError as e:
+                    print "{0} I/O error({1}): {2}".format(name_batch, e.errno,
+                                                           e.strerror)
 
         if data_batch is None:
             raise RuntimeError("WTF")
