@@ -15,8 +15,6 @@ floatX = config.floatX
 class CamvidDataset(ThreadedDataset):
     name = 'camvid'
     nclasses = 12
-    _is_one_hot = False
-    _is_01c = True
     debug_shape = (360, 480, 3)
 
     # optional arguments
