@@ -10,22 +10,33 @@ import dataset_loaders
 
 
 class VOCdataset(BatchIterator):
+    name = 'pascal_voc'
+    nclasses = 21
+    debug_shape = (100, 100, 3)
+
+    data_shape = (None, None, 3)
+    mean = 0.
+    std = 1.
+
     def __init__(self,
                  which_set="train",
+                 with_filenames=False,
                  threshold_masks=False,
                  data_format="b01c",
                  year="VOC2012",
                  predictions=False,
-                 normalize=False,
+                 normalize=True,
+                 with_teacher=False,
                  teacher_temperature=1,
-                 minibatch_size=1):
+                 minibatch_size=1, *args, **kwargs):
 
+        self.which_set = which_set
+        self.with_filenames = with_filenames
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC',
             'VOCdevkit')
-        self.sharedpath = '/data/lisa/data/PASCAL-VOC/'
+        self.sharedpath = '/data/lisa/data/PASCAL-VOC/VOCdevkit'
         self.year = year
-        self.which_set = which_set
 
         if self.which_set == "test" and year == "2012":
             raise ValueError("No test set for other than 2012 year")
@@ -35,6 +46,7 @@ class VOCdataset(BatchIterator):
         self.random_state = np.random.RandomState(1999)
         self.predictions = predictions
         self.normalize = normalize
+        self.with_teacher = with_teacher
         self.teacher_temperature = teacher_temperature
         self.n_classes = 21
         self.image_shape = [3, None, None]
@@ -45,6 +57,9 @@ class VOCdataset(BatchIterator):
             testing = True
         else:
             testing = False
+
+        # TEMPORARY
+        self.path = self.sharedpath
 
         self.txt_path = os.path.join(self.path, self.year,
                                      "ImageSets", "Segmentation")
@@ -89,6 +104,7 @@ class VOCdataset(BatchIterator):
         image_batch = []
         mask_batch = []
         pred_batch = []
+        filename_batch = []
 
         for img_name in batch_to_load:
             # Load image
@@ -129,7 +145,7 @@ class VOCdataset(BatchIterator):
                 mean_subs = np.asarray([122.67891434,
                                         116.66876762,
                                         104.00698793])
-                img = np.float32(img - mean_subs[:, None, None])
+                img = np.float32(img - mean_subs[None, None, :])
 
             # Add to minibatch
             image_batch.append(img)
@@ -137,8 +153,19 @@ class VOCdataset(BatchIterator):
                 mask_batch.append(mask)
             if self.predictions:
                 pred_batch.append(pred)
+            if self.with_filenames:
+                filename_batch.append(img_name)
 
-        return image_batch, mask_batch, batch_to_load, pred_batch
+        ret = [np.array(image_batch), np.array(mask_batch)]
+
+        other = []
+        if self.with_filenames:
+            other += [np.array(filename_batch)]
+        if self.with_teacher:
+            other += [pred_batch]
+
+        # return image_batch, mask_batch, batch_to_load, pred_batch
+        return ret + other
 
     def get_image_shape(self):
         return self.image_shape
