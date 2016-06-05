@@ -275,6 +275,7 @@ class ThreadedDataset(object):
             # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
             seq_x, seq_y = ret[0:2]
+            assert seq_x.max() <= 1
             if seq_x.ndim == 3:
                 seq_x = seq_x[np.newaxis, ...]
                 seq_y = seq_y[np.newaxis, ...]
