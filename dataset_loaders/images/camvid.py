@@ -104,7 +104,7 @@ class CamvidDataset(ThreadedDataset):
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)
-                first_frame_indexes = self.rng.random.permutation(range(
+                first_frame_indexes = self.rng.permutation(range(
                     max_num_sequences))[0:seq_per_video]
 
                 for i in first_frame_indexes:
