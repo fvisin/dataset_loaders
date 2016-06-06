@@ -6,8 +6,8 @@ from skimage import io
 from theano import config
 
 import dataset_loaders
-from ..parallel_loader import ThreadedDataset
-from ..utils_parallel_loader import natural_keys
+from dataset_loaders.parallel_loader import ThreadedDataset
+from dataset_loaders.utils_parallel_loader import natural_keys
 
 floatX = config.floatX
 
@@ -16,8 +16,6 @@ class PolypVideoDataset(ThreadedDataset):
     name = 'colonoscopyVideos'
     nclasses = 2
     void_labels = []
-    _is_one_hot = False
-    _is_01c = True
     debug_shape = (288, 384, 3)
 
     cmap = np.array([
@@ -56,20 +54,20 @@ class PolypVideoDataset(ThreadedDataset):
                                            'noBlackBand',
                                            'Original')
             self.mask_path = os.path.join(self.path,
-                                          'poly_video_frames_test',
+                                          'polyp_video_frames_test',
                                           'noBlackBand',
                                           'Ground_Truth')
             self.split = 1.
-
-        # Get file names for this set
-        self.filenames = os.listdir(self.image_path)
-        self.filenames.sort(key=natural_keys)
 
         super(PolypVideoDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         sequences = []
         seq_length = self.seq_length
+
+        # Get file names for this set
+        self.filenames = os.listdir(self.image_path)
+        self.filenames.sort(key=natural_keys)
 
         all_prefix_list = np.unique(np.array([el[:el.index('_')]
                                               for el in self.filenames]))
@@ -94,26 +92,26 @@ class PolypVideoDataset(ThreadedDataset):
             self.video_length[prefix] = video_length
 
             # Fill sequences with (prefix, frame_idx)
+            max_num_frames = video_length - seq_length + 1
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames]:
+                for el in [(prefix, f) for f in frames[:max_num_frames]]:
                     sequences.append(el)
             else:
                 # If there are not enough frames, cap seq_per_video to
                 # the number of available frames
-                max_num_sequences = video_length - seq_length + 1
-                if max_num_sequences < seq_per_video:
+                if max_num_frames < seq_per_video:
                     print("/!\ Warning : you asked {} sequences of {} "
                           "frames each but video {} only has {} "
                           "frames".format(seq_per_video, seq_length,
                                           prefix, video_length))
-                    seq_per_video = max_num_sequences
+                    seq_per_video = max_num_frames
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)
                 first_frame_indexes = np.random.permutation(range(
-                    max_num_sequences))[0:seq_per_video]
+                    max_num_frames))[0:seq_per_video]
 
                 for i in first_frame_indexes:
                     sequences.append((prefix, frames[i]))
@@ -165,42 +163,190 @@ class PolypVideoDataset(ThreadedDataset):
     def get_void_labels(self):
         return self.void_labels
 
-if __name__ == '__main__':
+
+def test():
     trainiter = PolypVideoDataset(
         which_set='train',
-        batch_size=5,
+        batch_size=20,
         seq_per_video=0,
         seq_length=0,
         crop_size=(224, 224),
-        split=.75)
+        split=.75,
+        get_one_hot=True,
+        get_01c=True,
+        use_threads=True)
     validiter = PolypVideoDataset(
         which_set='valid',
         batch_size=1,
         seq_per_video=0,
         seq_length=0,
-        split=.75)
+        split=.75,
+        get_one_hot=False,
+        get_01c=True,
+        use_threads=True)
+    validiter2 = PolypVideoDataset(
+        which_set='valid',
+        batch_size=1,
+        seq_per_video=0,
+        seq_length=10,
+        split=.75,
+        get_one_hot=False,
+        get_01c=True,
+        use_threads=True)
+    testiter = PolypVideoDataset(
+        which_set='test',
+        batch_size=1,
+        seq_per_video=10,
+        seq_length=10,
+        split=1.,
+        get_one_hot=False,
+        get_01c=False,
+        use_threads=True)
+    testiter2 = PolypVideoDataset(
+        which_set='test',
+        batch_size=1,
+        seq_per_video=10,
+        seq_length=0,
+        split=1.,
+        get_one_hot=True,
+        get_01c=False,
+        with_filenames=True,
+        use_threads=True)
+
     train_nsamples = trainiter.get_n_samples()
     valid_nsamples = validiter.get_n_samples()
+    test_nsamples = testiter.get_n_samples()
+    nclasses = testiter.get_n_classes()
+    nbatches = trainiter.get_n_batches()
+    train_batch_size = trainiter.get_batch_size()
+    valid_batch_size = validiter.get_batch_size()
+    test_batch_size = testiter.get_batch_size()
 
-    print("Train %d, valid %d" % (train_nsamples, valid_nsamples))
+    print("Train %d, valid %d, test %d" % (train_nsamples, valid_nsamples,
+                                           test_nsamples))
 
     start = time.time()
-    n_minibatches_to_run = 1000
-    itr = 1
-    while True:
-        train_group = trainiter.next()
-        valid_group = validiter.next()
+    max_epochs = 2
 
-        if train_group is None or valid_group is None:
-            raise ValueError('.next() returned None!')
-        # time.sleep approximates running some model
-        time.sleep(1)
-        stop = time.time()
-        tot = stop - start
-        print("Minibatch %s" % str(itr))
-        print("Time ratio (s per minibatch): %s" % (tot / float(itr)))
-        print("Tot time: %s" % (tot))
-        itr += 1
-        # test
-        if itr >= n_minibatches_to_run:
-            break
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+            valid_group = validiter.next()
+            valid2_group = validiter2.next()
+            test_group = testiter.next()
+            test2_group = testiter2.next()
+            if train_group is None or valid_group is None or \
+               test_group is None or valid2_group is None or \
+               test2_group is None:
+                raise ValueError('.next() returned None!')
+
+            # train_group checks
+            assert train_group[0].ndim == 4
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1] == 224
+            assert train_group[0].shape[2] == 224
+            assert train_group[0].shape[3] == 3
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 4
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1] == 224
+            assert train_group[1].shape[2] == 224
+            assert train_group[1].shape[3] == nclasses
+
+            # valid_group checks
+            assert valid_group[0].ndim == 4
+            assert valid_group[0].shape[0] <= valid_batch_size
+            assert valid_group[0].shape[3] == 3
+            assert valid_group[1].ndim == 3
+            assert valid_group[1].shape[0] <= valid_batch_size
+            assert valid_group[1].max() < nclasses
+
+            # valid2_group checks
+            assert valid2_group[0].ndim == 5
+            assert valid2_group[0].shape[0] <= valid_batch_size
+            assert valid2_group[0].shape[1] == 10
+            assert valid2_group[0].shape[4] == 3
+            assert valid2_group[1].ndim == 4
+            assert valid2_group[1].shape[0] <= valid_batch_size
+            assert valid2_group[1].shape[1] == 10
+            assert valid2_group[1].max() < nclasses
+
+            # test_group checks
+            assert test_group[0].ndim == 5
+            assert test_group[0].shape[0] <= test_batch_size
+            assert test_group[0].shape[1] == 10
+            assert test_group[0].shape[2] == 3
+            assert test_group[1].ndim == 4
+            assert test_group[1].shape[0] <= test_batch_size
+            assert test_group[1].shape[1] == 10
+            assert test_group[1].max() < nclasses
+
+            # test2_group checks
+            assert len(test2_group) == 3
+            assert test2_group[0].ndim == 4
+            assert test2_group[0].shape[0] <= test_batch_size
+            assert test2_group[0].shape[1] == 3
+            assert test2_group[1].ndim == 4
+            assert test2_group[1].shape[0] <= test_batch_size
+            assert test2_group[1].shape[1] == nclasses
+
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            tot = stop - start
+            print("Threaded time: %s" % (tot))
+            print("Minibatch %s" % str(mb))
+
+
+def test2():
+    trainiter = PolypVideoDataset(
+        which_set='train',
+        batch_size=10,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(224, 224),
+        split=.75,
+        get_one_hot=True,
+        get_01c=True,
+        use_threads=True,
+        nthreads=5)
+
+    train_nsamples = trainiter.get_n_samples()
+    nclasses = trainiter.get_n_classes()
+    nbatches = trainiter.get_n_batches()
+    train_batch_size = trainiter.get_batch_size()
+
+    print("Train %d" % (train_nsamples))
+
+    start = time.time()
+    max_epochs = 2
+
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+
+            # train_group checks
+            assert train_group[0].ndim == 4
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1] == 224
+            assert train_group[0].shape[2] == 224
+            assert train_group[0].shape[3] == 3
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 4
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1] == 224
+            assert train_group[1].shape[2] == 224
+            assert train_group[1].shape[3] == nclasses
+
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            tot = stop - start
+            print("Threaded time: %s" % (tot))
+            print("Minibatch %s" % str(mb))
+
+
+if __name__ == '__main__':
+    test2()

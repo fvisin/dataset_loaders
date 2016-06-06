@@ -114,9 +114,9 @@ class ThreadedDataset(object):
         self.wait_time = wait_time
         self.data_fetchers = []
 
-        self.names_list = self.get_names()
-        if len(self.names_list) == 0:
-            raise RuntimeError('The name list cannot be empty')
+        # self.names_list = self.get_names()
+        # if len(self.names_list) == 0:
+        #     raise RuntimeError('The name list cannot be empty')
 
         # initialize
         if self.use_threads:
@@ -124,6 +124,9 @@ class ThreadedDataset(object):
             self.out_queue = Queue.Queue(maxsize=self.queues_size)
 
         self.reset(self.shuffle_at_each_epoch)
+
+        if len(self.names_list) == 0:
+            raise RuntimeError('The name list cannot be empty')
 
         # Give time to the data fetcher to die, in case of errors
         sleep(1)
