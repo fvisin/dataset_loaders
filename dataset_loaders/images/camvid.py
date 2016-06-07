@@ -3,13 +3,11 @@ import os
 from skimage import io
 import time
 
-from theano import config
-
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 
-floatX = config.floatX
+floatX = 'float32'
 
 
 class CamvidDataset(ThreadedDataset):

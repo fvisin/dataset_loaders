@@ -3,13 +3,12 @@ import os
 
 import numpy as np
 from skimage import io
-from theano import config
 
 import dataset_loaders
-from ..parallel_loader import ThreadedDataset
-from ..utils_parallel_loader import natural_keys
+from dataset_loaders.parallel_loader import ThreadedDataset
+from dataset_loaders.utils_parallel_loader import natural_keys
 
-floatX = config.floatX
+floatX = 'float32'
 
 class_ids = {'0': 0, '50': 1, '85': 4, '170': 2, '255': 3}
 

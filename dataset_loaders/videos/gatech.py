@@ -3,13 +3,12 @@ import time
 
 import numpy as np
 from skimage import io
-from theano import config
 
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 from dataset_loaders.utils_parallel_loader import natural_keys
 
-floatX = config.floatX
+floatX = 'float32'
 
 
 class GatechDataset(ThreadedDataset):
