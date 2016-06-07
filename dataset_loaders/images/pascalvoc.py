@@ -11,7 +11,7 @@ class_ids = {'255': 21}
 
 class VOCdataset(ThreadedDataset):
     name = 'pascal_voc'
-    nclasses = 22
+    nclasses = 21
     debug_shape = (375, 500, 3)
 
     data_shape = (None, None, 3)

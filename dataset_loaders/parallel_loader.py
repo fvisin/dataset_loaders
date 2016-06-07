@@ -305,6 +305,14 @@ class ThreadedDataset(object):
                 seq_x = seq_x[..., top:top+crop[0], left:left+crop[1], :]
                 if self.has_GT:
                     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
+
+                    # Manage void classes
+                    void_l = self.void_labels
+                    for el in void_l:
+                        seq_y[seq_y == el] = self.nclasses
+                        for idx in range(el+1, self.nclasses):
+                            seq_y[seq_y == idx] = idx - 1
+
                 # if not _is_one_hot:
                 #     seq_x = seq_x[..., top:top+crop[0], left:left+crop[1], :]
                 #     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
@@ -312,7 +320,8 @@ class ThreadedDataset(object):
             # Transform targets seq_y to one hot code if get_one_hot is
             # true
             if self.has_GT and self.get_one_hot:
-                nc = self.nclasses
+                nc = (self.nclasses if self.void_labels == [] else
+                      self.nclasses + 1)
                 sh = seq_y.shape
                 seq_y = seq_y.flatten()
                 seq_y_hot = np.zeros((seq_y.shape[0], nc),
