@@ -17,6 +17,8 @@ class GatechDataset(ThreadedDataset):
     nclasses = 9
     void_labels = [0]
     debug_shape = (360, 640, 3)
+    mean = [ 0.484375, 0.4987793, 0.46508789]
+    std = [ 0.07699376, 0.06672145, 0.09592211]
     # wtf, sky, ground, solid (buildings, etc), porous, cars, humans,
     # vert mix, main mix
     cmap = np.array([
