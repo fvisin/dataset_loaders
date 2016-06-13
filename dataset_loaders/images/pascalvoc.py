@@ -79,8 +79,36 @@ class VOCdataset(ThreadedDataset):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
 
+        # Limit to the number of videos we want
+        sequences = []
+        seq_length = self.seq_length
+        seq_per_video = self.seq_per_video
+        video_length = len(image_names)
+        max_num_sequences = video_length - seq_length + 1
+        if (not self.seq_length or not self.seq_per_video or
+                self.seq_length >= video_length):
+            # Use all possible frames
+            sequences = image_names[:max_num_sequences]
+        else:
+            if max_num_sequences < seq_per_video:
+                # If there are not enough frames, cap seq_per_video to
+                # the number of available frames
+                print("/!\ Warning : you asked {} sequences of {} "
+                      "frames each but the dataset only has {} "
+                      "frames".format(seq_per_video, seq_length,
+                                      video_length))
+                seq_per_video = max_num_sequences
+
+            # pick `seq_per_video` random indexes between 0 and
+            # (video length - sequence length)
+            first_frame_indexes = self.rng.permutation(range(
+                max_num_sequences))[0:seq_per_video]
+
+            for i in first_frame_indexes:
+                sequences.append(image_names[i])
+
         # Return images
-        return image_names
+        return np.array(sequences)
 
     def load_sequence(self, img_name):
         image_batch = []

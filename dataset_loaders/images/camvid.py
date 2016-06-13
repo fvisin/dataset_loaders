@@ -84,16 +84,16 @@ class CamvidDataset(ThreadedDataset):
             self.video_length[prefix] = video_length
 
             # Fill sequences with (prefix, frame_idx)
+            max_num_sequences = video_length - seq_length + 1
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames]:
+                for el in [(prefix, f) for f in frames[:max_num_sequences]]:
                     sequences.append(el)
             else:
-                # If there are not enough frames, cap seq_per_video to
-                # the number of available frames
-                max_num_sequences = video_length - seq_length + 1
                 if max_num_sequences < seq_per_video:
+                    # If there are not enough frames, cap seq_per_video to
+                    # the number of available frames
                     print("/!\ Warning : you asked {} sequences of {} "
                           "frames each but video {} only has {} "
                           "frames".format(seq_per_video, seq_length,
@@ -148,7 +148,7 @@ class CamvidDataset(ThreadedDataset):
             return np.array(X), np.array(Y)
 
 
-def test2():
+def test3():
     trainiter = CamvidDataset(
         which_set='train',
         batch_size=5,
@@ -203,7 +203,7 @@ def test1():
         which_set='train',
         batch_size=5,
         seq_per_video=4,
-        seq_length=20,
+        seq_length=0,
         crop_size=(224, 224))
     start = time.time()
     n_minibatches_to_run = 1000
@@ -224,5 +224,23 @@ def test1():
         if itr >= n_minibatches_to_run:
             break
 
+
+def test2():
+    d = CamvidDataset(
+        which_set='train',
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=0,
+        get_one_hot=True,
+        crop_size=(224, 224))
+    for i, _ in enumerate(range(d.epoch_length)):
+        image_group = d.next()
+        if image_group is None:
+            raise NotImplementedError()
+        sh = image_group[0].shape
+        if sh[1] != 2:
+            raise RuntimeError()
+
+
 if __name__ == '__main__':
-    test2()
+    test1()
