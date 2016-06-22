@@ -1,6 +1,5 @@
 import numpy as np
 import os
-from skimage import io
 import time
 
 import dataset_loaders
@@ -118,6 +117,7 @@ class CamvidDataset(ThreadedDataset):
         the corresponding ground truth and potentially filenames.
         Returns images in [0, 1]
         """
+        from skimage import io
         X = []
         Y = []
         F = []

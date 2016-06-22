@@ -1,6 +1,5 @@
 import os
 import re
-from skimage import io
 
 
 def get_video_size(path):
@@ -24,6 +23,7 @@ def get_frame_size(path, video_index, extension="tiff"):
     :path: path of the dataset
     :video_index: index of the video
     """
+    from skimage import io
     im_path = os.path.join(path, 'Original')
     if extension == "tiff":
         filename = str(video_index) + "_0.tiff"

@@ -2,7 +2,6 @@ import os
 import time
 
 import numpy as np
-from skimage import io
 
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
@@ -16,8 +15,8 @@ class GatechDataset(ThreadedDataset):
     nclasses = 8
     void_labels = [0]
     debug_shape = (360, 640, 3)
-    mean = [ 0.484375, 0.4987793, 0.46508789]
-    std = [ 0.07699376, 0.06672145, 0.09592211]
+    mean = [0.484375, 0.4987793, 0.46508789]
+    std = [0.07699376, 0.06672145, 0.09592211]
     # wtf, sky, ground, solid (buildings, etc), porous, cars, humans,
     # vert mix, main mix
     cmap = np.array([
@@ -137,6 +136,7 @@ class GatechDataset(ThreadedDataset):
         the corresponding ground truth and potentially filenames.
         Returns images in [0, 1]
         """
+        from skimage import io
         X = []
         Y = []
         F = []

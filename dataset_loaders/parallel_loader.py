@@ -292,13 +292,13 @@ class ThreadedDataset(object):
                 if crop[0] < height:
                     top = self.rng.randint(height - crop[0])
                 else:
-                    print('Crop size exceeds image size')
+                    print('Dataset loader: Crop size exceeds image size')
                     top = 0
                     crop[0] = height
                 if crop[1] < width:
                     left = self.rng.randint(width - crop[1])
                 else:
-                    print('Crop size exceeds image size')
+                    print('Dataset loader: Crop size exceeds image size')
                     left = 0
                     crop[1] = width
 

@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from skimage import io
 from PIL import Image
 
 import dataset_loaders
@@ -111,6 +110,7 @@ class VOCdataset(ThreadedDataset):
         return np.array(sequences)
 
     def load_sequence(self, img_name):
+        from skimage import io
         image_batch = []
         mask_batch = []
         pred_batch = []

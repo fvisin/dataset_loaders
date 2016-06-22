@@ -2,7 +2,6 @@ import time
 import os
 
 import numpy as np
-from skimage import io
 
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
@@ -129,6 +128,7 @@ class ChangeDetectionDataset(ThreadedDataset):
         the corresponding ground truth and potentially filenames.
         Returns images in [0, 1]
         """
+        from skimage import io
         X = []
         Y = []
         F = []
