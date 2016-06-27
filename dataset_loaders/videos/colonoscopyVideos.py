@@ -13,7 +13,7 @@ floatX = 'float32'
 class PolypVideoDataset(ThreadedDataset):
     name = 'colonoscopyVideos'
     nclasses = 2
-    void_labels = []
+    _void_labels = []
     debug_shape = (288, 384, 3)
 
     cmap = np.array([

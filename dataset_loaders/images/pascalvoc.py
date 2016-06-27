@@ -17,7 +17,7 @@ class VOCdataset(ThreadedDataset):
     mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
         'float32')
     std = 1.
-    void_labels = [21]
+    _void_labels = [21]
 
     def __init__(self,
                  which_set="train",

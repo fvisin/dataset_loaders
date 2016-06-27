@@ -18,7 +18,7 @@ class CamvidDataset(ThreadedDataset):
     data_shape = (360, 480, 3)
     mean = 0.
     std = 1.
-    void_labels = [11]
+    _void_labels = [11]
     cmap = np.array([
         (128, 128, 128),    # sky
         (128, 0, 0),        # building

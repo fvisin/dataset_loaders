@@ -15,7 +15,7 @@ class_ids = {'0': 0, '50': 1, '85': 4, '170': 2, '255': 3}
 class ChangeDetectionDataset(ThreadedDataset):
     name = 'changeD'
     nclasses = 4
-    void_labels = [4]
+    _void_labels = [4]
     mean = [0.45483398, 0.4387207, 0.40405273]
     std = [0.04758175, 0.04148954, 0.05489637]
     _is_one_hot = False

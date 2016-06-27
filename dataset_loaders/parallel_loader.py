@@ -307,7 +307,7 @@ class ThreadedDataset(object):
                     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
 
                     # Manage void classes
-                    void_l = self.void_labels
+                    void_l = self._void_labels
                     for el in void_l:
                         seq_y[seq_y == el] = self.nclasses
                         for idx in range(el+1, self.nclasses):
@@ -320,7 +320,7 @@ class ThreadedDataset(object):
             # Transform targets seq_y to one hot code if get_one_hot is
             # true
             if self.has_GT and self.get_one_hot:
-                nc = (self.nclasses if self.void_labels == [] else
+                nc = (self.nclasses if self._void_labels == [] else
                       self.nclasses + 1)
                 sh = seq_y.shape
                 seq_y = seq_y.flatten()
@@ -382,8 +382,11 @@ class ThreadedDataset(object):
     def get_std(self):
         return getattr(self, 'std', [])
 
-    def get_void_labels(self):
-        return getattr(self, 'void_labels', [])
+    @classmethod
+    def get_void_label(self):
+        vl = getattr(self, '_void_labels', [])
+        vl = [] if vl == [] else [self.nclasses]
+        return vl
 
     def get_cmap(self):
         return getattr(self, 'cmap', [])
