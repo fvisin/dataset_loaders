@@ -44,7 +44,7 @@ class GatechDataset(ThreadedDataset):
         self.threshold_masks = threshold_masks
         self.with_filenames = with_filenames
 
-        self.void_labels = GatechDataset.void_labels
+        self.void_labels = GatechDataset._void_labels
 
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
                                  'GATECH')
@@ -107,7 +107,7 @@ class GatechDataset(ThreadedDataset):
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames[:max_num_frames]]:
+                for el in [(prefix, f) for f in frames[:max_num_frames:self.overlap]]:
                     sequences.append(el)
             else:
                 # If there are not enough frames, cap seq_per_video to
@@ -310,7 +310,8 @@ def test2():
         which_set='train',
         batch_size=500,
         seq_per_video=0,
-        seq_length=0,
+        seq_length=7,
+        overlap=7,
         crop_size=(224, 224),
         split=.75,
         get_one_hot=True,
@@ -332,6 +333,7 @@ def test2():
         for mb in range(nbatches):
             train_group = trainiter.next()
 
+            print train_group[2]
             # train_group checks
             assert train_group[0].ndim == 4
             assert train_group[0].shape[0] <= train_batch_size
