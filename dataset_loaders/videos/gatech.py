@@ -44,8 +44,6 @@ class GatechDataset(ThreadedDataset):
         self.threshold_masks = threshold_masks
         self.with_filenames = with_filenames
 
-        self.void_labels = GatechDataset._void_labels
-
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
                                  'GATECH')
         self.sharedpath = '/data/lisatmp4/dejoieti/data/GATECH/'
@@ -165,9 +163,6 @@ class GatechDataset(ThreadedDataset):
             return np.array(X), np.array(Y), np.array(F)
         else:
             return np.array(X), np.array(Y)
-
-    def get_void_labels(self):
-        return self.void_labels
 
 
 def test():

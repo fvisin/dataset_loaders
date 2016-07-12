@@ -44,8 +44,6 @@ class ChangeDetectionDataset(ThreadedDataset):
         self.threshold_masks = threshold_masks
         self.with_filenames = with_filenames
 
-        self.void_labels = ChangeDetectionDataset.void_labels
-
         # Prepare data paths
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
                                  'CHANGED')
@@ -161,9 +159,6 @@ class ChangeDetectionDataset(ThreadedDataset):
             return np.array(X), np.array(Y), np.array(F)
         else:
             return np.array(X), np.array(Y)
-
-    def get_void_labels(self):
-        return self.void_labels
 
 
 if __name__ == '__main__':
