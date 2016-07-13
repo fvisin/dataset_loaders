@@ -22,6 +22,17 @@ class PolypVideoDataset(ThreadedDataset):
     cmap = cmap / 255
     labels = ('polyp', 'background')
 
+    _filenames = None
+
+    @property
+    def filenames(self):
+        if not self._filenames:
+            # Get file names for this set
+            self._filenames = os.listdir(self.image_path)
+            self._filenames.sort(key=natural_keys)
+
+        return self._filenames
+
     def __init__(self,
                  which_set='train',
                  threshold_masks=True,
@@ -62,10 +73,6 @@ class PolypVideoDataset(ThreadedDataset):
     def get_names(self):
         sequences = []
         seq_length = self.seq_length
-
-        # Get file names for this set
-        self.filenames = os.listdir(self.image_path)
-        self.filenames.sort(key=natural_keys)
 
         all_prefix_list = np.unique(np.array([el[:el.index('_')]
                                               for el in self.filenames]))

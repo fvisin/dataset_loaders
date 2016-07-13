@@ -37,6 +37,22 @@ class CamvidDataset(ThreadedDataset):
               'tree', 'sign', 'fence', 'car', 'pedestrian', 'byciclist',
               'void')
 
+    _filenames = None
+
+    @property
+    def filenames(self):
+        if not self._filenames:
+            # Get file names for this set and year
+            filenames = []
+            with open(os.path.join(self.path, self.which_set + '.txt')) as f:
+                for fi in f.readlines():
+                    raw_name = fi.strip()
+                    raw_name = raw_name.split("/")[4]
+                    raw_name = raw_name.strip()
+                    filenames.append(raw_name)
+            self._filenames = filenames
+        return self._filenames
+
     def __init__(self, which_set='train', with_filenames=False, *args,
                  **kwargs):
 
@@ -60,16 +76,6 @@ class CamvidDataset(ThreadedDataset):
         # it also creates/copies the dataset in self.path if not already there
         super(CamvidDataset, self).__init__(*args, **kwargs)
 
-        # Get file names for this set and year
-        filenames = []
-        with open(os.path.join(self.path, self.which_set + '.txt')) as f:
-            for fi in f.readlines():
-                raw_name = fi.strip()
-                raw_name = raw_name.split("/")[4]
-                raw_name = raw_name.strip()
-                filenames.append(raw_name)
-        self.filenames = filenames
-
     def get_names(self):
         sequences = []
         seq_length = self.seq_length
@@ -89,7 +95,8 @@ class CamvidDataset(ThreadedDataset):
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames[:max_num_sequences:self.overlap]]:
+                for el in [(prefix, f) for
+                           f in frames[:max_num_sequences:self.overlap]]:
                     sequences.append(el)
             else:
                 if max_num_sequences < seq_per_video:

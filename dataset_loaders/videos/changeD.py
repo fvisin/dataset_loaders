@@ -34,6 +34,17 @@ class ChangeDetectionDataset(ThreadedDataset):
     cmap = cmap / 255.
     labels = ('static', 'shadow', 'unknown', 'moving', 'non-roi')
 
+    _filenames = None
+
+    @property
+    def filenames(self):
+        if not self._filenames:
+            # Get file names for this set
+            self._filenames = os.listdir(self.image_path)
+            self._filenames.sort(key=natural_keys)
+
+        return self._filenames
+
     def __init__(self,
                  which_set='train',
                  threshold_masks=False,
@@ -59,10 +70,6 @@ class ChangeDetectionDataset(ThreadedDataset):
             print('No mask for the test set!!')
         else:
             raise RuntimeError('unknown set')
-
-        # Get file names for this set
-        self.filenames = os.listdir(self.image_path)
-        self.filenames.sort(key=natural_keys)
 
         super(ChangeDetectionDataset, self).__init__(*args, **kwargs)
 
