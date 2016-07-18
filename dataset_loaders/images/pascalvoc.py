@@ -88,7 +88,8 @@ class VOCdataset(ThreadedDataset):
         if (not self.seq_length or not self.seq_per_video or
                 self.seq_length >= video_length):
             # Use all possible frames
-            sequences = image_names[:max_num_sequences]
+            sequences = image_names[:max_num_sequences:
+                                    self.seq_length - self.overlap]
         else:
             if max_num_sequences < seq_per_video:
                 # If there are not enough frames, cap seq_per_video to
@@ -99,6 +100,9 @@ class VOCdataset(ThreadedDataset):
                                       video_length))
                 seq_per_video = max_num_sequences
 
+            if self.overlap != self.seq_length - 1:
+                raise('Overlap other than seq_length - 1 is not '
+                      'implemented')
             # pick `seq_per_video` random indexes between 0 and
             # (video length - sequence length)
             first_frame_indexes = self.rng.permutation(range(

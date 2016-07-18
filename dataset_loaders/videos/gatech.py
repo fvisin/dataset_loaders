@@ -125,8 +125,8 @@ class GatechDataset(ThreadedDataset):
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in
-                           frames[:max_num_frames:self.overlap]]:
+                for el in [(prefix, f) for f in frames[
+                        :max_num_frames:self.seq_length - self.overlap]]:
                     sequences.append(el)
             else:
                 # If there are not enough frames, cap seq_per_video to
@@ -137,6 +137,10 @@ class GatechDataset(ThreadedDataset):
                           "frames".format(seq_per_video, seq_length,
                                           prefix, video_length))
                     seq_per_video = max_num_frames
+
+                if self.overlap != self.seq_length - 1:
+                    raise('Overlap other than seq_length - 1 is not '
+                          'implemented')
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)

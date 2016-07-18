@@ -67,7 +67,7 @@ class ThreadedDataset(object):
                  nthreads=1,
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
-                 overlap=1,
+                 overlap=None,
                  rng=RandomState(0xbeef),
                  wait_time=0.05,
                  **kwargs):
@@ -96,7 +96,7 @@ class ThreadedDataset(object):
             shutil.copytree(self.sharedpath, self.path)
             print('Done.')
 
-        self.overlap = overlap
+        self.overlap = overlap if overlap is not None else seq_length - 1
         self.seq_per_video = seq_per_video
         self.return_sequence = seq_length != 0
         self.seq_length = seq_length if seq_length else 1
