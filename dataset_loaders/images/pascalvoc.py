@@ -23,7 +23,7 @@ class VOCdataset(ThreadedDataset):
 
     @property
     def filenames(self):
-        if not self._filenames:
+        if self._filenames is None:
             # Load filenames
             filenames = []
 

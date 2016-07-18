@@ -26,11 +26,10 @@ class PolypVideoDataset(ThreadedDataset):
 
     @property
     def filenames(self):
-        if not self._filenames:
+        if self._filenames is None:
             # Get file names for this set
             self._filenames = os.listdir(self.image_path)
             self._filenames.sort(key=natural_keys)
-
         return self._filenames
 
     def __init__(self,

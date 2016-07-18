@@ -34,14 +34,29 @@ class GatechDataset(ThreadedDataset):
               'cars', 'humans', 'vert mix', 'gen mix')
 
     _filenames = None
+    _prefix_list = None
+
+    @property
+    def prefix_list(self):
+        if self._prefix_list is None:
+            # Create a list of prefix out of the number of requested videos
+            all_prefix_list = np.unique(np.array([el[:el.index('_')]
+                                                  for el in self.filenames]))
+            nvideos = len(all_prefix_list)
+            nvideos_set = int(nvideos*self.split)
+            self._prefix_list = all_prefix_list[-nvideos_set:] \
+                if "val" in self.which_set else all_prefix_list[:nvideos_set]
+
+        return self._prefix_list
 
     @property
     def filenames(self):
-        if not self._filenames:
+        if self._filenames is None:
             # Get file names for this set
             self._filenames = os.listdir(self.image_path)
             self._filenames.sort(key=natural_keys)
 
+            # Note: will get modified by prefix_list
         return self._filenames
 
     def __init__(self,
@@ -86,24 +101,21 @@ class GatechDataset(ThreadedDataset):
         sequences = []
         seq_length = self.seq_length
 
-        all_prefix_list = np.unique(np.array([el[:el.index('_')]
-                                              for el in self.filenames]))
-
-        nvideos = len(all_prefix_list)
-        nvideos_set = int(nvideos*self.split)
-        prefix_list = all_prefix_list[-nvideos_set:] \
-            if "val" in self.which_set else all_prefix_list[:nvideos_set]
-
-        # update filenames list
-        self.filenames = [f for f in self.filenames if f[:f.index('_')]
-                          in prefix_list]
-
         self.video_length = {}
+
+        # Populate self.filenames and self.prefix_list
+        filenames = self.filenames
+        prefix_list = self.prefix_list
+
+        # Discard filenames of videos we don't care
+        filenames = [f for f in filenames if f[:f.index('_')]
+                     in prefix_list]
+
         # cycle through the different videos
         for prefix in prefix_list:
             seq_per_video = self.seq_per_video
             new_prefix = prefix + '_'
-            frames = [el for el in self.filenames if new_prefix in el and
+            frames = [el for el in filenames if new_prefix in el and
                       el.index(prefix+'_') == 0]
             video_length = len(frames)
             self.video_length[prefix] = video_length
@@ -113,7 +125,8 @@ class GatechDataset(ThreadedDataset):
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames[:max_num_frames:self.overlap]]:
+                for el in [(prefix, f) for f in
+                           frames[:max_num_frames:self.overlap]]:
                     sequences.append(el)
             else:
                 # If there are not enough frames, cap seq_per_video to

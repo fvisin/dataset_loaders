@@ -41,7 +41,7 @@ class CamvidDataset(ThreadedDataset):
 
     @property
     def filenames(self):
-        if not self._filenames:
+        if self._filenames is None:
             # Get file names for this set and year
             filenames = []
             with open(os.path.join(self.path, self.which_set + '.txt')) as f:
