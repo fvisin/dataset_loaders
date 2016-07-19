@@ -287,7 +287,7 @@ class ThreadedDataset(object):
             assert seq_x.ndim == 4
 
             # Crop
-            crop = self.crop_size
+            crop = list(self.crop_size) if self.crop_size else None
             if crop:
                 height, width = seq_x.shape[-3:-1]
 
@@ -310,16 +310,16 @@ class ThreadedDataset(object):
                 if self.has_GT:
                     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
 
-                    # Manage void classes
-                    void_l = self._void_labels
-                    for el in void_l:
-                        seq_y[seq_y == el] = self.nclasses
-                        for idx in range(el+1, self.nclasses):
-                            seq_y[seq_y == idx] = idx - 1
-
-                # if not _is_one_hot:
-                #     seq_x = seq_x[..., top:top+crop[0], left:left+crop[1], :]
-                #     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
+            if self.has_GT:
+                # Map all void classes to nclasses and shift the other values
+                # accordingly, so that the valid values are between 0 and
+                # nclasses-1 and the void_classes are all equal to nclasses.
+                void_l = self._void_labels
+                void_l.sort(reverse=True)
+                for el in void_l:
+                    seq_y[seq_y == el] = self.nclasses
+                    for idx in range(el+1, self.nclasses):
+                        seq_y[seq_y == idx] = idx - 1
 
             # Transform targets seq_y to one hot code if get_one_hot is
             # true
