@@ -1,6 +1,5 @@
 import numpy as np
 import os
-import time
 
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
@@ -40,101 +39,77 @@ class TestDataset(ThreadedDataset):
         return np.array(['test'])
 
     def load_sequence(self, first_frame):
-        img = np.random.random((10, 10, 1))
-        mask = np.array(range(10) * 10).reshape((10, 10))
+        max_label = self.nclasses + len(self._void_labels)
+        mask = np.array(range(max_label) * 8).reshape((max_label, 8))
+        img = np.random.random((self.nclasses, self.nclasses, 1))
+        print('Mask before remap: \n{}'.format(mask))
+        print('Max: {} \nExpected max after remap: {}'.format(mask.max(),
+                                                              self.nclasses))
+        print('Void labels: {}'.format(self._void_labels))
 
         return np.array([img]), np.array([mask])
 
 
-def test3():
-    trainiter = TestDataset(
-        batch_size=1,
-        crop_size=(224, 224),
-        get_one_hot=False)
+def test_one_hot_mapping():
+    from dataset_loaders.images.test import TestDataset
+    dd = TestDataset()
+    dd.nclasses = 10
+    dd._void_labels = [3, 5]
+    mapping = {0: 0, 1: 1, 2: 2, 3: 10, 4: 3, 5: 10, 6: 4, 7: 5, 8: 6,
+               9: 7, 10: 8, 11: 9}
+    inv_mapping = {0: 0, 1: 1, 2: 2, 3: 4, 4: 6, 5: 7, 6: 8, 7: 9, 8: 10,
+                   9: 11}
 
-    train_nsamples = trainiter.get_n_samples()
-    nclasses = trainiter.get_n_classes()
-    nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
-    print("Train %d" % (train_nsamples))
+    max_label = dd.nclasses + len(dd._void_labels)
+    original_aa = np.array(range(max_label) * 8).reshape((max_label, 8))
+    aa = dd.next()[1][0]
+    print(aa)
+    print('Max after remap: {}'.format(aa.max()))
 
-    start = time.time()
-    max_epochs = 5
+    for i in range(dd.nclasses + len(dd._void_labels)):
+        assert all(aa[original_aa == i] == mapping[i]), (
+            'Key {} failed. aa content: n{}'.format(
+                i, aa[original_aa == i]))
+    for i in range(dd.nclasses):
+        assert all(original_aa[aa == i] == inv_mapping[i]), (
+            'Key {} failed. original_aa content: n{}'.format(
+                i, original_aa[aa == i]))
+    assert all([el in dd._void_labels
+                for el in original_aa[aa == dd.nclasses]])
 
-    for epoch in range(max_epochs):
-        for mb in range(nbatches):
-            train_group = trainiter.next()
-
-            # train_group checks
-            assert train_group[0].ndim == 4
-            assert train_group[0].shape[0] <= train_batch_size
-            assert train_group[0].shape[1] == 224
-            assert train_group[0].shape[2] == 224
-            assert train_group[0].shape[3] == 3
-            assert train_group[0].min() >= 0
-            assert train_group[0].max() <= 1
-            assert train_group[1].ndim == 3
-            assert train_group[1].shape[0] <= train_batch_size
-            assert train_group[1].shape[1] == 224
-            assert train_group[1].shape[2] == 224
-            assert train_group[1].shape[3] == nclasses
-
-            # time.sleep approximates running some model
-            time.sleep(0.1)
-            stop = time.time()
-            tot = stop - start
-            print("Threaded time: %s" % (tot))
-            print("Minibatch %s" % str(mb))
-        print('ended epoch --> should reset!')
-        time.sleep(2)
+    print('Test successful!')
 
 
-def test1():
-    d = CamvidDataset(
-        which_set='train',
-        batch_size=5,
-        seq_per_video=4,
-        seq_length=0,
-        crop_size=(224, 224))
-    start = time.time()
-    n_minibatches_to_run = 1000
-    itr = 1
-    while True:
-        image_group = d.next()
-        if image_group is None:
-            raise NotImplementedError()
-        # time.sleep approximates running some model
-        time.sleep(1)
-        stop = time.time()
-        tot = stop - start
-        print("Minibatch %s" % str(itr))
-        print("Time ratio (s per minibatch): %s" % (tot / float(itr)))
-        print("Tot time: %s" % (tot))
-        itr += 1
-        # test
-        if itr >= n_minibatches_to_run:
-            break
+def test_one_hot_mapping2():
+    from dataset_loaders.images.test import TestDataset
+    dd = TestDataset()
+    dd.nclasses = 10
+    dd._void_labels = [0, 3, 5, 11]
+    mapping = {0: 10, 1: 0, 2: 1, 3: 10, 4: 2, 5: 10, 6: 3, 7: 4, 8: 5,
+               9: 6, 10: 7, 11: 10, 12: 8, 13: 9, 14: 10}
+    inv_mapping = {0: 1, 1: 2, 2: 4, 3: 6, 4: 7, 5: 8, 6: 9, 7: 10, 8: 12,
+                   9: 13, 10: 14}
+
+    max_label = dd.nclasses + len(dd._void_labels)
+    original_aa = np.array(range(max_label) * 8).reshape((max_label, 8))
+    aa = dd.next()[1][0]
+    print(aa)
+    print('Max after remap: {}'.format(aa.max()))
+
+    for i in range(dd.nclasses + len(dd._void_labels)):
+        assert all(aa[original_aa == i] == mapping[i]), (
+            'Key {} failed. aa content: n{}'.format(
+                i, aa[original_aa == i]))
+    for i in range(dd.nclasses):
+        assert all(original_aa[aa == i] == inv_mapping[i]), (
+            'Key {} failed. original_aa content: n{}'.format(
+                i, original_aa[aa == i]))
+    assert all([el in dd._void_labels
+                for el in original_aa[aa == dd.nclasses]])
+
+    print('Test successful!')
 
 
-def test2():
-    d = CamvidDataset(
-        which_set='train',
-        with_filenames=True,
-        batch_size=5,
-        seq_per_video=0,
-        seq_length=10,
-        overlap=10,
-        get_one_hot=True,
-        crop_size=(224, 224))
-    for i, _ in enumerate(range(d.epoch_length)):
-        image_group = d.next()
-        if image_group is None:
-            raise NotImplementedError()
-        sh = image_group[0].shape
-        print(image_group[2])
-        if sh[1] != 2:
-            raise RuntimeError()
-
-
-if __name__ == '__main__':
-    test2()
+if __name__ == "__main__":
+    test_one_hot_mapping()
+    test_one_hot_mapping2()
