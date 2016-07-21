@@ -316,13 +316,25 @@ class ThreadedDataset(object):
                 # nclasses-1 and the void_classes are all equal to nclasses.
                 void_l = self._void_labels
                 void_l.sort(reverse=True)
-                for el in void_l:
-                    seq_y[seq_y == el] = self.nclasses
-                    for idx in range(el+1, self.nclasses):
-                        seq_y[seq_y == idx] = idx - 1
+                mapping = {}
+                delta = 0
+                # Prepare the mapping
+                for i in range(self.nclasses + len(self._void_labels)):
+                    if i in self._void_labels:
+                        mapping[i] = self.nclasses
+                        delta += 1
+                    else:
+                        mapping[i] = i - delta
+                # Apply the mapping
+                seq_y[seq_y == self.nclasses] = -1
+                for i in range(self.nclasses + len(self._void_labels)):
+                    if i == self.nclasses:
+                        continue
+                    seq_y[seq_y == i] = mapping[i]
+                seq_y[seq_y == -1] = mapping[self.nclasses]
 
-            # Transform targets seq_y to one hot code if get_one_hot is
-            # true
+            # Transform targets seq_y to one hot code if get_one_hot
+            # is True
             if self.has_GT and self.get_one_hot:
                 nc = (self.nclasses if self._void_labels == [] else
                       self.nclasses + 1)
@@ -341,24 +353,6 @@ class ThreadedDataset(object):
                 seq_x = seq_x.transpose([0, 3, 1, 2])
                 if self.has_GT and self.get_one_hot:
                     seq_y = seq_y.transpose([0, 3, 1, 2])
-
-            # if self._is_one_hot != self.get_one_hot:
-            #     if self._is_one_hot and self.get_01c:
-            #         seq_y = seq_y.argmax(-1)
-            #     elif self._is_one_hot and not self.get_01c:
-            #         seq_y = seq_y.argmax(-3)
-            #     else:
-            #         nc = self.nclasses
-            #         sh = seq_y.shape
-            #         seq_y = seq_y.flatten()
-            #         seq_y_hot = np.zeros((seq_y.shape[0], nc), dtype='int32')
-            #         seq_y = seq_y.astype('int32')
-            #         seq_y_hot[range(seq_y.shape[0]), Y] = 1
-            #         seq_y_hot = seq_y_hot.reshape(sh + (nc,))
-            #         if not self.get_01c:
-            #             # b,s,0,1,c --> b,s,c,0,1
-            #             seq_y_hot = seq_y_hot.transpose([0, 1, 4, 2, 3])
-            #         seq_y = seq_y_hot
 
             # Return 4D images
             if not self.return_sequence:
