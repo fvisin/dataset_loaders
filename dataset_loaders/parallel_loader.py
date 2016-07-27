@@ -68,8 +68,10 @@ class ThreadedDataset(object):
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
                  overlap=None,
-                 remove_mean=False,
-                 divide_by_std=False,
+                 remove_mean=False,  # dataset stats
+                 divide_by_std=False,  # dataset stats
+                 remove_per_img_mean=False,  # img stats
+                 divide_by_per_img_std=False,  # img stats
                  rng=RandomState(0xbeef),
                  wait_time=0.05,
                  **kwargs):
@@ -80,6 +82,17 @@ class ThreadedDataset(object):
         if nthreads > 1 and not shuffle_at_each_epoch:
             raise NotImplementedError('Multiple threads are not order '
                                       'preserving')
+
+        # Check that the implementing class has all the mandatory arguments
+        mandatory_args = ['name', 'nclasses', 'debug_shape',
+                          '_void_labels']
+        missing_args = []
+        for arg in mandatory_args:
+            if not hasattr(self.__class__, arg):
+                missing_args.append(arg)
+        if missing_args != []:
+            raise NameError('Mandatory argument(s) missing: {}'.format(
+                missing_args))
 
         # for attr in ['name', 'nclasses', '_is_one_hot', '_is_01c',
         #             'debug_shape', 'path', 'sharedpath']:
@@ -117,8 +130,10 @@ class ThreadedDataset(object):
         self.sentinel = object()  # guaranteed unique reference
         self.wait_time = wait_time
         self.data_fetchers = []
-        self.divide_by_std=divide_by_std
-        self.remove_mean=remove_mean
+        self.remove_mean = remove_mean
+        self.divide_by_std = divide_by_std
+        self.remove_per_img_mean = remove_per_img_mean
+        self.divide_by_per_img_std = divide_by_per_img_std
 
         # self.names_list = self.get_names()
         # if len(self.names_list) == 0:
@@ -284,6 +299,19 @@ class ThreadedDataset(object):
             # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
             seq_x, seq_y = ret[0:2]
+
+            # Per-image normalization
+            if self.remove_per_img_mean:
+                seq_x -= seq_x.mean(axis=range(seq_x.ndim - 1), keepdims=True)
+            if self.divide_by_per_img_std:
+                seq_x /= seq_x.std(axis=range(seq_x.ndim - 1), keepdims=True)
+
+            # Dataset statistics normalization
+            if self.remove_mean:
+                seq_x -= getattr(self, 'mean', 0)
+            if self.divide_by_std:
+                seq_x /= getattr(self, 'std', 1)
+
             # assert seq_x.max() <= 1
             if seq_x.ndim == 3:
                 seq_x = seq_x[np.newaxis, ...]

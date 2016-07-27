@@ -158,11 +158,7 @@ class CamvidDataset(ThreadedDataset):
         X = np.array(X)
         Y = np.array(Y)
         F = np.array(F)
-        # local contrast normalization
-        if self.remove_mean:
-            X -= np.mean(X, axis=(0, 1, 2), keepdims=True)
-        if self.divide_by_std:
-            X /= np.std(X, axis=(0, 1, 2), keepdims=True)
+
         if self.with_filenames:
             return X, Y, F
         else:
