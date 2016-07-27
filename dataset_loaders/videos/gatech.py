@@ -139,8 +139,8 @@ class GatechDataset(ThreadedDataset):
                     seq_per_video = max_num_frames
 
                 if self.overlap != self.seq_length - 1:
-                    raise('Overlap other than seq_length - 1 is not '
-                          'implemented')
+                    raise NotImplementedError('Overlap other than seq_length '
+                                              '- 1 is not implemented')
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)
