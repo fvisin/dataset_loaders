@@ -314,7 +314,7 @@ class ThreadedDataset(object):
                 if self.has_GT:
                     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
 
-            if self.has_GT:
+            if self.has_GT and self._void_labels != []:
                 # Map all void classes to nclasses and shift the other values
                 # accordingly, so that the valid values are between 0 and
                 # nclasses-1 and the void_classes are all equal to nclasses.
