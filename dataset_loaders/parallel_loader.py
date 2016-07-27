@@ -68,6 +68,8 @@ class ThreadedDataset(object):
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
                  overlap=None,
+                 remove_mean=False,
+                 divide_by_std=False,
                  rng=RandomState(0xbeef),
                  wait_time=0.05,
                  **kwargs):
@@ -115,6 +117,8 @@ class ThreadedDataset(object):
         self.sentinel = object()  # guaranteed unique reference
         self.wait_time = wait_time
         self.data_fetchers = []
+        self.divide_by_std=divide_by_std
+        self.remove_mean=remove_mean
 
         # self.names_list = self.get_names()
         # if len(self.names_list) == 0:
@@ -280,7 +284,7 @@ class ThreadedDataset(object):
             # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
             seq_x, seq_y = ret[0:2]
-            assert seq_x.max() <= 1
+            # assert seq_x.max() <= 1
             if seq_x.ndim == 3:
                 seq_x = seq_x[np.newaxis, ...]
                 seq_y = seq_y[np.newaxis, ...]
