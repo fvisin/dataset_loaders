@@ -35,6 +35,21 @@ class ChangeDetectionDataset(ThreadedDataset):
     labels = ('static', 'shadow', 'unknown', 'moving', 'non-roi')
 
     _filenames = None
+    _prefix_list = None
+
+    @property
+    def prefix_list(self):
+        if self._prefix_list is None:
+            # Create a list of prefix out of the number of requested videos
+            all_prefix_list = np.unique(np.array([el[:el.index('_')]
+                                                  for el in self.filenames]))
+            nvideos = len(all_prefix_list)
+            nvideos_set = int(nvideos*self.split)
+            self._prefix_list = (all_prefix_list[-nvideos_set:] if
+                                 self.which_set == 'val' else
+                                 all_prefix_list[:nvideos_set])
+
+        return self._prefix_list
 
     @property
     def filenames(self):
@@ -42,6 +57,9 @@ class ChangeDetectionDataset(ThreadedDataset):
             # Get file names for this set
             self._filenames = os.listdir(self.image_path)
             self._filenames.sort(key=natural_keys)
+            # update filenames list
+            self._filenames = [f for f in self._filenames if f[:f.index('_')]
+                               in self.prefix_list]
         return self._filenames
 
     def __init__(self,
@@ -76,21 +94,9 @@ class ChangeDetectionDataset(ThreadedDataset):
         sequences = []
         seq_length = self.seq_length
 
-        all_prefix_list = np.unique(np.array([el[:el.index('_')]
-                                              for el in self.filenames]))
-
-        nvideos = len(all_prefix_list)
-        nvideos_set = int(nvideos*self.split)
-        prefix_list = all_prefix_list[-nvideos_set:] \
-            if self.which_set == "val" else all_prefix_list[:nvideos_set]
-
-        # update filenames list
-        self.filenames = [f for f in self.filenames if f[:f.index('_')]
-                          in prefix_list]
-
         self.video_length = {}
         # cycle through the different videos
-        for prefix in prefix_list:
+        for prefix in self.prefix_list:
             seq_per_video = self.seq_per_video
             new_prefix = prefix + '_'
             frames = [el for el in self.filenames if new_prefix in el and
