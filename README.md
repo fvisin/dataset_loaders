@@ -9,3 +9,7 @@ This repository contains some loaders for commonly used datasets.
    `ln -s /path/to/datasets/ $HOME/dataset_loaders/dataset_loaders/datasets`
    Be sure to use a full path (from `/` or `$HOME`) or the symbolic link won't
    work.
+4. To use the MS COCO dataset, you also need to do the following:
+
+    cd dataset_loaders/images/coco/PythonAPI
+    make all
