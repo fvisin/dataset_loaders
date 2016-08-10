@@ -15,7 +15,7 @@ class Polyps300Dataset(ThreadedDataset):
     data_shape = (384, 288, 3)
     mean = 0.
     std = 1.
-    void_labels = [0]
+    _void_labels = [4]
     # cmap = np.array([
     #     (0),    # Void
     #     (1),    # Background
@@ -205,8 +205,8 @@ class Polyps300Dataset(ThreadedDataset):
         # Load mask
         mask = np.array(io.imread(os.path.join(mask_path, img_name + ".tif")))
         mask = mask.astype('int32')
-        #mask[mask == 0] = 5  # Set the void mask value to 5 instead to 0
-        #mask = mask - 1  # Start the first class as 0 instead in 1
+        mask[mask == 0] = 5  # Set the void mask value to 5 instead to 0
+        mask = mask - 1  # Start the first class as 0 instead in 1
         # print 'Mask shape: ' + str(mask.shape)
         # print 'Mask: ' + str(mask)
 
