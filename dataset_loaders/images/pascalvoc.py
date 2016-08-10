@@ -17,7 +17,26 @@ class VOCdataset(ThreadedDataset):
     mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
         'float32')
     std = 1.
-    void_labels = [21]
+    _void_labels = [21]
+
+    _filenames = None
+
+    @property
+    def filenames(self):
+        if self._filenames is None:
+            # Load filenames
+            filenames = []
+
+            # Get paths for this year
+            with open(os.path.join(
+                    self.txt_path, self.which_set + ".txt")) as f:
+
+                # Get file names for this set and year
+                for fi in f.readlines():
+                    raw_name = fi.strip()
+                    filenames.append(raw_name)
+            self._filenames = filenames
+        return self._filenames
 
     def __init__(self,
                  which_set="train",
@@ -29,6 +48,9 @@ class VOCdataset(ThreadedDataset):
                  *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
+        if self.which_set not in ("train", "trainval", "val", "test"):
+            raise ValueError("Unknown argument to which_set %s" %
+                             self.which_set)
         if self.which_set == "test" and year != "VOC2012":
             raise ValueError("No test set for other than 2012 year")
         if self.which_set == 'test':
@@ -55,39 +77,19 @@ class VOCdataset(ThreadedDataset):
         super(VOCdataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
-        # Get filenames for the current set
-        def read_filenames(seg_file):
-
-            image_filenames = []
-
-            # Get paths for this year
-            filenames_file = os.path.join(self.txt_path, seg_file)
-
-            # Get file names for this set and year
-            with open(filenames_file) as f:
-                for fi in f.readlines():
-                    raw_name = fi.strip()
-                    image_filenames.append(raw_name)
-
-            return image_filenames
-
-        # Load filenames
-        if self.which_set in ("train", "trainval", "val", "test"):
-            image_names = read_filenames(self.which_set + ".txt")
-        else:
-            raise ValueError("Unknown argument to which_set %s" %
-                             self.which_set)
 
         # Limit to the number of videos we want
         sequences = []
         seq_length = self.seq_length
         seq_per_video = self.seq_per_video
+        image_names = self.filenames
         video_length = len(image_names)
         max_num_sequences = video_length - seq_length + 1
         if (not self.seq_length or not self.seq_per_video or
                 self.seq_length >= video_length):
             # Use all possible frames
-            sequences = image_names[:max_num_sequences]
+            sequences = image_names[:max_num_sequences:
+                                    self.seq_length - self.overlap]
         else:
             if max_num_sequences < seq_per_video:
                 # If there are not enough frames, cap seq_per_video to
@@ -98,6 +100,9 @@ class VOCdataset(ThreadedDataset):
                                       video_length))
                 seq_per_video = max_num_sequences
 
+            if self.overlap != self.seq_length - 1:
+                raise('Overlap other than seq_length - 1 is not '
+                      'implemented')
             # pick `seq_per_video` random indexes between 0 and
             # (video length - sequence length)
             first_frame_indexes = self.rng.permutation(range(

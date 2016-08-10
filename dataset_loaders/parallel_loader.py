@@ -68,6 +68,11 @@ class ThreadedDataset(object):
                  nthreads=1,
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
+                 overlap=None,
+                 remove_mean=False,  # dataset stats
+                 divide_by_std=False,  # dataset stats
+                 remove_per_img_mean=False,  # img stats
+                 divide_by_per_img_std=False,  # img stats
                  rng=RandomState(0xbeef),
                  wait_time=0.05,
                  **kwargs):
@@ -78,6 +83,17 @@ class ThreadedDataset(object):
         if nthreads > 1 and not shuffle_at_each_epoch:
             raise NotImplementedError('Multiple threads are not order '
                                       'preserving')
+
+        # Check that the implementing class has all the mandatory arguments
+        mandatory_args = ['name', 'nclasses', 'debug_shape',
+                          '_void_labels']
+        missing_args = []
+        for arg in mandatory_args:
+            if not hasattr(self.__class__, arg):
+                missing_args.append(arg)
+        if missing_args != []:
+            raise NameError('Mandatory argument(s) missing: {}'.format(
+                missing_args))
 
         # for attr in ['name', 'nclasses', '_is_one_hot', '_is_01c',
         #             'debug_shape', 'path', 'sharedpath']:
@@ -96,6 +112,7 @@ class ThreadedDataset(object):
             shutil.copytree(self.sharedpath, self.path)
             print('Done.')
 
+        self.overlap = overlap if overlap is not None else seq_length - 1
         self.seq_per_video = seq_per_video
         self.return_sequence = seq_length != 0
         self.seq_length = seq_length if seq_length else 1
@@ -114,6 +131,10 @@ class ThreadedDataset(object):
         self.sentinel = object()  # guaranteed unique reference
         self.wait_time = wait_time
         self.data_fetchers = []
+        self.remove_mean = remove_mean
+        self.divide_by_std = divide_by_std
+        self.remove_per_img_mean = remove_per_img_mean
+        self.divide_by_per_img_std = divide_by_per_img_std
 
         # self.names_list = self.get_names()
         # if len(self.names_list) == 0:
@@ -279,27 +300,42 @@ class ThreadedDataset(object):
             # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
             seq_x, seq_y = ret[0:2]
-            assert seq_x.max() <= 1
+
+            # Per-image normalization
+            if self.remove_per_img_mean:
+                seq_x -= seq_x.mean(axis=range(seq_x.ndim - 1), keepdims=True)
+            if self.divide_by_per_img_std:
+                seq_x /= seq_x.std(axis=range(seq_x.ndim - 1), keepdims=True)
+
+            # Dataset statistics normalization
+            if self.remove_mean:
+                seq_x -= getattr(self, 'mean', 0)
+            if self.divide_by_std:
+                seq_x /= getattr(self, 'std', 1)
+
+            # assert seq_x.max() <= 1
             if seq_x.ndim == 3:
                 seq_x = seq_x[np.newaxis, ...]
                 seq_y = seq_y[np.newaxis, ...]
             assert seq_x.ndim == 4
 
             # Crop
-            crop = self.crop_size
+            crop = list(self.crop_size) if self.crop_size else None
             if crop:
                 height, width = seq_x.shape[-3:-1]
 
                 if crop[0] < height:
                     top = self.rng.randint(height - crop[0])
                 else:
-                    print('Dataset loader: Crop size exceeds image size')
+                    print('Dataset loader: Crop height greater or equal to '
+                          'image size')
                     top = 0
                     crop[0] = height
                 if crop[1] < width:
                     left = self.rng.randint(width - crop[1])
                 else:
-                    print('Dataset loader: Crop size exceeds image size')
+                    print('Dataset loader: Crop width greater or equal to '
+                          'image size')
                     left = 0
                     crop[1] = width
 
@@ -307,21 +343,33 @@ class ThreadedDataset(object):
                 if self.has_GT:
                     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
 
-                    # Manage void classes
-                    void_l = self.void_labels
-                    for el in void_l:
-                        seq_y[seq_y == el] = self.nclasses + 1
-                        for idx in range(el+1, self.nclasses + 2):
-                            seq_y[seq_y == idx] = idx - 1
+            if self.has_GT and self._void_labels != []:
+                # Map all void classes to nclasses and shift the other values
+                # accordingly, so that the valid values are between 0 and
+                # nclasses-1 and the void_classes are all equal to nclasses.
+                void_l = self._void_labels
+                void_l.sort(reverse=True)
+                mapping = {}
+                delta = 0
+                # Prepare the mapping
+                for i in range(self.nclasses + len(self._void_labels)):
+                    if i in self._void_labels:
+                        mapping[i] = self.nclasses
+                        delta += 1
+                    else:
+                        mapping[i] = i - delta
+                # Apply the mapping
+                seq_y[seq_y == self.nclasses] = -1
+                for i in range(self.nclasses + len(self._void_labels)):
+                    if i == self.nclasses:
+                        continue
+                    seq_y[seq_y == i] = mapping[i]
+                seq_y[seq_y == -1] = mapping[self.nclasses]
 
-                # if not _is_one_hot:
-                #     seq_x = seq_x[..., top:top+crop[0], left:left+crop[1], :]
-                #     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
-
-            # Transform targets seq_y to one hot code if get_one_hot is
-            # true
+            # Transform targets seq_y to one hot code if get_one_hot
+            # is True
             if self.has_GT and self.get_one_hot:
-                nc = (self.nclasses if self.void_labels == [] else
+                nc = (self.nclasses if self._void_labels == [] else
                       self.nclasses + 1)
                 sh = seq_y.shape
                 seq_y = seq_y.flatten()
@@ -338,24 +386,6 @@ class ThreadedDataset(object):
                 seq_x = seq_x.transpose([0, 3, 1, 2])
                 if self.has_GT and self.get_one_hot:
                     seq_y = seq_y.transpose([0, 3, 1, 2])
-
-            # if self._is_one_hot != self.get_one_hot:
-            #     if self._is_one_hot and self.get_01c:
-            #         seq_y = seq_y.argmax(-1)
-            #     elif self._is_one_hot and not self.get_01c:
-            #         seq_y = seq_y.argmax(-3)
-            #     else:
-            #         nc = self.nclasses
-            #         sh = seq_y.shape
-            #         seq_y = seq_y.flatten()
-            #         seq_y_hot = np.zeros((seq_y.shape[0], nc), dtype='int32')
-            #         seq_y = seq_y.astype('int32')
-            #         seq_y_hot[range(seq_y.shape[0]), Y] = 1
-            #         seq_y_hot = seq_y_hot.reshape(sh + (nc,))
-            #         if not self.get_01c:
-            #             # b,s,0,1,c --> b,s,c,0,1
-            #             seq_y_hot = seq_y_hot.transpose([0, 1, 4, 2, 3])
-            #         seq_y = seq_y_hot
 
             # Return 4D images
             if not self.return_sequence:
@@ -383,8 +413,11 @@ class ThreadedDataset(object):
     def get_std(self):
         return getattr(self, 'std', [])
 
-    def get_void_labels(self):
-        return getattr(self, 'void_labels', [])
+    @classmethod
+    def get_void_label(self):
+        vl = getattr(self, '_void_labels', [])
+        vl = [] if vl == [] else [self.nclasses]
+        return vl
 
     def get_cmap(self):
         return getattr(self, 'cmap', [])

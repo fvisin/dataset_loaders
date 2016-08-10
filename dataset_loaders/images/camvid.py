@@ -18,7 +18,7 @@ class CamvidDataset(ThreadedDataset):
     data_shape = (360, 480, 3)
     mean = 0.
     std = 1.
-    void_labels = [11]
+    _void_labels = [11]
     cmap = np.array([
         (128, 128, 128),    # sky
         (128, 0, 0),        # building
@@ -36,6 +36,22 @@ class CamvidDataset(ThreadedDataset):
     labels = ('sky', 'building', 'column_pole', 'road', 'sidewalk',
               'tree', 'sign', 'fence', 'car', 'pedestrian', 'byciclist',
               'void')
+
+    _filenames = None
+
+    @property
+    def filenames(self):
+        if self._filenames is None:
+            # Get file names for this set and year
+            filenames = []
+            with open(os.path.join(self.path, self.which_set + '.txt')) as f:
+                for fi in f.readlines():
+                    raw_name = fi.strip()
+                    raw_name = raw_name.split("/")[4]
+                    raw_name = raw_name.strip()
+                    filenames.append(raw_name)
+            self._filenames = filenames
+        return self._filenames
 
     def __init__(self, which_set='train', with_filenames=False, *args,
                  **kwargs):
@@ -56,16 +72,8 @@ class CamvidDataset(ThreadedDataset):
             self.image_path = os.path.join(self.path, "test")
             self.mask_path = os.path.join(self.path, "testannot")
 
-        # Get file names for this set and year
-        filenames = []
-        with open(os.path.join(self.path, self.which_set + '.txt')) as f:
-            for fi in f.readlines():
-                raw_name = fi.strip()
-                raw_name = raw_name.split("/")[4]
-                raw_name = raw_name.strip()
-                filenames.append(raw_name)
-        self.filenames = filenames
-
+        # constructing the ThreadedDataset
+        # it also creates/copies the dataset in self.path if not already there
         super(CamvidDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
@@ -87,7 +95,8 @@ class CamvidDataset(ThreadedDataset):
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames[:max_num_sequences]]:
+                for el in [(prefix, f) for f in frames[
+                        :max_num_sequences:self.seq_length - self.overlap]]:
                     sequences.append(el)
             else:
                 if max_num_sequences < seq_per_video:
@@ -98,6 +107,10 @@ class CamvidDataset(ThreadedDataset):
                           "frames".format(seq_per_video, seq_length,
                                           prefix, video_length))
                     seq_per_video = max_num_sequences
+
+                if self.overlap != self.seq_length - 1:
+                    raise('Overlap other than seq_length - 1 is not '
+                          'implemented')
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)
@@ -142,10 +155,14 @@ class CamvidDataset(ThreadedDataset):
             Y.append(mask)
             F.append(frame)
 
+        X = np.array(X)
+        Y = np.array(Y)
+        F = np.array(F)
+
         if self.with_filenames:
-            return np.array(X), np.array(Y), np.array(F)
+            return X, Y, F
         else:
-            return np.array(X), np.array(Y)
+            return X, Y
 
 
 def test3():
@@ -228,9 +245,11 @@ def test1():
 def test2():
     d = CamvidDataset(
         which_set='train',
+        with_filenames=True,
         batch_size=5,
         seq_per_video=0,
-        seq_length=0,
+        seq_length=10,
+        overlap=10,
         get_one_hot=True,
         crop_size=(224, 224))
     for i, _ in enumerate(range(d.epoch_length)):
@@ -238,9 +257,10 @@ def test2():
         if image_group is None:
             raise NotImplementedError()
         sh = image_group[0].shape
+        print(image_group[2])
         if sh[1] != 2:
             raise RuntimeError()
 
 
 if __name__ == '__main__':
-    test1()
+    test2()

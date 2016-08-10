@@ -13,7 +13,7 @@ floatX = 'float32'
 class PolypVideoDataset(ThreadedDataset):
     name = 'colonoscopyVideos'
     nclasses = 2
-    void_labels = []
+    _void_labels = []
     debug_shape = (288, 384, 3)
 
     cmap = np.array([
@@ -21,6 +21,16 @@ class PolypVideoDataset(ThreadedDataset):
         (0, 0, 0)])  # background
     cmap = cmap / 255
     labels = ('polyp', 'background')
+
+    _filenames = None
+
+    @property
+    def filenames(self):
+        if self._filenames is None:
+            # Get file names for this set
+            self._filenames = os.listdir(self.image_path)
+            self._filenames.sort(key=natural_keys)
+        return self._filenames
 
     def __init__(self,
                  which_set='train',
@@ -63,10 +73,6 @@ class PolypVideoDataset(ThreadedDataset):
         sequences = []
         seq_length = self.seq_length
 
-        # Get file names for this set
-        self.filenames = os.listdir(self.image_path)
-        self.filenames.sort(key=natural_keys)
-
         all_prefix_list = np.unique(np.array([el[:el.index('_')]
                                               for el in self.filenames]))
 
@@ -94,7 +100,8 @@ class PolypVideoDataset(ThreadedDataset):
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames[:max_num_frames]]:
+                for el in [(prefix, f) for f in frames[
+                        :max_num_frames:self.seq_length - self.overlap]]:
                     sequences.append(el)
             else:
                 # If there are not enough frames, cap seq_per_video to
@@ -105,6 +112,10 @@ class PolypVideoDataset(ThreadedDataset):
                           "frames".format(seq_per_video, seq_length,
                                           prefix, video_length))
                     seq_per_video = max_num_frames
+
+                if self.overlap != self.seq_length - 1:
+                    raise('Overlap other than seq_length - 1 is not '
+                          'implemented')
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)

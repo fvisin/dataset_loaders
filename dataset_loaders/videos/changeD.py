@@ -15,7 +15,7 @@ class_ids = {'0': 0, '50': 1, '85': 4, '170': 2, '255': 3}
 class ChangeDetectionDataset(ThreadedDataset):
     name = 'changeD'
     nclasses = 4
-    void_labels = [4]
+    _void_labels = [4]
     mean = [0.45483398, 0.4387207, 0.40405273]
     std = [0.04758175, 0.04148954, 0.05489637]
     _is_one_hot = False
@@ -34,6 +34,34 @@ class ChangeDetectionDataset(ThreadedDataset):
     cmap = cmap / 255.
     labels = ('static', 'shadow', 'unknown', 'moving', 'non-roi')
 
+    _filenames = None
+    _prefix_list = None
+
+    @property
+    def prefix_list(self):
+        if self._prefix_list is None:
+            # Create a list of prefix out of the number of requested videos
+            all_prefix_list = np.unique(np.array([el[:el.index('_')]
+                                                  for el in self.filenames]))
+            nvideos = len(all_prefix_list)
+            nvideos_set = int(nvideos*self.split)
+            self._prefix_list = (all_prefix_list[-nvideos_set:] if
+                                 self.which_set == 'val' else
+                                 all_prefix_list[:nvideos_set])
+
+        return self._prefix_list
+
+    @property
+    def filenames(self):
+        if self._filenames is None:
+            # Get file names for this set
+            self._filenames = os.listdir(self.image_path)
+            self._filenames.sort(key=natural_keys)
+            # update filenames list
+            self._filenames = [f for f in self._filenames if f[:f.index('_')]
+                               in self.prefix_list]
+        return self._filenames
+
     def __init__(self,
                  which_set='train',
                  threshold_masks=False,
@@ -43,8 +71,6 @@ class ChangeDetectionDataset(ThreadedDataset):
         self.which_set = 'val' if which_set == 'valid' else which_set
         self.threshold_masks = threshold_masks
         self.with_filenames = with_filenames
-
-        self.void_labels = ChangeDetectionDataset.void_labels
 
         # Prepare data paths
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
@@ -62,31 +88,15 @@ class ChangeDetectionDataset(ThreadedDataset):
         else:
             raise RuntimeError('unknown set')
 
-        # Get file names for this set
-        self.filenames = os.listdir(self.image_path)
-        self.filenames.sort(key=natural_keys)
-
         super(ChangeDetectionDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         sequences = []
         seq_length = self.seq_length
 
-        all_prefix_list = np.unique(np.array([el[:el.index('_')]
-                                              for el in self.filenames]))
-
-        nvideos = len(all_prefix_list)
-        nvideos_set = int(nvideos*self.split)
-        prefix_list = all_prefix_list[-nvideos_set:] \
-            if self.which_set == "val" else all_prefix_list[:nvideos_set]
-
-        # update filenames list
-        self.filenames = [f for f in self.filenames if f[:f.index('_')]
-                          in prefix_list]
-
         self.video_length = {}
         # cycle through the different videos
-        for prefix in prefix_list:
+        for prefix in self.prefix_list:
             seq_per_video = self.seq_per_video
             new_prefix = prefix + '_'
             frames = [el for el in self.filenames if new_prefix in el and
@@ -98,7 +108,8 @@ class ChangeDetectionDataset(ThreadedDataset):
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames[:max_num_frames]]:
+                for el in [(prefix, f) for f in frames[
+                        :max_num_frames:self.seq_length - self.overlap]]:
                     sequences.append(el)
             else:
                 # If there are not enough frames, cap seq_per_video to
@@ -110,6 +121,10 @@ class ChangeDetectionDataset(ThreadedDataset):
                           "frames".format(seq_per_video, seq_length,
                                           prefix, video_length))
                     seq_per_video = max_num_sequences
+
+                if self.overlap != self.seq_length - 1:
+                    raise('Overlap other than seq_length - 1 is not '
+                          'implemented')
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)
@@ -161,9 +176,6 @@ class ChangeDetectionDataset(ThreadedDataset):
             return np.array(X), np.array(Y), np.array(F)
         else:
             return np.array(X), np.array(Y)
-
-    def get_void_labels(self):
-        return self.void_labels
 
 
 if __name__ == '__main__':

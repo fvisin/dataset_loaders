@@ -10,10 +10,10 @@ from dataset_loaders.utils_parallel_loader import natural_keys
 floatX = 'float32'
 
 
-class GatechDataset(ThreadedDataset):
-    name = 'gatech'
-    nclasses = 8
-    _void_labels = [0]
+class DavisDataset(ThreadedDataset):
+    name = 'davis'
+    nclasses = 2
+    _void_labels = []
     debug_shape = (360, 640, 3)
     mean = [0.484375, 0.4987793, 0.46508789]
     std = [0.07699376, 0.06672145, 0.09592211]
@@ -30,8 +30,7 @@ class GatechDataset(ThreadedDataset):
         (160, 160, 160),    # vert mix
         (64, 64, 64)])      # main mix
     cmap = cmap / 255.
-    labels = ('wtf', 'sky', 'ground', 'solid', 'porous',
-              'cars', 'humans', 'vert mix', 'gen mix')
+    labels = ('background', 'forground')
 
     _filenames = None
     _prefix_list = None
@@ -40,8 +39,7 @@ class GatechDataset(ThreadedDataset):
     def prefix_list(self):
         if self._prefix_list is None:
             # Create a list of prefix out of the number of requested videos
-            all_prefix_list = np.unique(np.array([el[:el.index('_')]
-                                                  for el in self.filenames]))
+            all_prefix_list = np.unique(np.array(os.listdir(self.image_path)))
             nvideos = len(all_prefix_list)
             nvideos_set = int(nvideos*self.split)
             self._prefix_list = all_prefix_list[-nvideos_set:] \
@@ -52,8 +50,13 @@ class GatechDataset(ThreadedDataset):
     @property
     def filenames(self):
         if self._filenames is None:
+            self._filenames = []
             # Get file names for this set
-            self._filenames = os.listdir(self.image_path)
+            for root, dirs, files in os.walk(self.image_path):
+                for name in files:
+                        self._filenames.append(os.path.join(
+                          root[-root[::-1].index('/'):], name[:-3]))
+
             self._filenames.sort(key=natural_keys)
 
             # Note: will get modified by prefix_list
@@ -71,31 +74,24 @@ class GatechDataset(ThreadedDataset):
         self.with_filenames = with_filenames
 
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                                 'GATECH')
-        self.sharedpath = '/data/lisatmp4/dejoieti/data/GATECH/'
+                                 'Davis', 'davis')
+        self.sharedpath = '/data/lisatmp4/dejoieti/data/Davis/'
 
         # Prepare data paths
         if 'train' in self.which_set or 'val' in self.which_set:
             self.split = split if self.which_set == "train" else (1 - split)
-            if 'fcn8' in self.which_set:
-                self.image_path = os.path.join(self.path, 'Images',
-                                               'After_fcn8')
-            else:
-                self.image_path = os.path.join(self.path, 'Images',
-                                               'Original')
-            self.mask_path = os.path.join(self.path, 'Images', 'Ground_Truth')
-        elif 'test' in self.which_set:
-            self.image_path = \
-                os.path.join(self.path, 'Images_test', 'Original')
-            self.mask_path = os.path.join(self.path, 'Images_test',
-                                          'Ground_Truth')
-            self.split = split
-            if 'fcn8' in self.which_set:
-                raise RuntimeError('FCN8 outputs not available for test set')
+            self.image_path = os.path.join(self.path, 'JPEGImages', '1080p')
+            self.mask_path = os.path.join(self.path, 'Annotations', '1080p')
+        # elif 'test' in self.which_set:
+        #     self.image_path = \
+        #         os.path.join(self.path, 'Images_test', 'Original')
+        #     self.mask_path = os.path.join(self.path, 'Images_test',
+        #                                   'Ground_Truth')
+        #     self.split = split
         else:
             raise RuntimeError('Unknown set')
 
-        super(GatechDataset, self).__init__(*args, **kwargs)
+        super(DavisDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         sequences = []
@@ -108,15 +104,15 @@ class GatechDataset(ThreadedDataset):
         prefix_list = self.prefix_list
 
         # Discard filenames of videos we don't care
-        filenames = [f for f in filenames if f[:f.index('_')]
+        filenames = [f for f in filenames if f[:f.index('/')]
                      in prefix_list]
 
         # cycle through the different videos
         for prefix in prefix_list:
             seq_per_video = self.seq_per_video
-            new_prefix = prefix + '_'
+            new_prefix = prefix + '/'
             frames = [el for el in filenames if new_prefix in el and
-                      el.index(prefix+'_') == 0]
+                      el.index(prefix+'/') == 0]
             video_length = len(frames)
             self.video_length[prefix] = video_length
 
@@ -139,8 +135,8 @@ class GatechDataset(ThreadedDataset):
                     seq_per_video = max_num_frames
 
                 if self.overlap != self.seq_length - 1:
-                    raise NotImplementedError('Overlap other than seq_length '
-                                              '- 1 is not implemented')
+                    raise('Overlap other than seq_length - 1 is not '
+                          'implemented')
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)
@@ -153,6 +149,7 @@ class GatechDataset(ThreadedDataset):
         return np.array(sequences)
 
     def load_sequence(self, first_frame):
+
         """
         Load ONE clip/sequence
         Auxiliary function which loads a sequence of frames with
@@ -174,11 +171,11 @@ class GatechDataset(ThreadedDataset):
 
         start_idx = self.filenames.index(first_frame_name)
         for frame in self.filenames[start_idx:start_idx + seq_length]:
-            img = io.imread(os.path.join(self.image_path, frame))
-            mask = io.imread(os.path.join(self.mask_path, frame))
+            img = io.imread(os.path.join(self.image_path, frame + 'jpg'))
+            mask = io.imread(os.path.join(self.mask_path, frame + 'png'))
 
             img = img.astype(floatX) / 255.
-            mask = mask.astype('int32')
+            mask = (mask / 255).astype('int32')
 
             X.append(img)
             Y.append(mask)
@@ -191,7 +188,7 @@ class GatechDataset(ThreadedDataset):
 
 
 def test():
-    trainiter = GatechDataset(
+    trainiter = DavisDataset(
         which_set='train',
         batch_size=20,
         seq_per_video=0,
@@ -201,7 +198,7 @@ def test():
         get_one_hot=True,
         get_01c=True,
         use_threads=True)
-    validiter = GatechDataset(
+    validiter = DavisDataset(
         which_set='valid',
         batch_size=1,
         seq_per_video=0,
@@ -210,7 +207,7 @@ def test():
         get_one_hot=False,
         get_01c=True,
         use_threads=True)
-    validiter2 = GatechDataset(
+    validiter2 = DavisDataset(
         which_set='valid',
         batch_size=1,
         seq_per_video=0,
@@ -219,7 +216,7 @@ def test():
         get_one_hot=False,
         get_01c=True,
         use_threads=True)
-    testiter = GatechDataset(
+    testiter = DavisDataset(
         which_set='test',
         batch_size=1,
         seq_per_video=10,
@@ -228,7 +225,7 @@ def test():
         get_one_hot=False,
         get_01c=False,
         use_threads=True)
-    testiter2 = GatechDataset(
+    testiter2 = DavisDataset(
         which_set='test',
         batch_size=1,
         seq_per_video=10,
@@ -326,12 +323,13 @@ def test():
 
 
 def test2():
-    trainiter = GatechDataset(
+    trainiter = DavisDataset(
         which_set='train',
-        batch_size=500,
+        batch_size=5,
         seq_per_video=0,
         seq_length=7,
-        overlap=7,
+        overlap=2,
+        with_filenames=True,
         crop_size=(224, 224),
         split=.75,
         get_one_hot=True,
@@ -355,18 +353,18 @@ def test2():
 
             print train_group[2]
             # train_group checks
-            assert train_group[0].ndim == 4
+            assert train_group[0].ndim == 5
             assert train_group[0].shape[0] <= train_batch_size
-            assert train_group[0].shape[1] == 224
             assert train_group[0].shape[2] == 224
-            assert train_group[0].shape[3] == 3
+            assert train_group[0].shape[3] == 224
+            assert train_group[0].shape[4] == 3
             assert train_group[0].min() >= 0
             assert train_group[0].max() <= 1
-            assert train_group[1].ndim == 4
+            assert train_group[1].ndim == 5
             assert train_group[1].shape[0] <= train_batch_size
-            assert train_group[1].shape[1] == 224
             assert train_group[1].shape[2] == 224
-            assert train_group[1].shape[3] == nclasses
+            assert train_group[1].shape[3] == 224
+            assert train_group[1].shape[4] == nclasses
 
             # time.sleep approximates running some model
             time.sleep(1)
