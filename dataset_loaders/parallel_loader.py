@@ -39,6 +39,7 @@ def threaded_fetch(names_queue, out_queue, sentinel, fetch_from_dataset):
         except IOError as e:
             print("Image in image_group corrupted!")
             print "I/O error({0}): {1}".format(e.errno, e.strerror)
+            # import pdb; pdb.set_trace()
         except:
             # If any uncaught exception, die
             raise
@@ -309,8 +310,8 @@ class ThreadedDataset(object):
                     # Manage void classes
                     void_l = self.void_labels
                     for el in void_l:
-                        seq_y[seq_y == el] = self.nclasses
-                        for idx in range(el+1, self.nclasses):
+                        seq_y[seq_y == el] = self.nclasses + 1
+                        for idx in range(el+1, self.nclasses + 2):
                             seq_y[seq_y == idx] = idx - 1
 
                 # if not _is_one_hot:
