@@ -55,6 +55,21 @@ class ThreadedDataset(object):
     `load_sequence` functions to load the list of filenames to be
     loaded and define how to load the data from the dataset,
     respectively.
+
+    Mandatory attributes
+        * debug_shape: any reasonable shape that can be used for debug purposes
+        * name: the name of the dataset
+        * nclasses: the number of *non-void* classes
+        * path: a local path for the dataset
+        * sharedpath: the network path where the dataset can be copied from
+        * _void_labels: a list of void labels. Empty if none
+
+    Optional attributes
+        * data_shape: the shape of the data, when constant. (3, None,
+            None) else
+        * has_GT: False if no mask is provided
+        * GTclasses: a list of classes labels. To be provided when the
+            classes labels are not consecutive
     """
     def __init__(self,
                  seq_per_video=0,  # if 0 all frames
@@ -84,22 +99,15 @@ class ThreadedDataset(object):
             raise NotImplementedError('Multiple threads are not order '
                                       'preserving')
 
-        # Check that the implementing class has all the mandatory arguments
-        mandatory_args = ['name', 'nclasses', 'debug_shape',
-                          '_void_labels']
-        missing_args = []
-        for arg in mandatory_args:
-            if not hasattr(self.__class__, arg):
-                missing_args.append(arg)
-        if missing_args != []:
+        # Check that the implementing class has all the mandatory attributes
+        mandatory_attrs = ['name', 'nclasses', 'debug_shape',
+                           '_void_labels', 'path', 'sharedpath']
+        missing_attrs = [attr for attr in mandatory_attrs if not
+                         hasattr(self, attr)]
+        if missing_attrs != []:
             raise NameError('Mandatory argument(s) missing: {}'.format(
-                missing_args))
+                missing_attrs))
 
-        # for attr in ['name', 'nclasses', '_is_one_hot', '_is_01c',
-        #             'debug_shape', 'path', 'sharedpath']:
-        #    assert attr in dir(self), (
-        #        '{} did not set the mandatory attribute {}'.format(
-        #            self.__class__.name, attr))
         ds = getattr(self.__class__, 'data_shape', (None, None, 3))
         self.data_shape = ds[2], ds[0], ds[1]
 
