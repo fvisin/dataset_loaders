@@ -424,25 +424,13 @@ class ThreadedDataset(object):
         return getattr(self, 'std', [])
 
     @classmethod
-    def get_void_label(self):
-        vl = getattr(self, '_void_labels', [])
-        vl = [] if vl == [] else [self.nclasses]
-        return vl
+    def get_void_labels(self):
+        return ([self.nclasses] if hasattr(self, '_void_labels') and
+                self._void_labels != [] else [])
+
+    @property
+    def void_labels(self):
+        return self.get_void_label()
 
     def get_cmap(self):
         return getattr(self, 'cmap', [])
-
-    def get_labels(self):
-        return getattr(self, 'labels', [])
-
-    def get_n_classes(self):
-        return self.nclasses
-
-    def get_n_batches(self):
-        return self.nbatches
-
-    def get_n_samples(self):
-        return len(self.names_list)
-
-    def get_batch_size(self):
-        return self.batch_size
