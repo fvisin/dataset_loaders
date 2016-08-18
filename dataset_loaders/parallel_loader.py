@@ -112,10 +112,10 @@ class ThreadedDataset(object):
             shutil.copytree(self.sharedpath, self.path)
             print('Done.')
 
-        self.overlap = overlap if overlap is not None else seq_length - 1
         self.seq_per_video = seq_per_video
         self.return_sequence = seq_length != 0
         self.seq_length = seq_length if seq_length else 1
+        self.overlap = overlap if overlap is not None else self.seq_length - 1
         if crop_size and tuple(crop_size) == (0, 0):
             crop_size = None
         self.crop_size = crop_size
