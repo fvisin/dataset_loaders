@@ -69,6 +69,32 @@ class ThreadedDataset(object):
         * has_GT: False if no mask is provided
         * GTclasses: a list of classes labels. To be provided when the
             classes labels are not consecutive
+
+    Parallel loader will automatically map all non-void classes to be
+    sequential starting from 0 and then map all void classes to the
+    next class. E.g., suppose nclasses = 4 and _void_classes = [3, 5]
+    the non-void classes will be mapped to 0, 1, 2, 3 and the void
+    classes will be mapped to 4, as follows:
+        0 --> 0
+        1 --> 1
+        2 --> 2
+        3 --> 4
+        4 --> 3
+        5 --> 4
+
+    Note also that in case the original labels are not sequential, it
+    suffices to list all the original labels as a list in GTclasses for
+    parallel_loader to map the non-void classes sequentially starting
+    from 0 and all the void classes to the next class. E.g. suppose
+    nclasses = 5, GTclasses = [0, 2, 5, 9, 11, 12, 99] and
+    _void_labels = [2, 99], then this will be the mapping:
+         0 --> 0
+         2 --> 5
+         5 --> 1
+         9 --> 2
+        11 --> 3
+        12 --> 4
+        99 --> 5
     """
     def __init__(self,
                  seq_per_video=0,  # if 0 all frames
