@@ -178,7 +178,7 @@ def test3():
         use_threads=True,
         nthreads=5)
 
-    train_nsamples = trainiter.get_n_samples()
+    train_nsamples = trainiter.nsamples
     nclasses = trainiter.get_n_classes()
     nbatches = trainiter.get_n_batches()
     train_batch_size = trainiter.get_batch_size()

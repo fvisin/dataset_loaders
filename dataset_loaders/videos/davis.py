@@ -236,9 +236,9 @@ def test():
         with_filenames=True,
         use_threads=True)
 
-    train_nsamples = trainiter.get_n_samples()
-    valid_nsamples = validiter.get_n_samples()
-    test_nsamples = testiter.get_n_samples()
+    train_nsamples = trainiter.nsamples
+    valid_nsamples = validiter.nsamples
+    test_nsamples = testiter.nsamples
     nclasses = testiter.get_n_classes()
     nbatches = trainiter.get_n_batches()
     train_batch_size = trainiter.get_batch_size()
@@ -337,7 +337,7 @@ def test2():
         use_threads=True,
         nthreads=5)
 
-    train_nsamples = trainiter.get_n_samples()
+    train_nsamples = trainiter.nsamples
     nclasses = trainiter.get_n_classes()
     nbatches = trainiter.get_n_batches()
     train_batch_size = trainiter.get_batch_size()
