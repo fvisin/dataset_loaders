@@ -39,7 +39,6 @@ def threaded_fetch(names_queue, out_queue, sentinel, fetch_from_dataset):
         except IOError as e:
             print("Image in image_group corrupted!")
             print "I/O error({0}): {1}".format(e.errno, e.strerror)
-            # import pdb; pdb.set_trace()
         except:
             # If any uncaught exception, die
             raise
