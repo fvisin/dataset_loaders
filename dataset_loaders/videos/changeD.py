@@ -2,26 +2,36 @@ import time
 import os
 
 import numpy as np
+from PIL import Image
 
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
-from dataset_loaders.utils_parallel_loader import natural_keys
 
 floatX = 'float32'
 
-class_ids = {'0': 0, '50': 1, '85': 4, '170': 2, '255': 3}
-
 
 class ChangeDetectionDataset(ThreadedDataset):
+    '''The change detection 2014 dataset
+
+    Multiple categories are given, each with multiple videos.
+    Each video has associated a temporalROI and a ROI. The temporalROI
+    determines which frames are to be used for training and test. The
+    ROI defines the area of the frame that we are interested in.
+    '''
     name = 'changeD'
     nclasses = 4
-    _void_labels = [4]
+    _void_labels = [85]
     mean = [0.45483398, 0.4387207, 0.40405273]
     std = [0.04758175, 0.04148954, 0.05489637]
     _is_one_hot = False
     _is_01c = True
 
     debug_shape = (500, 500, 3)  # whatever...
+    GTclasses = [0, 50, 85, 170, 255]
+    categories = ['badWeather', 'baseline', 'cameraJitter',
+                  'dynamicBackground', 'intermittentObjectMotion',
+                  'lowFramerate', 'nightVideos', 'PTZ', 'shadow', 'thermal',
+                  'turbulence']
 
     # static, shadow, ground, solid (buildings, etc), porous, cars, humans,
     # vert mix, main mix
@@ -35,91 +45,139 @@ class ChangeDetectionDataset(ThreadedDataset):
     labels = ('static', 'shadow', 'unknown', 'moving', 'non-roi')
 
     _filenames = None
-    _prefix_list = None
-
-    @property
-    def prefix_list(self):
-        if self._prefix_list is None:
-            # Create a list of prefix out of the number of requested videos
-            all_prefix_list = np.unique(np.array([el[:el.index('_')]
-                                                  for el in self.filenames]))
-            nvideos = len(all_prefix_list)
-            nvideos_set = int(nvideos*self.split)
-            self._prefix_list = (all_prefix_list[-nvideos_set:] if
-                                 self.which_set == 'val' else
-                                 all_prefix_list[:nvideos_set])
-
-        return self._prefix_list
 
     @property
     def filenames(self):
         if self._filenames is None:
-            # Get file names for this set
-            self._filenames = os.listdir(self.image_path)
-            self._filenames.sort(key=natural_keys)
-            # update filenames list
-            self._filenames = [f for f in self._filenames if f[:f.index('_')]
-                               in self.prefix_list]
+            inspect_dataset_properties = False
+            self._filenames = {}
+            ROIS = {}
+            ROIS2 = {}
+            tempROIS = {}
+            cat_videos = {}
+            for root, dd, ff in os.walk(self.path):
+                if ff == [] or 'README' in ff:
+                    # Root or category dir
+                    dd.sort(key=str.lower)
+                elif 'ROI.jpg' in ff:
+                    # Video dir
+                    category, video = root.split('/')[-2:]
+                    cat_videos.setdefault(category, []).append(video)
+                    ROI = np.array(Image.open(os.path.join(root, 'ROI.jpg')))
+                    ROI2 = np.array(Image.open(os.path.join(root,
+                                                            'ROI.bmp.tif')))
+                    ROIS[video] = ROI
+                    ROIS2[video] = ROI2
+                    tempROIS[video] = open(os.path.join(
+                        root, 'temporalROI.txt'), 'r').readline().split(' ')
+                else:
+                    # Images or GT dir
+                    category, video, kind = root.split('/')[-3:]
+                    ff.sort(key=str.lower)
+                    ff = [fname for fname in ff if 'Thumbs.db' not in fname]
+
+                    if not inspect_dataset_properties:
+                        # 1-indexed, inclusive
+                        s, e = [int(el) - 1 for el in tempROIS[video]]
+                        if self.which_set == 'test':
+                            # anything out of tempROI
+                            ff = ff[0:s] + ff[e+1:]
+                        elif self.which_set == 'train':
+                            d = int((e+1-s)*(1 - self.split))  # valid_delta
+                            ff = ff[s+d:e+1]
+                        else:
+                            d = int((e+1-s)*(1 - self.split))  # valid delta
+                            ff = ff[s:s+d]
+
+                    if kind == 'input':
+                        print('Loading {}..'.format(root[len(self.path):-6]))
+                        self._filenames.setdefault(video, {}).update(
+                            {'category': category,
+                             'root': root[:-6],  # remove '/input'
+                             'images': ff,
+                             'ROI': ROIS[video],
+                             'tempROI': tempROIS[video]})
+                    else:
+                        self._filenames.setdefault(video, {}).update(
+                            {'GTs': ff})
+
+            # Dataset properties:
+            if inspect_dataset_properties:
+                kk = self._filenames.keys()
+                for k in kk:
+                    tempROI = self._filenames[k]['tempROI']
+                    # temporalROI is either at the beginning or at the end of
+                    # the sequence
+                    assert (int(tempROI[0]) == 001 or
+                            int(tempROI[1]) == len(
+                                self._filenames[k]['images'])), k
+                    # First gt is gt000001.png
+                    assert self._filenames[k]['GTs'][0] == 'gt000001.png', k
+                    # First im is in000001.jpg
+                    assert self._filenames[k]['images'][0] == 'in000001.jpg', k
+                    # GT outside of tempROI is always 85 (void)
+                    for i, f in enumerate(self._filenames[k]['images']):
+                        if i < tempROI[0] or i > tempROI[1]:
+                            continue  # consider only frames in tempROI
+                        path = self._filenames[k]['root'] + '/' + f
+                        gt = np.array(Image.open(path))
+                        labels = np.unique(gt)
+                        if len(labels) != 1:
+                            print('k {} i {} labels {}'.format(k, i, labels))
+                        if labels[0] != 85:
+                            print('Non 85: k {} i {}'.format(k, i))
+
         return self._filenames
 
     def __init__(self,
                  which_set='train',
-                 threshold_masks=False,
                  with_filenames=False,
                  split=.75, *args, **kwargs):
 
-        self.which_set = 'val' if which_set == 'valid' else which_set
-        self.threshold_masks = threshold_masks
+        self.which_set = 'valid' if which_set == 'val' else which_set
+        assert self.which_set in ['train', 'valid', 'test'], self.which_set
         self.with_filenames = with_filenames
+        self.split = split
 
         # Prepare data paths
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                                 'CHANGED')
-        self.sharedpath = \
-            '/data/lisatmp4/dejoieti/data/Change_Detection/Images'
+                                 'change_detection')
+        self.sharedpath = '/u/visin/exp/datasets/change_detection'
 
-        if self.which_set in ['train', 'val']:
-            self.image_path = os.path.join(self.path, 'Original')
-            self.mask_path = os.path.join(self.path, 'Ground_Truth')
-            self.split = split if self.which_set == "train" else (1 - split)
-        elif self.which_set in ['test', 'test_all']:
-            self.split = split
+        if self.which_set == 'test':
+            self.has_GT = False
             print('No mask for the test set!!')
-        else:
-            raise RuntimeError('unknown set')
 
         super(ChangeDetectionDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         sequences = []
         seq_length = self.seq_length
-
+        seq_per_video = self.seq_per_video
         self.video_length = {}
+
         # cycle through the different videos
-        for prefix in self.prefix_list:
-            seq_per_video = self.seq_per_video
-            new_prefix = prefix + '_'
-            frames = [el for el in self.filenames if new_prefix in el and
-                      el.index(prefix+'_') == 0]
-            video_length = len(frames)
-            self.video_length[prefix] = video_length
-            # Fill sequences with (prefix, frame_idx)
-            max_num_frames = video_length - seq_length + 1
+        asd = 0
+        for video, data in self.filenames.iteritems():
+            video_length = len(data['images'])
+            self.video_length[video] = video_length
+
+            # Fill sequences with (video, frame_idx)
+            max_num_sequences = video_length - seq_length + 1
             if (not self.seq_length or not self.seq_per_video or
                     self.seq_length >= video_length):
                 # Use all possible frames
-                for el in [(prefix, f) for f in frames[
-                        :max_num_frames:self.seq_length - self.overlap]]:
+                for el in [(video, idx) for idx in range(
+                        0, max_num_sequences, seq_length - self.overlap)]:
                     sequences.append(el)
             else:
-                # If there are not enough frames, cap seq_per_video to
-                # the number of available frames
-                max_num_sequences = video_length - seq_length + 1
                 if max_num_sequences < seq_per_video:
+                    # If there are not enough frames, cap seq_per_video to
+                    # the number of available frames
                     print("/!\ Warning : you asked {} sequences of {} "
                           "frames each but video {} only has {} "
                           "frames".format(seq_per_video, seq_length,
-                                          prefix, video_length))
+                                          video, video_length))
                     seq_per_video = max_num_sequences
 
                 if self.overlap != self.seq_length - 1:
@@ -128,11 +186,13 @@ class ChangeDetectionDataset(ThreadedDataset):
 
                 # pick `seq_per_video` random indexes between 0 and
                 # (video length - sequence length)
-                first_frame_indexes = np.random.permutation(range(
+                first_frame_indexes = self.rng.permutation(range(
                     max_num_sequences))[0:seq_per_video]
 
                 for i in first_frame_indexes:
-                    sequences.append((prefix, frames[i]))
+                    sequences.append((video, i))
+            asd += len(data['images'])
+            assert len(sequences) == asd
 
         return np.array(sequences)
 
@@ -148,29 +208,31 @@ class ChangeDetectionDataset(ThreadedDataset):
         Y = []
         F = []
 
-        prefix, first_frame_name = first_frame
+        video, idx = first_frame
+        idx = int(idx)
 
         if (self.seq_length is None or
-                self.seq_length > self.video_length[prefix]):
-            seq_length = self.video_length[prefix]
+                self.seq_length > self.video_length[video]):
+            seq_length = self.video_length[video]
         else:
             seq_length = self.seq_length
 
-        start_idx = self.filenames.index(first_frame_name)
-        for frame in self.filenames[start_idx:start_idx + seq_length]:
-            img = io.imread(os.path.join(self.image_path, frame))
-            mask = io.imread(os.path.join(self.mask_path, frame[:-3] +
-                                          'png'))
+        data = self.filenames[video]
+        root = data['root']
+        for im, gt in zip(data['images'][idx:idx+seq_length],
+                          data['GTs'][idx:idx+seq_length]):
+            img = io.imread(os.path.join(self.path, root, 'input', im))
+            mask = io.imread(os.path.join(self.path, root, 'groundtruth', gt))
 
             img = img.astype(floatX) / 255.
             mask = mask.astype('int32')
 
-            for gt_id, c_id in class_ids.iteritems():
-                mask[mask == int(gt_id)] = c_id
-
             X.append(img)
             Y.append(mask)
-            F.append(frame)
+            F.append(os.path.join(root, 'input', im))
+
+        # test only has void. No point in considering the mask
+        Y = [] if self.which_set == 'test' else Y
 
         if self.with_filenames:
             return np.array(X), np.array(Y), np.array(F)
@@ -179,41 +241,67 @@ class ChangeDetectionDataset(ThreadedDataset):
 
 
 if __name__ == '__main__':
-    trainiter = ChangeDetectionDataset(
+    train = ChangeDetectionDataset(
         which_set='train',
-        batch_size=5,
+        crop_size=[223, 223],
+        batch_size=1,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        shuffle_at_each_epoch=False,
+        infinite_iterator=False,
+        with_filenames=True,
         split=.75)
-    validiter = ChangeDetectionDataset(
+    valid = ChangeDetectionDataset(
         which_set='valid',
         batch_size=1,
         seq_per_video=0,
         seq_length=0,
+        shuffle_at_each_epoch=False,
+        infinite_iterator=False,
+        with_filenames=True,
         split=.75)
-    train_nsamples = trainiter.get_n_samples()
-    valid_nsamples = validiter.get_n_samples()
+    test = ChangeDetectionDataset(
+        which_set='test',
+        batch_size=1,
+        seq_per_video=0,
+        seq_length=0,
+        shuffle_at_each_epoch=False,
+        infinite_iterator=False,
+        with_filenames=True,
+        split=.75)
+    train_nsamples = train.nsamples
+    valid_nsamples = valid.nsamples
+    test_nsamples = test.nsamples
+    data = {'train': train, 'valid': valid, 'test': test}
 
-    print("Train %d, valid %d" % (train_nsamples, valid_nsamples))
+    print("#samples: train %d, valid %d, test %d" % (train_nsamples,
+                                                     valid_nsamples,
+                                                     test_nsamples))
 
     start = time.time()
-    n_minibatches_to_run = 1000
-    itr = 1
-    while True:
-        train_group = trainiter.next()
-        valid_group = validiter.next()
-
-        if train_group is None or valid_group is None:
-            raise ValueError('.next() returned None!')
-        # time.sleep approximates running some model
-        time.sleep(1)
-        stop = time.time()
-        tot = stop - start
-        print("Minibatch %s" % str(itr))
-        print("Time ratio (s per minibatch): %s" % (tot / float(itr)))
-        print("Tot time: %s" % (tot))
-        itr += 1
-        # test
-        if itr >= n_minibatches_to_run:
-            break
+    for split in ['train', 'valid', 'test']:
+        for i, el in enumerate(data[split]):
+            if el[0].min() < 0:
+                print('Image {} of {} is smaller than 0'.format(
+                    el[2], split, el[0].min()))
+            if el[0].max() > 1:
+                print('Image {} of {} is greater than 1'.format(
+                    el[2], split, el[0].max()))
+            if split is not 'test' and el[1].max() > 4:
+                print('Mask {} of {} is greater than 4: {}'.format(
+                    el[2], split, el[1].max())),
+            if split is not 'test' and np.unique(el[1]).tolist() == [4]:
+                # check if the images is actually all void
+                f = el[2][-10:-3]
+                mask_f = el[2][:-18] + 'goundtruth/' + f + 'png'
+                un = np.unique(Image.open(mask_f))
+                if un.tolist() != [85]:
+                    print('Image {} of {} is not test and is all void:{}. '
+                          'It should be {}'.format(
+                              el[2], split, np.unique(el[1]), un))
+                else:
+                    print('Image {} of {} is not test and is all void. '
+                          'Weird, but not an issue of the wrapper')
+        if i % 1000:
+            print('Sample {}/{} of {}'.format(i, data[split].nsamples, split))
+        print('Split {} done!'.format(split))
