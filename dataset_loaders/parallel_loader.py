@@ -162,12 +162,11 @@ class ThreadedDataset(object):
             self.rng.shuffle(self.names_list)
 
         # Group names into minibatches
-        name_batches = [el for el in izip_longest(
+        names_batches = [el for el in izip_longest(
             fillvalue=None, *[iter(self.names_list)] * self.batch_size)]
         self.nsamples = len(self.names_list)
-        self.nbatches = len(name_batches)
-        self.epoch_length = len(name_batches)
-        self.name_batches = iter(name_batches)
+        self.nbatches = len(names_batches)
+        self.names_batches = iter(names_batches)
 
         # Reset the queues
         if self.use_threads:
@@ -204,7 +203,7 @@ class ThreadedDataset(object):
     def _init_names_queue(self):
         for _ in range(self.queues_size):
             try:
-                name_batch = self.name_batches.next()
+                name_batch = self.names_batches.next()
                 self.names_queue.put(name_batch)
             except StopIteration:
                 # Queue is bigger than the tot number of batches
@@ -234,7 +233,7 @@ class ThreadedDataset(object):
                     done = True
                     # Refill the names queue, if any left
                     try:
-                        name_batch = self.name_batches.next()
+                        name_batch = self.names_batches.next()
                         self.names_queue.put(name_batch)
                     except StopIteration:
                         pass
@@ -249,7 +248,7 @@ class ThreadedDataset(object):
                         # else, it will cycle again in the while loop
             else:
                 try:
-                    name_batch = self.name_batches.next()
+                    name_batch = self.names_batches.next()
                     data_batch = self.fetch_from_dataset(name_batch)
                     done = True
                 except StopIteration:
