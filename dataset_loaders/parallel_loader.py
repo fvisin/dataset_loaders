@@ -348,22 +348,33 @@ class ThreadedDataset(object):
                 # nclasses-1 and the void_classes are all equal to nclasses.
                 void_l = self._void_labels
                 void_l.sort(reverse=True)
-                mapping = {}
-                delta = 0
-                # Prepare the mapping
-                for i in range(self.nclasses + len(self._void_labels)):
-                    if i in self._void_labels:
-                        mapping[i] = self.nclasses
-                        delta += 1
-                    else:
-                        mapping[i] = i - delta
+                if hasattr(self, 'GTclasses'):
+                    self.GTclasses.sort()
+                    mapping = {cl: i for i, cl in enumerate(
+                        set(self.GTclasses) - set(self._void_labels))}
+                    for l in self._void_labels:
+                        mapping[l] = self.nclasses
+                else:
+                    mapping = {}
+                    delta = 0
+                    # Prepare the mapping
+                    for i in range(self.nclasses + len(self._void_labels)):
+                        if i in self._void_labels:
+                            mapping[i] = self.nclasses
+                            delta += 1
+                        else:
+                            mapping[i] = i - delta
+
                 # Apply the mapping
                 seq_y[seq_y == self.nclasses] = -1
-                for i in range(self.nclasses + len(self._void_labels)):
+                for i in sorted(mapping.keys()):
                     if i == self.nclasses:
                         continue
                     seq_y[seq_y == i] = mapping[i]
-                seq_y[seq_y == -1] = mapping[self.nclasses]
+                try:
+                    seq_y[seq_y == -1] = mapping[self.nclasses]
+                except KeyError:
+                    pass  # none of the original classes was self.nclasses
 
             # Transform targets seq_y to one hot code if get_one_hot
             # is True
