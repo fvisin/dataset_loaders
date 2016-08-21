@@ -15,23 +15,24 @@ class GatechDataset(ThreadedDataset):
     nclasses = 8
     _void_labels = [0]
     debug_shape = (360, 640, 3)
+
     mean = [0.484375, 0.4987793, 0.46508789]
     std = [0.07699376, 0.06672145, 0.09592211]
+
     # wtf, sky, ground, solid (buildings, etc), porous, cars, humans,
     # vert mix, main mix
-    cmap = np.array([
-        (255, 128, 0),      # wtf
-        (255, 0, 0),        # sky (red)
-        (0, 130, 180),      # ground (blue)
-        (0, 255, 0),        # solid (buildings, etc) (green)
-        (255, 255, 0),      # porous (yellow)
-        (120, 0, 255),      # cars
-        (255, 0, 255),      # humans (purple)
-        (160, 160, 160),    # vert mix
-        (64, 64, 64)])      # main mix
-    cmap = cmap / 255.
-    labels = ('wtf', 'sky', 'ground', 'solid', 'porous',
-              'cars', 'humans', 'vert mix', 'gen mix')
+    _cmap = {
+        0: (255, 128, 0),      # wtf
+        1: (255, 0, 0),        # sky (red)
+        2: (0, 130, 180),      # ground (blue)
+        3: (0, 255, 0),        # solid (buildings, etc) (green)
+        4: (255, 255, 0),      # porous (yellow)
+        5: (120, 0, 255),      # cars
+        6: (255, 0, 255),      # humans (purple)
+        7: (160, 160, 160),    # vert mix
+        8: (64, 64, 64)}       # main mix
+    _mask_labels = {0: 'wtf', 1: 'sky', 2: 'ground', 3: 'solid', 4: 'porous',
+                    5: 'cars', 6: 'humans', 7: 'vert mix', 8: 'gen mix'}
 
     _filenames = None
     _prefix_list = None

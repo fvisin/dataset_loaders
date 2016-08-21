@@ -15,8 +15,7 @@ class TestDataset(ThreadedDataset):
 
     # optional arguments
     data_shape = (360, 480, 3)
-    mean = 0.
-    std = 1.
+
     _void_labels = [3, 5]
 
     _filenames = None

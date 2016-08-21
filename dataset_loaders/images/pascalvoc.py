@@ -5,8 +5,6 @@ from PIL import Image
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
-class_ids = {'255': 21}
-
 
 class VOCdataset(ThreadedDataset):
     name = 'pascal_voc'
@@ -17,7 +15,8 @@ class VOCdataset(ThreadedDataset):
     mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
         'float32')
     std = 1.
-    _void_labels = [21]
+    GT_classes = range(20) + [255]
+    _void_labels = [255]
 
     _filenames = None
 
@@ -133,7 +132,6 @@ class VOCdataset(ThreadedDataset):
         if self.which_set != "test":
             mask = np.array(Image.open(
                 os.path.join(self.mask_path, img_name + ".png")))
-            mask[mask == 255] = 21
 
         # Load teacher predictions and soft predictions
         if self.with_predictions:

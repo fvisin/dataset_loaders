@@ -381,22 +381,7 @@ class ThreadedDataset(object):
                 # nclasses-1 and the void_classes are all equal to nclasses.
                 void_l = self._void_labels
                 void_l.sort(reverse=True)
-                if hasattr(self, 'GTclasses'):
-                    self.GTclasses.sort()
-                    mapping = {cl: i for i, cl in enumerate(
-                        set(self.GTclasses) - set(self._void_labels))}
-                    for l in self._void_labels:
-                        mapping[l] = self.nclasses
-                else:
-                    mapping = {}
-                    delta = 0
-                    # Prepare the mapping
-                    for i in range(self.nclasses + len(self._void_labels)):
-                        if i in self._void_labels:
-                            mapping[i] = self.nclasses
-                            delta += 1
-                        else:
-                            mapping[i] = i - delta
+                mapping = self._get_mapping()
 
                 # Apply the mapping
                 seq_y[seq_y == self.nclasses] = -1
@@ -465,5 +450,47 @@ class ThreadedDataset(object):
     def void_labels(self):
         return self.get_void_label()
 
+    @classmethod
+    def _get_mapping(self):
+        if hasattr(self, 'GTclasses'):
+            self.GTclasses.sort()
+            mapping = {cl: i for i, cl in enumerate(
+                set(self.GTclasses) - set(self._void_labels))}
+            for l in self._void_labels:
+                mapping[l] = self.nclasses
+        else:
+            mapping = {}
+            delta = 0
+            # Prepare the mapping
+            for i in range(self.nclasses + len(self._void_labels)):
+                if i in self._void_labels:
+                    mapping[i] = self.nclasses
+                    delta += 1
+                else:
+                    mapping[i] = i - delta
+        return mapping
+
+    @classmethod
+    def _get_inv_mapping(self):
+        mapping = self._get_mapping()
+        return {v: k for k, v in mapping.items()}
+
+    @classmethod
     def get_cmap(self):
-        return getattr(self, 'cmap', [])
+        cmap = getattr(self, '_cmap', {})
+        assert isinstance(cmap, dict)
+        inv_mapping = self._get_inv_mapping()
+        cmap = np.array([cmap[inv_mapping[k]] for k in
+                         sorted(inv_mapping.keys())])
+        if cmap.max() > 1:
+            # assume labels are in [0, 255]
+            cmap = cmap / 255.  # not inplace or rounded to int
+        return cmap
+
+    @classmethod
+    def get_mask_labels(self):
+        mask_labels = getattr(self, '_mask_labels', {})
+        assert isinstance(mask_labels, dict)
+        inv_mapping = self._get_inv_mapping()
+        return np.array([mask_labels[inv_mapping[k]] for k in
+                         sorted(inv_mapping.keys())])

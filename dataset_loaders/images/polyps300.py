@@ -13,23 +13,16 @@ class Polyps300Dataset(ThreadedDataset):
 
     # optional arguments
     data_shape = (384, 288, 3)
-    mean = 0.
-    std = 1.
-    void_labels = [0]
-    # cmap = np.array([
-    #     (0),    # Void
-    #     (1),    # Background
-    #     (2),    # Polyp
-    #     (3),    # Specularity
-    #     (4)])   # Lumen
-    cmap = np.array([
-        (0),    # Background
-        (1),    # Polyp
-        (2),    # Specularity
-        (3)])   # Lumen
-    # cmap = cmap / 255.
-    #labels = ('Void', 'Background', 'Polyp', 'Specularity', 'Lumen')
-    labels = ('Background', 'Polyp', 'Specularity', 'Lumen')
+
+    _void_labels = [0]
+    _cmap = {
+        0: (0, 0, 0),           # Void
+        1: (128, 128, 0),       # Background
+        2: (128, 0, 0),         # Polyp
+        3: (192, 192, 128),     # Specularity
+        4: (128, 64, 128)}      # Lumen
+    _mask_labels = {0: 'Void', 1: 'Background', 2: 'Polyp', 3: 'Specularity',
+                    4: 'Lumen'}
 
     def __init__(self, which_set='train', with_filenames=False, select='sequences',
                  *args, **kwargs):
@@ -91,12 +84,13 @@ class Polyps300Dataset(ThreadedDataset):
             from numpy import genfromtxt
             csv_data = genfromtxt(file_name, delimiter=';')
             return csv_data
-            print str(my_data)
             # [Frame ID, Patiend ID, Polyp ID, Polyp ID2]
 
         # Get the metadata info from the dataset
-        self.CVC_300_data = read_csv(os.path.join(self.sharedpath, "CVC-300.csv"))
-        self.CVC_612_data = read_csv(os.path.join(self.sharedpath, "CVC-612.csv"))
+        self.CVC_300_data = read_csv(os.path.join(self.sharedpath,
+                                                  "CVC-300.csv"))
+        self.CVC_612_data = read_csv(os.path.join(self.sharedpath,
+                                                  "CVC-612.csv"))
 
         if self.select == 'frames':
             # Get file names for this set

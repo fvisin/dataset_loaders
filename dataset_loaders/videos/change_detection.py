@@ -35,14 +35,14 @@ class ChangeDetectionDataset(ThreadedDataset):
 
     # static, shadow, ground, solid (buildings, etc), porous, cars, humans,
     # vert mix, main mix
-    cmap = np.array([
-        (0, 0, 0),          # static
-        (255, 0, 0),        # shadow (red)
-        (0, 255, 0),        # unknown (green)
-        (255, 255, 255),    # moving (white)
-        (127, 127, 127)])   # non-roi (grey)
-    cmap = cmap / 255.
-    labels = ('static', 'shadow', 'unknown', 'moving', 'non-roi')
+    _cmap = {
+        0: (0, 0, 0),           # static
+        50: (255, 0, 0),        # shadow (red)
+        170: (0, 255, 0),       # unknown (green)
+        255: (255, 255, 255),   # moving (white)
+        85: (127, 127, 127)}    # non-roi (grey)
+    _mask_labels = {0: 'static', 50: 'shadow', 170: 'unknown', 255: 'moving',
+                    85: 'non-roi'}
 
     _filenames = None
 

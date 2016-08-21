@@ -16,11 +16,10 @@ class PolypVideoDataset(ThreadedDataset):
     _void_labels = []
     debug_shape = (288, 384, 3)
 
-    cmap = np.array([
-        (255, 255, 255),  # polyp
-        (0, 0, 0)])  # background
-    cmap = cmap / 255
-    labels = ('polyp', 'background')
+    _cmap = {
+        0: (255, 255, 255),     # polyp
+        1: (0, 0, 0)}           # background
+    _mask_labels = (0: 'polyp', 1: 'background')
 
     _filenames = None
 
