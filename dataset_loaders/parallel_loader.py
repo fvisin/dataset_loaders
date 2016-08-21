@@ -491,6 +491,8 @@ class ThreadedDataset(object):
     def get_mask_labels(self):
         mask_labels = getattr(self, '_mask_labels', {})
         assert isinstance(mask_labels, dict)
+        if mask_labels == {}:
+            return []
         inv_mapping = self._get_inv_mapping()
         return np.array([mask_labels[inv_mapping[k]] for k in
                          sorted(inv_mapping.keys())])
