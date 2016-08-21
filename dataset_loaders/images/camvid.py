@@ -58,7 +58,7 @@ class CamvidDataset(ThreadedDataset):
         self.with_filenames = with_filenames
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'camvid', 'segnet')
-        self.sharedpath = '/data/lisa/exp/visin/datasets/camvid/segnet'
+        self.sharedpath = '/data/lisa/exp/visin/_datasets/camvid/segnet'
 
         if self.which_set == "train":
             self.image_path = os.path.join(self.path, "train")

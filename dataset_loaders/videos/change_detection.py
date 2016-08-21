@@ -143,7 +143,7 @@ class ChangeDetectionDataset(ThreadedDataset):
         # Prepare data paths
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
                                  'change_detection')
-        self.sharedpath = '/u/visin/exp/datasets/change_detection'
+        self.sharedpath = '/u/visin/exp/_datasets/change_detection'
 
         if self.which_set == 'test':
             self.has_GT = False

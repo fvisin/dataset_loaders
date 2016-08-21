@@ -28,7 +28,7 @@ class TestDataset(ThreadedDataset):
 
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'camvid', 'segnet')
-        self.sharedpath = '/data/lisa/exp/visin/datasets/camvid/segnet'
+        self.sharedpath = '/data/lisa/exp/visin/_datasets/camvid/segnet'
 
         # constructing the ThreadedDataset
         # it also creates/copies the dataset in self.path if not already there
