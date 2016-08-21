@@ -73,7 +73,7 @@ class CocoDataset(ThreadedDataset):
         filenames = self.filenames
         # Allow to use negative overlap to select a subset of the
         # dataset
-        overlap = self.overlap if self.overlap < 0 else 0
+        overlap = self.overlap if self.overlap < 0 else 1
         return np.array(filenames[::-overlap])
 
     def load_sequence(self, img):
