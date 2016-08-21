@@ -73,6 +73,7 @@ class ChangeDetectionDataset(ThreadedDataset):
                 else:
                     # Images or GT dir
                     category, video, kind = root.split('/')[-3:]
+
                     ff.sort(key=str.lower)
                     ff = [fname for fname in ff if 'Thumbs.db' not in fname]
 
@@ -221,6 +222,7 @@ class ChangeDetectionDataset(ThreadedDataset):
         root = data['root']
         for im, gt in zip(data['images'][idx:idx+seq_length],
                           data['GTs'][idx:idx+seq_length]):
+
             img = io.imread(os.path.join(self.path, root, 'input', im))
             mask = io.imread(os.path.join(self.path, root, 'groundtruth', gt))
 
@@ -243,7 +245,6 @@ class ChangeDetectionDataset(ThreadedDataset):
 if __name__ == '__main__':
     train = ChangeDetectionDataset(
         which_set='train',
-        crop_size=[223, 223],
         batch_size=1,
         seq_per_video=0,
         seq_length=0,
@@ -292,16 +293,18 @@ if __name__ == '__main__':
                     el[2], split, el[1].max())),
             if split is not 'test' and np.unique(el[1]).tolist() == [4]:
                 # check if the images is actually all void
-                f = el[2][-10:-3]
-                mask_f = el[2][:-18] + 'goundtruth/' + f + 'png'
+                filename = el[2][0, 0, 0]
+                f = filename[-10:-3]
+                mask_f = filename[:-18] + 'groundtruth/gt' + f + 'png'
                 un = np.unique(Image.open(mask_f))
-                if un.tolist() != [85]:
+                if un.tolist() != [85]:  # discard test
                     print('Image {} of {} is not test and is all void:{}. '
                           'It should be {}'.format(
                               el[2], split, np.unique(el[1]), un))
-                else:
-                    print('Image {} of {} is not test and is all void. '
-                          'Weird, but not an issue of the wrapper')
-        if i % 1000:
-            print('Sample {}/{} of {}'.format(i, data[split].nsamples, split))
+                # else:
+                #     print('Image {} of {} is not test and is all void. '
+                #           'Weird, but not an issue of the wrapper')
+            if i % 1000 == 0:
+                print('Sample {}/{} of {}'.format(i, data[split].nsamples,
+                                                  split))
         print('Split {} done!'.format(split))
