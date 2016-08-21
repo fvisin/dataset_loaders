@@ -158,7 +158,6 @@ class ChangeDetectionDataset(ThreadedDataset):
         self.video_length = {}
 
         # cycle through the different videos
-        asd = 0
         for video, data in self.filenames.iteritems():
             video_length = len(data['images'])
             self.video_length[video] = video_length
@@ -192,8 +191,6 @@ class ChangeDetectionDataset(ThreadedDataset):
 
                 for i in first_frame_indexes:
                     sequences.append((video, i))
-            asd += len(data['images'])
-            assert len(sequences) == asd
 
         return np.array(sequences)
 
