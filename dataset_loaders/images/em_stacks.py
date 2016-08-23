@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from scipy import interpolate
 import time
 
 import dataset_loaders
@@ -7,6 +8,50 @@ from dataset_loaders.parallel_loader import ThreadedDataset
 
 
 floatX = 'float32'
+
+
+def displacement_vecs(std, grid_size):
+    disp_x = np.reshape(
+        map(int, np.random.randn(np.prod(np.asarray(grid_size)))*std),
+        grid_size)
+    disp_y = np.reshape(
+        map(int, np.random.randn(np.prod(np.asarray(grid_size)))*std),
+        grid_size)
+    return disp_x, disp_y
+
+
+def _elastic_def(image, fx, fy):
+    imsize = image.shape[-2:]
+    x = np.arange(imsize[0]-1)
+    y = np.arange(imsize[1]-1)
+    xx, yy = np.meshgrid(x, y)
+    z_1 = fx(x, y).astype(int)
+    z_2 = fy(x, y).astype(int)
+    img = np.zeros(image.shape, dtype='uint8')
+    if image.ndim == 3:  # multi-channel
+        img[:, xx, yy] = image[:, np.clip(xx - z_1, 0, imsize[0]-1),
+                               np.clip(yy - z_2, 0, imsize[1]-1)]
+    if image.ndim == 2:  # one channel
+        img[xx, yy] = image[np.clip(xx - z_1, 0, imsize[0]-1),
+                            np.clip(yy - z_2, 0, imsize[1]-1)]
+    return img
+
+
+def batch_elastic_def(im_batch, disp_x, disp_y, grid_size=(3, 3),
+                      interpol_kind='linear'):
+    '''im_batch should have batch dimension
+       even if it contains a single image'''
+    imsize = im_batch.shape[-2:]
+    x = np.linspace(0, imsize[0]-1, grid_size[0]).astype(int)
+    y = np.linspace(0, imsize[1]-1, grid_size[1]).astype(int)
+    fx = interpolate.interp2d(x, y, disp_x, kind=interpol_kind)
+    fy = interpolate.interp2d(x, y, disp_y, kind=interpol_kind)
+    if im_batch.ndim == 3 or im_batch.ndim == 4:
+        im_elast_def = np.asarray([_elastic_def(im, fx, fy)
+                                   for im in im_batch])
+    if im_batch.ndim == 2:  # if no batch in im_batch
+        im_elast_def = _elastic_def(im_batch, fx, fy)
+    return im_elast_def
 
 
 class IsbiEmStacksDataset(ThreadedDataset):
@@ -17,23 +62,25 @@ class IsbiEmStacksDataset(ThreadedDataset):
     # optional arguments
     data_shape = (512, 512, 1)
     _void_labels = []
-    cmap = np.array([
-        (255, 255, 255),    # Membranes
-        (0, 0, 0)])         # Non-membranes
-    cmap = cmap / 255.
-    labels = ('membranes', 'non-membranes')
+    _cmap = {
+        0: (0, 0, 0), # Non-membranes
+        1: (255, 255, 255)} # Membranes
+    _mask_labels = {0: 'Non-membranes', 1: 'Membranes'}
 
     _filenames = None
 
 
-    def __init__(self, which_set='train', start=0, end=30, *args, **kwargs):
-        
+    def __init__(self, which_set='train', start=0, end=30,
+                 elastic_deform=False, *args, **kwargs):
+
         assert which_set in ["train", "test"]
         self.which_set = which_set
-        
+
         assert start >= 0 and end <= 30 and start < end
         self.start = start
         self.end = end
+
+        self.elastic_deform = elastic_deform
 
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'em_stacks')
@@ -58,7 +105,7 @@ class IsbiEmStacksDataset(ThreadedDataset):
         prefix = ""
         video_length = self.end - self.start
         frames = range(video_length)
-        
+
         seq_per_video = self.seq_per_video
         self.video_length[prefix] = video_length
 
@@ -91,6 +138,8 @@ class IsbiEmStacksDataset(ThreadedDataset):
             for i in first_frame_indexes:
                 sequences.append((prefix, frames[i]))
 
+        self.epoch_length = ((len(sequences) + self.batch_size - 1) /
+                             self.batch_size)
         return np.array(sequences)
 
     def load_sequence(self, first_frame):
@@ -102,10 +151,10 @@ class IsbiEmStacksDataset(ThreadedDataset):
         Returns images in [0, 1]
         """
         from PIL import Image
-        
+
         X = []
         Y = []
-        
+
         load_labels = self.target_path is not None
 
         prefix, first_frame_name = first_frame
@@ -119,26 +168,35 @@ class IsbiEmStacksDataset(ThreadedDataset):
 
         start_idx = first_frame_name
         end_idx = start_idx + seq_length
-        
+
         for i in range(start_idx, end_idx):
-        
+
             idx = i + self.start
-            
+
             imgs = Image.open(self.image_path)
             imgs.seek(idx)
-            X.append(np.array(imgs)[:, :, None].astype(floatX) / 255)
-            
+            X.append(np.array(imgs)[:, :, None].astype("uint8"))
+
             if load_labels:
                 targets = Image.open(self.target_path)
                 targets.seek(idx)
                 Y.append(np.array(targets) / 255)
 
+        X = np.array(X)
+        Y = np.array(Y)
+
+        # If needed, apply elastic deformation
+        if self.elastic_deform:
+            disp_x, disp_y = displacement_vecs(10, (3, 3))
+            X = batch_elastic_def(X[:,:,:,0], disp_x, disp_y)[:,:,:,None]
+            Y = batch_elastic_def(Y, disp_x, disp_y)
+
+        X = X.astype("float32") / 255
+
         if load_labels:
-            print np.array(X).shape
-            print np.array(Y).shape
-            return np.array(X), np.array(Y)
+            return X, Y
         else:
-            return np.array(X)     
+            return X
 
 
 def test2():
@@ -150,8 +208,9 @@ def test2():
         seq_length=10,
         overlap=9,
         get_one_hot=True,
-        crop_size=(224, 224))
-    
+        crop_size=(224, 224),
+        elastic_deform=True)
+
     for i, _ in enumerate(range(d.epoch_length)):
         image_group = d.next()
         if image_group is None:
