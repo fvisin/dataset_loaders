@@ -335,9 +335,11 @@ class ThreadedDataset(object):
 
             # Per-image normalization
             if self.remove_per_img_mean:
-                seq_x -= seq_x.mean(axis=range(seq_x.ndim - 1), keepdims=True)
+                seq_x -= seq_x.mean(axis=tuple(range(seq_x.ndim - 1)),
+                                    keepdims=True)
             if self.divide_by_per_img_std:
-                seq_x /= seq_x.std(axis=range(seq_x.ndim - 1), keepdims=True)
+                seq_x /= seq_x.std(axis=tuple(range(seq_x.ndim - 1)),
+                                   keepdims=True)
 
             # Dataset statistics normalization
             if self.remove_mean:
