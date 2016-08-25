@@ -50,17 +50,16 @@ class CocoDataset(ThreadedDataset):
             self.image_path = os.path.join(self.path, 'images', 'train2014')
             self.coco = COCO(os.path.join(self.path, 'annotations',
                                           'instances_train2014.json'))
-            self.img_ids = self.coco.getImgIds()
-        elif self.which_set == 'val' or 'test':
+        elif self.which_set == 'val':
             self.image_path = os.path.join(self.path, 'images', 'val2014')
             self.coco = COCO(os.path.join(self.path, 'annotations',
                                           'instances_val2014.json'))
-            self.img_ids = self.coco.getImgIds()
-            split = int(val_test_split*len(self.img_ids))
-            if self.which_set == "val":
-                self.img_ids = self.img_ids[:split]
-            elif self.which_set == "test":
-                self.img_ids = self.img_ids[split:]
+        elif self.which_set == 'test':
+            self.image_path = os.path.join(self.path, 'images', 'test2014')
+            self.coco = COCO(os.path.join(self.path, 'annotations',
+                                          'image_info_test2015.json'))
+            self.has_GT = False
+        self.img_ids = self.coco.getImgIds()
         self.catIds = self.coco.getCatIds()
 
         # constructing the ThreadedDataset
