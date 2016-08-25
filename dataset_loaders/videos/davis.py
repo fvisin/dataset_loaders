@@ -1,5 +1,6 @@
 import os
 import time
+from getpass import getuser
 
 import numpy as np
 
@@ -31,7 +32,7 @@ class DavisDataset(ThreadedDataset):
             all_prefix_list = np.unique(np.array(os.listdir(self.image_path)))
             nvideos = len(all_prefix_list)
             nvideos_set = int(nvideos*self.split)
-            self._prefix_list = all_prefix_list[-nvideos_set:] \
+            self._prefix_list = all_prefix_list[-(nvideos - nvideos_set):] \
                 if "val" in self.which_set else all_prefix_list[:nvideos_set]
 
         return self._prefix_list
@@ -64,19 +65,23 @@ class DavisDataset(ThreadedDataset):
 
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
                                  'Davis', 'davis')
-        self.sharedpath = '/data/lisatmp4/dejoieti/data/Davis/'
+        self.sharedpath = '/data/lisatmp4/romerosa/datasets/davis/'
 
         # Prepare data paths
         if 'train' in self.which_set or 'val' in self.which_set:
-            self.split = split if self.which_set == "train" else (1 - split)
-            self.image_path = os.path.join(self.path, 'JPEGImages', '1080p')
-            self.mask_path = os.path.join(self.path, 'Annotations', '1080p')
-        # elif 'test' in self.which_set:
-        #     self.image_path = \
-        #         os.path.join(self.path, 'Images_test', 'Original')
-        #     self.mask_path = os.path.join(self.path, 'Images_test',
-        #                                   'Ground_Truth')
-        #     self.split = split
+            self.split = split
+            self.image_path = os.path.join(self.path,
+                                           'JPEGImages', '480p',
+                                           'training')
+            self.mask_path = os.path.join(self.path,
+                                          'Annotations', '480p',
+                                          'training')
+        elif 'test' in self.which_set:
+            self.image_path = os.path.join(self.path,
+                                           'JPEGImages', '480p', 'test')
+            self.mask_path = os.path.join(self.path,
+                                          'Annotations', '480p', 'test')
+            self.split = 1.
         else:
             raise RuntimeError('Unknown set')
 
@@ -182,57 +187,39 @@ def test():
         batch_size=20,
         seq_per_video=0,
         seq_length=0,
+        overlap=0,
         crop_size=(224, 224),
-        split=.75,
+        split=0.75,
         get_one_hot=True,
         get_01c=True,
-        use_threads=True)
+        use_threads=True,
+        shuffle_at_each_epoch=False)
     validiter = DavisDataset(
         which_set='valid',
         batch_size=1,
         seq_per_video=0,
         seq_length=0,
+        overlap=0,
         split=.75,
         get_one_hot=False,
         get_01c=True,
-        use_threads=True)
-    validiter2 = DavisDataset(
-        which_set='valid',
-        batch_size=1,
-        seq_per_video=0,
-        seq_length=10,
-        split=.75,
-        get_one_hot=False,
-        get_01c=True,
-        use_threads=True)
+        use_threads=True,
+        shuffle_at_each_epoch=False)
     testiter = DavisDataset(
         which_set='test',
         batch_size=1,
-        seq_per_video=10,
-        seq_length=10,
+        seq_per_video=0,
+        seq_length=0,
+        overlap=0,
         split=1.,
         get_one_hot=False,
         get_01c=False,
-        use_threads=True)
-    testiter2 = DavisDataset(
-        which_set='test',
-        batch_size=1,
-        seq_per_video=10,
-        seq_length=0,
-        split=1.,
-        get_one_hot=True,
-        get_01c=False,
-        with_filenames=True,
         use_threads=True)
 
     train_nsamples = trainiter.nsamples
     valid_nsamples = validiter.nsamples
     test_nsamples = testiter.nsamples
-    nclasses = testiter.get_n_classes()
     nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
-    valid_batch_size = validiter.get_batch_size()
-    test_batch_size = testiter.get_batch_size()
 
     print("Train %d, valid %d, test %d" % (train_nsamples, valid_nsamples,
                                            test_nsamples))
@@ -244,65 +231,11 @@ def test():
         for mb in range(nbatches):
             train_group = trainiter.next()
             valid_group = validiter.next()
-            valid2_group = validiter2.next()
             test_group = testiter.next()
-            test2_group = testiter2.next()
             if train_group is None or valid_group is None or \
-               test_group is None or valid2_group is None or \
-               test2_group is None:
+               test_group is None:
                 raise ValueError('.next() returned None!')
 
-            # train_group checks
-            assert train_group[0].ndim == 4
-            assert train_group[0].shape[0] <= train_batch_size
-            assert train_group[0].shape[1] == 224
-            assert train_group[0].shape[2] == 224
-            assert train_group[0].shape[3] == 3
-            assert train_group[0].min() >= 0
-            assert train_group[0].max() <= 1
-            assert train_group[1].ndim == 4
-            assert train_group[1].shape[0] <= train_batch_size
-            assert train_group[1].shape[1] == 224
-            assert train_group[1].shape[2] == 224
-            assert train_group[1].shape[3] == nclasses
-
-            # valid_group checks
-            assert valid_group[0].ndim == 4
-            assert valid_group[0].shape[0] <= valid_batch_size
-            assert valid_group[0].shape[3] == 3
-            assert valid_group[1].ndim == 3
-            assert valid_group[1].shape[0] <= valid_batch_size
-            assert valid_group[1].max() < nclasses
-
-            # valid2_group checks
-            assert valid2_group[0].ndim == 5
-            assert valid2_group[0].shape[0] <= valid_batch_size
-            assert valid2_group[0].shape[1] == 10
-            assert valid2_group[0].shape[4] == 3
-            assert valid2_group[1].ndim == 4
-            assert valid2_group[1].shape[0] <= valid_batch_size
-            assert valid2_group[1].shape[1] == 10
-            assert valid2_group[1].max() < nclasses
-
-            # test_group checks
-            assert test_group[0].ndim == 5
-            assert test_group[0].shape[0] <= test_batch_size
-            assert test_group[0].shape[1] == 10
-            assert test_group[0].shape[2] == 3
-            assert test_group[1].ndim == 4
-            assert test_group[1].shape[0] <= test_batch_size
-            assert test_group[1].shape[1] == 10
-            assert test_group[1].max() < nclasses
-
-            # test2_group checks
-            assert len(test2_group) == 3
-            assert test2_group[0].ndim == 4
-            assert test2_group[0].shape[0] <= test_batch_size
-            assert test2_group[0].shape[1] == 3
-            assert test2_group[1].ndim == 4
-            assert test2_group[1].shape[0] <= test_batch_size
-            assert test2_group[1].shape[1] == nclasses
-
             # time.sleep approximates running some model
             time.sleep(1)
             stop = time.time()
@@ -311,55 +244,5 @@ def test():
             print("Minibatch %s" % str(mb))
 
 
-def test2():
-    trainiter = DavisDataset(
-        which_set='train',
-        batch_size=5,
-        seq_per_video=0,
-        seq_length=7,
-        overlap=2,
-        with_filenames=True,
-        crop_size=(224, 224),
-        split=.75,
-        get_one_hot=True,
-        get_01c=True,
-        use_threads=True,
-        nthreads=5)
-
-    train_nsamples = trainiter.nsamples
-    nclasses = trainiter.get_n_classes()
-    nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
-
-    print("Train %d" % (train_nsamples))
-
-    start = time.time()
-    max_epochs = 2
-
-    for epoch in range(max_epochs):
-        for mb in range(nbatches):
-            train_group = trainiter.next()
-
-            print train_group[2]
-            # train_group checks
-            assert train_group[0].ndim == 5
-            assert train_group[0].shape[0] <= train_batch_size
-            assert train_group[0].shape[2] == 224
-            assert train_group[0].shape[3] == 224
-            assert train_group[0].shape[4] == 3
-            assert train_group[0].min() >= 0
-            assert train_group[0].max() <= 1
-            assert train_group[1].ndim == 5
-            assert train_group[1].shape[0] <= train_batch_size
-            assert train_group[1].shape[2] == 224
-            assert train_group[1].shape[3] == 224
-            assert train_group[1].shape[4] == nclasses
-
-            # time.sleep approximates running some model
-            time.sleep(1)
-            stop = time.time()
-            tot = stop - start
-            print("Threaded time: %s" % (tot))
-            print("Minibatch %s" % str(mb))
 if __name__ == '__main__':
-    test2()
+    test()
