@@ -170,7 +170,6 @@ def test3():
         seq_per_video=0,
         seq_length=0,
         crop_size=(224, 224),
-        split=.75,
         get_one_hot=True,
         get_01c=True,
         use_threads=True,

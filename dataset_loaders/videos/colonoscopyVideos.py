@@ -1,6 +1,5 @@
 import os
 import time
-from getpass import getuser
 
 import numpy as np
 
@@ -42,8 +41,6 @@ class PolypVideoDataset(ThreadedDataset):
         self.threshold_masks = threshold_masks
         self.with_filenames = with_filenames
 
-        self.void_labels = PolypVideoDataset.void_labels
-
         # Prepare data paths
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
                                  'POLYP_VIDEOS')
@@ -78,7 +75,7 @@ class PolypVideoDataset(ThreadedDataset):
 
         nvideos = len(all_prefix_list)
         nvideos_set = int(nvideos*self.split)
-        prefix_list = all_prefix_list[-(nvideos - nvideos_set):] \
+        prefix_list = all_prefix_list[nvideos_set:] \
             if self.which_set == "val" else all_prefix_list[:nvideos_set]
 
         # update filenames list
@@ -169,9 +166,6 @@ class PolypVideoDataset(ThreadedDataset):
             return np.array(X), np.array(Y), np.array(F)
         else:
             return np.array(X), np.array(Y)
-
-    def get_void_labels(self):
-        return self.void_labels
 
 
 def test():

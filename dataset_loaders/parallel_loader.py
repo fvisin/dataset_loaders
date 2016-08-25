@@ -70,6 +70,11 @@ class ThreadedDataset(object):
         * GTclasses: a list of classes labels. To be provided when the
             classes labels are not consecutive
 
+    Optional arguments
+        * split: percentage of the training set to be used for training.
+            The remainder will be used for validation
+        * val_test_split: percentage of the validation set to be used
+            for validation. The remainder will be used for test
     Parallel loader will automatically map all non-void classes to be
     sequential starting from 0 and then map all void classes to the
     next class. E.g., suppose nclasses = 4 and _void_classes = [3, 5]

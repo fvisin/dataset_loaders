@@ -24,8 +24,8 @@ class Polyps300Dataset(ThreadedDataset):
     _mask_labels = {0: 'Void', 1: 'Background', 2: 'Polyp', 3: 'Specularity',
                     4: 'Lumen'}
 
-    def __init__(self, which_set='train', with_filenames=False, select='sequences',
-                 *args, **kwargs):
+    def __init__(self, which_set='train', with_filenames=False,
+                 select='sequences', *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
         self.with_filenames = with_filenames

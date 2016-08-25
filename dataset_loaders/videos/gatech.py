@@ -1,6 +1,5 @@
 import os
 import time
-from getpass import getuser
 
 import numpy as np
 
@@ -46,7 +45,7 @@ class GatechDataset(ThreadedDataset):
                                                   for el in self.filenames]))
             nvideos = len(all_prefix_list)
             nvideos_set = int(nvideos*self.split)
-            self._prefix_list = all_prefix_list[-(nvideos-nvideos_set):] \
+            self._prefix_list = all_prefix_list[nvideos_set:] \
                 if "val" in self.which_set else all_prefix_list[:nvideos_set]
 
         return self._prefix_list
