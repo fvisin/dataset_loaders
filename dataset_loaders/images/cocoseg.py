@@ -55,7 +55,7 @@ class CocoDataset(ThreadedDataset):
             self.coco = COCO(os.path.join(self.path, 'annotations',
                                           'instances_val2014.json'))
         elif self.which_set == 'test':
-            self.image_path = os.path.join(self.path, 'images', 'test2014')
+            self.image_path = os.path.join(self.path, 'images', 'test2015')
             self.coco = COCO(os.path.join(self.path, 'annotations',
                                           'image_info_test2015.json'))
             self.has_GT = False
