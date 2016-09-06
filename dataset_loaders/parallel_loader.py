@@ -70,6 +70,11 @@ class ThreadedDataset(object):
         * GTclasses: a list of classes labels. To be provided when the
             classes labels are not consecutive
 
+    Optional arguments
+        * split: percentage of the training set to be used for training.
+            The remainder will be used for validation
+        * val_test_split: percentage of the validation set to be used
+            for validation. The remainder will be used for test
     Parallel loader will automatically map all non-void classes to be
     sequential starting from 0 and then map all void classes to the
     next class. E.g., suppose nclasses = 4 and _void_classes = [3, 5]
@@ -335,9 +340,11 @@ class ThreadedDataset(object):
 
             # Per-image normalization
             if self.remove_per_img_mean:
-                seq_x -= seq_x.mean(axis=range(seq_x.ndim - 1), keepdims=True)
+                seq_x -= seq_x.mean(axis=tuple(range(seq_x.ndim - 1)),
+                                    keepdims=True)
             if self.divide_by_per_img_std:
-                seq_x /= seq_x.std(axis=range(seq_x.ndim - 1), keepdims=True)
+                seq_x /= seq_x.std(axis=tuple(range(seq_x.ndim - 1)),
+                                   keepdims=True)
 
             # Dataset statistics normalization
             if self.remove_mean:

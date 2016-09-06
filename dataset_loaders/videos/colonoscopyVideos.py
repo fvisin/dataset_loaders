@@ -19,7 +19,7 @@ class PolypVideoDataset(ThreadedDataset):
     _cmap = {
         0: (255, 255, 255),     # polyp
         1: (0, 0, 0)}           # background
-    _mask_labels = (0: 'polyp', 1: 'background')
+    _mask_labels = {0: 'polyp', 1: 'background'}
 
     _filenames = None
 
@@ -41,11 +41,9 @@ class PolypVideoDataset(ThreadedDataset):
         self.threshold_masks = threshold_masks
         self.with_filenames = with_filenames
 
-        self.void_labels = PolypVideoDataset.void_labels
-
         # Prepare data paths
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'POLYP_VIDEOS')
+        self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
+                                 'POLYP_VIDEOS')
         self.sharedpath = ('/data/lisatmp4/dejoieti/data/data_colo/')
         if self.which_set == "train" or self.which_set == "val":
             self.image_path = os.path.join(self.path,
@@ -54,7 +52,7 @@ class PolypVideoDataset(ThreadedDataset):
             self.mask_path = os.path.join(self.path,
                                           'polyp_video_frames',
                                           'Images', 'Ground_Truth')
-            self.split = split if self.which_set == "train" else (1 - split)
+            self.split = split
         elif self.which_set == "test":
             self.image_path = os.path.join(self.path,
                                            'polyp_video_frames_test',
@@ -77,7 +75,7 @@ class PolypVideoDataset(ThreadedDataset):
 
         nvideos = len(all_prefix_list)
         nvideos_set = int(nvideos*self.split)
-        prefix_list = all_prefix_list[-nvideos_set:] \
+        prefix_list = all_prefix_list[nvideos_set:] \
             if self.which_set == "val" else all_prefix_list[:nvideos_set]
 
         # update filenames list
@@ -168,9 +166,6 @@ class PolypVideoDataset(ThreadedDataset):
             return np.array(X), np.array(Y), np.array(F)
         else:
             return np.array(X), np.array(Y)
-
-    def get_void_labels(self):
-        return self.void_labels
 
 
 def test():

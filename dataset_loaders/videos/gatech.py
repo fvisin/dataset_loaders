@@ -45,7 +45,7 @@ class GatechDataset(ThreadedDataset):
                                                   for el in self.filenames]))
             nvideos = len(all_prefix_list)
             nvideos_set = int(nvideos*self.split)
-            self._prefix_list = all_prefix_list[-nvideos_set:] \
+            self._prefix_list = all_prefix_list[nvideos_set:] \
                 if "val" in self.which_set else all_prefix_list[:nvideos_set]
 
         return self._prefix_list
@@ -77,7 +77,7 @@ class GatechDataset(ThreadedDataset):
 
         # Prepare data paths
         if 'train' in self.which_set or 'val' in self.which_set:
-            self.split = split if self.which_set == "train" else (1 - split)
+            self.split = split
             if 'fcn8' in self.which_set:
                 self.image_path = os.path.join(self.path, 'Images',
                                                'After_fcn8')
@@ -211,15 +211,6 @@ def test():
         get_one_hot=False,
         get_01c=True,
         use_threads=True)
-    validiter2 = GatechDataset(
-        which_set='valid',
-        batch_size=1,
-        seq_per_video=0,
-        seq_length=10,
-        split=.75,
-        get_one_hot=False,
-        get_01c=True,
-        use_threads=True)
     testiter = GatechDataset(
         which_set='test',
         batch_size=1,
@@ -228,16 +219,6 @@ def test():
         split=1.,
         get_one_hot=False,
         get_01c=False,
-        use_threads=True)
-    testiter2 = GatechDataset(
-        which_set='test',
-        batch_size=1,
-        seq_per_video=10,
-        seq_length=0,
-        split=1.,
-        get_one_hot=True,
-        get_01c=False,
-        with_filenames=True,
         use_threads=True)
 
     train_nsamples = trainiter.nsamples
@@ -259,12 +240,9 @@ def test():
         for mb in range(nbatches):
             train_group = trainiter.next()
             valid_group = validiter.next()
-            valid2_group = validiter2.next()
             test_group = testiter.next()
-            test2_group = testiter2.next()
             if train_group is None or valid_group is None or \
-               test_group is None or valid2_group is None or \
-               test2_group is None:
+               test_group is None:
                 raise ValueError('.next() returned None!')
 
             # train_group checks
@@ -289,16 +267,6 @@ def test():
             assert valid_group[1].shape[0] <= valid_batch_size
             assert valid_group[1].max() < nclasses
 
-            # valid2_group checks
-            assert valid2_group[0].ndim == 5
-            assert valid2_group[0].shape[0] <= valid_batch_size
-            assert valid2_group[0].shape[1] == 10
-            assert valid2_group[0].shape[4] == 3
-            assert valid2_group[1].ndim == 4
-            assert valid2_group[1].shape[0] <= valid_batch_size
-            assert valid2_group[1].shape[1] == 10
-            assert valid2_group[1].max() < nclasses
-
             # test_group checks
             assert test_group[0].ndim == 5
             assert test_group[0].shape[0] <= test_batch_size
@@ -308,15 +276,6 @@ def test():
             assert test_group[1].shape[0] <= test_batch_size
             assert test_group[1].shape[1] == 10
             assert test_group[1].max() < nclasses
-
-            # test2_group checks
-            assert len(test2_group) == 3
-            assert test2_group[0].ndim == 4
-            assert test2_group[0].shape[0] <= test_batch_size
-            assert test2_group[0].shape[1] == 3
-            assert test2_group[1].ndim == 4
-            assert test2_group[1].shape[0] <= test_batch_size
-            assert test2_group[1].shape[1] == nclasses
 
             # time.sleep approximates running some model
             time.sleep(1)

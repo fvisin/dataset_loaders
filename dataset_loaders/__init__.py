@@ -1,6 +1,10 @@
 from images.camvid import CamvidDataset
 from images.cocoseg import CocoDataset
+from images.em_stacks import IsbiEmStacksDataset
 from images.pascalvoc import VOCdataset
-from videos.gatech import GatechDataset
+from images.polyps300 import Polyps300Dataset
+
+from videos.davis import DavisDataset
 from videos.change_detection import ChangeDetectionDataset
-# from videos.colonoscopyVideos
+from videos.colonoscopyVideos import PolypVideoDataset
+from videos.gatech import GatechDataset
