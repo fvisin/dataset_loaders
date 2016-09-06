@@ -71,7 +71,8 @@ class IsbiEmStacksDataset(ThreadedDataset):
 
 
     def __init__(self, which_set='train', start=0, end=30,
-                 elastic_deform=False, *args, **kwargs):
+                 elastic_deform=False, h_flipping=False, v_flipping=False,
+                 shearing_range=0.0, *args, **kwargs):
 
         assert which_set in ["train", "test"]
         self.which_set = which_set
@@ -81,6 +82,9 @@ class IsbiEmStacksDataset(ThreadedDataset):
         self.end = end
 
         self.elastic_deform = elastic_deform
+        self.h_flipping = h_flipping
+        self.v_flipping = v_flipping
+        self.shearing_range = shearing_range
 
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'em_stacks')
@@ -190,6 +194,38 @@ class IsbiEmStacksDataset(ThreadedDataset):
             disp_x, disp_y = displacement_vecs(10, (3, 3))
             X = batch_elastic_def(X[:,:,:,0], disp_x, disp_y)[:,:,:,None]
             Y = batch_elastic_def(Y, disp_x, disp_y)
+
+        # If needed, apply flipping
+        # X is in format B01C, Y is in format B01
+        for i in range(len(X)):
+            if self.h_flipping and np.random.random() < 0.5:
+                X[i] = X[i,:,::-1]
+                Y[i] = Y[i,:,::-1]
+            if self.v_flipping and np.random.random() < 0.5:
+                X[i] = X[i,::-1,:]
+                Y[i] = Y[i,::-1,:]
+
+        # If needed, apply shearing deformation
+        if self.shearing_range > 0.0:
+            from keras.preprocessing.image import (apply_transform,
+                                                   transform_matrix_offset_center)
+
+            height = X.shape[2]
+            width = X.shape[3]
+
+            for i in range(len(X)):
+
+                shear = np.random.uniform(-self.shearing_range,
+                                          self.shearing_range)
+                shear_matrix = np.array([[1, -np.sin(shear), 0],
+                                         [0, np.cos(shear), 0],
+                                         [0, 0, 1]])
+
+                transform_matrix = transform_matrix_offset_center(shear_matrix,
+                                                                  height, width)
+                X[i] = apply_transform(X[i], transform_matrix, 2, 'nearest', 0.)
+                Y[i] = apply_transform(Y[i,:,:,None], transform_matrix, 2,
+                                       'nearest', 0.)[:,:,0]
 
         X = X.astype("float32") / 255
 
