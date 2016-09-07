@@ -29,3 +29,4 @@ This repository contains some loaders for commonly used datasets.
    cd dataset_loaders/images/coco/PythonAPI
    make all
    ```
+**Note**: These loaders might still be unstable, please carefully check that they are loading what you expect them to load before using them!
