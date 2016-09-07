@@ -639,3 +639,7 @@ class ThreadedDataset(object):
         inv_mapping = self._get_inv_mapping()
         return np.array([mask_labels[inv_mapping[k]] for k in
                          sorted(inv_mapping.keys())])
+
+
+    def get_cmap_values(self):
+        return self._cmap.values()

@@ -10,14 +10,46 @@ from dataset_loaders.parallel_loader import ThreadedDataset
 
 class VOCdataset(ThreadedDataset):
     name = 'pascal_voc'
-    non_void_nclasses = 20
+    non_void_nclasses = 21
     debug_shape = (375, 500, 3)
 
+    data_shape = (None, None, 3)
     mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
         'float32')
     std = 1.
-    GTclasses = range(20) + [255]
+    GTclasses = range(21) + [255]
     _void_labels = [255]
+
+    _cmap = {
+        0: (0, 0, 0),           # background
+        1: (255, 0, 0),         # aeroplane
+        2: (192, 192, 128),     # bicycle
+        3: (128, 64, 128),      # bird
+        4: (0, 0, 255),         # boat
+        5: (0, 255, 0),         # bottle
+        6: (192, 128, 128),     # bus
+        7: (64, 64, 128),       # car
+        8: (64, 0, 128),        # cat
+        9: (64, 64, 0),         # chair
+        10: (0, 128, 192),      # cow
+        11: (0, 255, 255),      # diningtable
+        12: (255, 0, 255),      # dog
+        13: (255, 128, 0),      # horse
+        14: (0, 102, 102),      # motorbike
+        15: (102, 0, 204),      # person
+        16: (128, 255, 0),      # potted_plant
+        17: (224, 224, 224),    # sheep
+        18: (102, 0, 51),       # sofa
+        19: (153, 76, 0),       # train
+        20: (229, 244, 204),    # tv_monitor
+        255: (255, 255, 255)    # void
+    }
+    _mask_labels = {0: 'background', 1: 'aeroplane', 2: 'bicycle', 3: 'bird',
+                    4: 'boat', 5: 'bottle', 6: 'bus', 7: 'car', 8: 'cat',
+                    9: 'chair', 10: 'cow', 11: 'diningtable', 12: 'dog',
+                    13: 'horse', 14: 'motorbike', 15: 'person',
+                    16: 'potted_plant', 17: 'sheep', 18: 'sofa',
+                    19: 'train', 20: 'tv_monitor', 255: 'void'}
 
     _filenames = None
     _prefix_list = None
@@ -48,7 +80,6 @@ class VOCdataset(ThreadedDataset):
 
     def __init__(self,
                  which_set="train",
-                 teacher_temperature=1,
                  year="VOC2012",
                  *args, **kwargs):
 
@@ -60,9 +91,8 @@ class VOCdataset(ThreadedDataset):
             raise ValueError("No test set for other than 2012 year")
         if self.which_set == 'test':
             self.has_GT = False
-        self.teacher_temperature = teacher_temperature
-        self.year = year
 
+        self.year = year
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC',
             'VOCdevkit')
@@ -73,8 +103,6 @@ class VOCdataset(ThreadedDataset):
         self.image_path = os.path.join(self.path, self.year, "JPEGImages")
         self.mask_path = os.path.join(self.path, self.year,
                                       "SegmentationClass")
-        # self.pred_path = os.path.join(self.path, self.which_set,
-        #                               "teacher_pred_temp1")
 
         super(VOCdataset, self).__init__(*args, **kwargs)
 
@@ -103,7 +131,6 @@ class VOCdataset(ThreadedDataset):
         from skimage import io
         image_batch = []
         mask_batch = []
-        # pred_batch = []
         filename_batch = []
 
         # Load image
@@ -117,14 +144,10 @@ class VOCdataset(ThreadedDataset):
                 mask = np.array(Image.open(
                     os.path.join(self.mask_path, img_name + ".png")))
 
-            # Load teacher predictions and soft predictions
-            # pred = np.load(os.path.join(self.pred_path, img_name + ".npy"))
-
             # Add to minibatch
             image_batch.append(img)
             if self.which_set != "test":
                 mask_batch.append(mask)
-            # pred_batch.append(pred)
             filename_batch.append(img_name)
 
         ret = {}
@@ -184,5 +207,68 @@ def test():
             print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
 
 
+def test2():
+    trainiter = VOCdataset(
+        which_set='train',
+        batch_size=100,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(224, 224),
+        get_one_hot=True,
+        get_01c=True,
+        return_list=True,
+        use_threads=True)
+
+    validiter = VOCdataset(
+        which_set='valid',
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(224, 224),
+        get_one_hot=True,
+        get_01c=True,
+        return_list=True,
+        use_threads=False)
+
+    testiter = VOCdataset(
+        which_set='test',
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(224, 224),
+        get_one_hot=True,
+        get_01c=True,
+        return_list=True,
+        use_threads=False)
+
+    train_nsamples = trainiter.nsamples
+    nclasses = trainiter.get_n_classes()
+    nbatches = trainiter.get_n_batches()
+    train_batch_size = trainiter.get_batch_size()
+    print("Train %d" % (train_nsamples))
+
+    valid_nsamples = validiter.nsamples
+    test_nsamples = testiter.nsamples
+    print("Valid %d" % (valid_nsamples))
+    print("Test %d" % (test_nsamples))
+
+    start = time.time()
+    max_epochs = 2
+
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+
+            # time.sleep approximates running some model
+            time.sleep(0.1)
+            stop = time.time()
+            tot = stop - start
+            print("Threaded time: %s" % (tot))
+            print("Minibatch %s" % str(mb))
+        print('ended epoch --> should reset!')
+        time.sleep(2)
+
+
 if __name__ == '__main__':
     test()
+    test2()
