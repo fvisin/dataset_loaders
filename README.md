@@ -29,4 +29,9 @@ This repository contains some loaders for commonly used datasets.
    cd dataset_loaders/images/coco/PythonAPI
    make all
    ```
+4. You will need to install SimpleITK for data augmentation:
+   ```
+    pip install SimpleITK --user  
+   ```
+
 **Note**: These loaders might still be unstable, please carefully check that they are loading what you expect them to load before using them!
