@@ -9,6 +9,7 @@ from time import sleep
 
 import numpy as np
 from numpy.random import RandomState
+from dataset_loaders.data_augmentation import random_transform
 
 import dataset_loaders
 from utils_parallel_loader import classproperty, grouper, overlap_grouper
@@ -125,7 +126,6 @@ class ThreadedDataset(object):
                  seq_per_video=0,   # if 0 all sequences (or frames, if 4D)
                  seq_length=0,      # if 0, return 4D
                  overlap=None,
-                 crop_size=None,
                  batch_size=1,
                  queues_size=50,
                  get_one_hot=False,
@@ -135,6 +135,7 @@ class ThreadedDataset(object):
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
                  return_list=False,  # for keras, return X,Y only
+                 data_augm_kwargs={},
                  remove_mean=False,  # dataset stats
                  divide_by_std=False,  # dataset stats
                  remove_per_img_mean=False,  # img stats
@@ -146,6 +147,29 @@ class ThreadedDataset(object):
         if len(kwargs):
             print('Ignored arguments: {}'.format(kwargs.keys()))
 
+        # Set default values for the data augmentation params if not specified
+        default_data_augm_kwargs = {
+            'crop_size': None,
+            'rotation_range': 0,
+            'width_shift_range': 0,
+            'height_shift_range': 0,
+            'shear_range': 0,
+            'zoom_range': 0,
+            'channel_shift_range': 0,
+            'fill_mode': 'nearest',
+            'cval': 0,
+            'cvalMask': 0,
+            'horizontal_flip': False,
+            'vertical_flip': False,
+            'rescale': None,
+            'spline_warp': False,
+            'warp_sigma': 0.1,
+            'warp_grid_size': 3}
+        default_data_augm_kwargs.update(data_augm_kwargs)
+        self.data_augm_kwargs = default_data_augm_kwargs
+        del(default_data_augm_kwargs, data_augm_kwargs)
+
+        # Do not support multithread without shuffling
         if use_threads and nthreads > 1 and not shuffle_at_each_epoch:
             raise NotImplementedError('Multiple threads are not order '
                                       'preserving')
@@ -159,8 +183,9 @@ class ThreadedDataset(object):
             raise NameError('Mandatory argument(s) missing: {}'.format(
                 missing_attrs))
 
+        # If variable sized dataset --> either batch_size 1 or crop
         if (not hasattr(self, 'data_shape') and batch_size > 1 and
-                not crop_size):
+                not self.data_augm_kwargs['crop_size']):
             raise ValueError(
                 '{} has no `data_shape` attribute, this means that the '
                 'shape of the samples varies across the dataset. You '
@@ -192,9 +217,9 @@ class ThreadedDataset(object):
         self.return_sequence = seq_length != 0
         self.seq_length = seq_length if seq_length else 1
         self.overlap = overlap if overlap is not None else self.seq_length - 1
-        if crop_size and tuple(crop_size) == (0, 0):
-            crop_size = None
-        self.crop_size = crop_size
+        if (self.data_augm_kwargs['crop_size'] and
+            tuple(self.data_augm_kwargs['crop_size']) == (0, 0)):
+            self.data_augm_kwargs['crop_size'] = None
         self.batch_size = batch_size
         self.queues_size = queues_size
         self.get_one_hot = get_one_hot
@@ -213,11 +238,12 @@ class ThreadedDataset(object):
 
         self.has_GT = getattr(self, 'has_GT', True)
 
+
         # ...01c
         data_shape = list(getattr(self.__class__, 'data_shape',
                                   (None, None, 3)))
-        if self.crop_size:
-            data_shape[-3:-1] = self.crop_size  # change 01
+        if self.data_augm_kwargs['crop_size']:
+            data_shape[-3:-1] = self.data_augm_kwargs['crop_size']  # change 01
         if self.get_01c:
             self.data_shape = data_shape
         else:
@@ -465,36 +491,24 @@ class ThreadedDataset(object):
             if self.divide_by_std:
                 seq_x /= getattr(self, 'std', 1)
 
-            # assert seq_x.max() <= 1
             if seq_x.ndim == 3:
                 seq_x = seq_x[np.newaxis, ...]
                 seq_y = seq_y[np.newaxis, ...]
                 raw_data = raw_data[np.newaxis, ...]
             assert seq_x.ndim == 4
 
-            # Crop
-            crop = list(self.crop_size) if self.crop_size else None
-            if crop:
-                height, width = seq_x.shape[-3:-1]
-
-                if crop[0] < height:
-                    top = self.rng.randint(height - crop[0])
-                else:
-                    print('Dataset loader: Crop height greater or equal to '
-                          'image size')
-                    top = 0
-                    crop[0] = height
-                if crop[1] < width:
-                    left = self.rng.randint(width - crop[1])
-                else:
-                    print('Dataset loader: Crop width greater or equal to '
-                          'image size')
-                    left = 0
-                    crop[1] = width
-
-                seq_x = seq_x[..., top:top+crop[0], left:left+crop[1], :]
-                if self.has_GT:
-                    seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
+            # Perform data augmentation, if any
+            # change order to (s, c, 0, 1)
+            # add extra dimension to y to work with data augm
+            x_tmp = seq_x.transpose(0, 3, 1, 2)
+            y_tmp = np.expand_dims(seq_y, axis=1).astype('float32')
+            # apply random transform
+            seq_x, seq_y = random_transform(
+                x_tmp, y_tmp,
+                **self.data_augm_kwargs)
+            # go back to (s, 0, 1, c) for x and (s, 0, 1) for y
+            seq_x = seq_x.transpose(0, 2, 3, 1)
+            seq_y = seq_y[:, 0, :, :].astype('int32')
 
             if self.has_GT and self._void_labels != []:
                 # Map all void classes to non_void_nclasses and shift the other

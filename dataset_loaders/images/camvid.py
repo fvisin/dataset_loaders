@@ -66,7 +66,7 @@ class CamvidDataset(ThreadedDataset):
         self.which_set = "val" if which_set == "valid" else which_set
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'camvid', 'segnet')
-        self.sharedpath = '/data/lisa/exp/visin/_datasets/camvid/segnet'
+        self.sharedpath = '/data/lisatmp4/camvid/segnet/'
 
         if self.which_set == "train":
             self.image_path = os.path.join(self.path, "train")
