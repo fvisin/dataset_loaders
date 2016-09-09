@@ -10,7 +10,8 @@ class RunningStats:
 calculate-a-running-standard-deviation>
         * <http://mathcentral.uregina.ca/QQ/database/QQ.09.02/carlos1.html>
 
-    Example:
+    Example
+    -------
         Given `dataset`, a list of images, this code would compute the
         per-pixel statistics::
 
@@ -19,10 +20,42 @@ calculate-a-running-standard-deviation>
                 runner.push(img)
             print(runner.mean())
             print(runner.std())
+
+    Example
+    -------
+        Given `dataset`, a list of masks, this code would compute the
+        class frequency::
+
+            runner = RunningStats(compute_class_freq=True, nclasses=10)
+            for mask in dataset:
+                runner.push(mask)
+            print(runner.class_freqs())
     """
 
-    def __init__(self):
+    def __init__(self, compute_class_freq=False, nclasses=None):
+        ''' An object to collect running stats
+
+            Parameters
+            ----------
+            compute_class_freq: bool
+                If False, mean and std_dev will be computed, else class
+                frequency will be computed. In the first case the
+                expected input is the image while in the second is the
+                mask
+            nclasses = int
+                The number of classes in the dataset. Only used if
+                compute_class_freq is True (required in that case)
+        '''
         self.n = 0.
+        self.compute_class_freq = compute_class_freq
+        self.nclasses = nclasses
+
+        if compute_class_freq:
+            if not nclasses:
+                raise RuntimeError('To compute class frequencies, provide '
+                                   'nclasses')
+            self.class_counts = numpy.zeros(self.nclasses)
+            self.class_tot_px = numpy.zeros(self.nclasses)
 
     def clear(self):
         self.n = 0.
@@ -37,14 +70,23 @@ calculate-a-running-standard-deviation>
                 self.update_params(el)
 
     def update_params(self, x):
-        self.n += 1
-        if self.n == 1:
-            self.m = x
-            self.s = 0.
+        # class freq
+        if self.compute_class_freq:
+            cl_ids, cl_counts = numpy.unique(x, return_counts=True)
+            tot_px = numpy.sum(cl_counts)
+            for cl_id, cl_count in zip(cl_ids, cl_counts):
+                self.class_counts[cl_id] += cl_count
+                self.class_tot_px[cl_id] += tot_px
         else:
-            prev_m = self.m.copy()
-            self.m += (x - self.m) / self.n
-            self.s += (x - prev_m) * (x - self.m)
+            self.n += 1
+            # mean, std_dev
+            if self.n == 1:
+                self.m = x
+                self.s = 0.
+            else:
+                prev_m = self.m.copy()
+                self.m += (x - self.m) / self.n
+                self.s += (x - prev_m) * (x - self.m)
 
     def mean(self):
         return self.m if self.n else 0.0
@@ -54,6 +96,9 @@ calculate-a-running-standard-deviation>
 
     def std(self):
         return numpy.sqrt(self.variance())
+
+    def class_freqs(self):
+        return self.class_counts / self.class_tot_px
 
 
 def test_running_stats():
