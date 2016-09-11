@@ -127,7 +127,7 @@ class ThreadedDataset(object):
         if len(kwargs):
             print('Ignored arguments: {}'.format(kwargs.keys()))
 
-        if nthreads > 1 and not shuffle_at_each_epoch:
+        if use_threads and nthreads > 1 and not shuffle_at_each_epoch:
             raise NotImplementedError('Multiple threads are not order '
                                       'preserving')
 
