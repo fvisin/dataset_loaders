@@ -32,6 +32,8 @@ class ChangeDetectionDataset(ThreadedDataset):
                   'dynamicBackground', 'intermittentObjectMotion',
                   'lowFramerate', 'nightVideos', 'PTZ', 'shadow', 'thermal',
                   'turbulence']
+    # with void [0.81749293, 0.0053444, 0.55085129, 0.03961262, 0.45756284]
+    class_freqs = [0.81749293, 0.0053444, 0.03961262, 0.45756284]
 
     # static, shadow, ground, solid (buildings, etc), porous, cars, humans,
     # vert mix, main mix
