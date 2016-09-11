@@ -11,6 +11,8 @@ from time import sleep
 import numpy as np
 from numpy.random import RandomState
 
+from utils_parallel_loader import classproperty
+
 
 def threaded_fetch(names_queue, out_queue, sentinel, fetch_from_dataset):
     """
@@ -453,7 +455,7 @@ class ThreadedDataset(object):
         return ([self.nclasses] if hasattr(self, '_void_labels') and
                 self._void_labels != [] else [])
 
-    @property
+    @classproperty
     def void_labels(self):
         return self.get_void_labels()
 
