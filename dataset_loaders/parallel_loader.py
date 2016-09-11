@@ -455,7 +455,7 @@ class ThreadedDataset(object):
 
     @property
     def void_labels(self):
-        return self.get_void_label()
+        return self.get_void_labels()
 
     @classmethod
     def _get_mapping(self):
