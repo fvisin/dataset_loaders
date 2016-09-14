@@ -35,7 +35,7 @@ class CityscapesDataset(ThreadedDataset):
     debug_shape = (2048, 1024, 3)
 
     # optional arguments
-    data_shape = (2048, 1024, 3)
+    # data_shape = (2048, 1024, 3)
 
     GT_classes = range(nclasses)
     GT_classes = GT_classes + [255]
@@ -77,7 +77,8 @@ class CityscapesDataset(ThreadedDataset):
         16: (0, 80, 100),       # train
         17: (0, 0, 230),        # motorcycle
         18: (119, 11, 32),      # bicycle
-        # -1: (0, 0, 142)         # license plate
+        19: (0, 0, 0),          # void
+        # -1: (0, 0, 142)       # license plate
         }
 
     _mask_labels = {
@@ -115,6 +116,7 @@ class CityscapesDataset(ThreadedDataset):
         16: 'train',
         17: 'motorcycle',
         18: 'bicycle',
+        19: 'void'
         # -1: 'license plate'
     }
 
@@ -280,7 +282,6 @@ def test3():
         get_01c=True,
         use_threads=True,
         nthreads=8)
-
     train_nsamples = trainiter.nsamples
     nclasses = trainiter.nclasses
     nbatches = 500
