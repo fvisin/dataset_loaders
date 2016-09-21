@@ -32,10 +32,10 @@ remap the training ID classes to the original class mapping from 0 to 33.
 class CityscapesDataset(ThreadedDataset):
     name = 'cityscapes'
     nclasses = 19
-    debug_shape = (2048, 1024, 3)
+    debug_shape = (512, 512, 3)
 
     # optional arguments
-    # data_shape = (2048, 1024, 3)
+    # data_shape = (512, 512, 3)
 
     GT_classes = range(nclasses)
     GT_classes = GT_classes + [255]
@@ -287,7 +287,7 @@ def test3():
     nbatches = 500
     train_batch_size = trainiter.batch_size
     print("Train %d" % (train_nsamples))
-
+    trainiter.get_cmap()
     max_epochs = 5
 
     for epoch in range(max_epochs):
