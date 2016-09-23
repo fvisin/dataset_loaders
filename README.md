@@ -2,9 +2,11 @@ This repository contains some loaders for commonly used datasets.
 
 ### How to use it:
 1. Clone the repository with `--recursive`, e.g.:
+
    ```
    git clone --recursive https://github.com/fvisin/dataset_loaders.git
    ```
+
 2. Add the path you cloned it into to the PYTHONPATH, e.g.:
    ```
    echo 'export PYTHONPATH=$PYTHONPATH:$HOME/dataset_loaders`' >> ~/.bashrc
