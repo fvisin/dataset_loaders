@@ -70,7 +70,7 @@ class ThreadedDataset(object):
             None) else
         * has_GT: False if no mask is provided
         * GTclasses: a list of classes labels. To be provided when the
-            classes labels are not consecutive
+            classes labels (including the void ones) are not consecutive
 
     Optional arguments
         * split: percentage of the training set to be used for training.
