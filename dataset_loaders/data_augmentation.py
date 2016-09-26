@@ -2,6 +2,48 @@ import numpy as np
 from scipy import interpolate
 import scipy.ndimage as ndi
 import SimpleITK as sitk
+from skimage.color import label2rgb, rgb2gray, gray2rgb
+from skimage import img_as_float
+import seaborn as sns
+import os
+import scipy.misc
+
+
+# Converts a label mask to RGB to be shown
+def my_label2rgb(labels, colors, bglabel=None, bg_color=(0., 0., 0.)):
+    output = np.zeros(labels.shape + (3,), dtype=np.float64)
+    for i in range(len(colors)):
+        if i != bglabel:
+            output[(labels == i).nonzero()] = colors[i]
+    if bglabel is not None:
+        output[(labels == bglabel).nonzero()] = bg_color
+    return output
+
+
+# Converts a label mask to RGB to be shown and overlaps over an image
+def my_label2rgboverlay(labels, colors, image, bglabel=None,
+                        bg_color=(0., 0., 0.), alpha=0.2):
+    image_float = gray2rgb(img_as_float(rgb2gray(image)))
+    label_image = my_label2rgb(labels, colors, bglabel=bglabel,
+                               bg_color=bg_color)
+    output = image_float * alpha + label_image * (1 - alpha)
+    return output
+
+
+# Save 2 images (Image and mask)
+def save_img2(img, mask, fname, color_map, void_label):
+    img = img.transpose((1, 2, 0))
+    # print ('Img shape: ' + str(img.shape))
+    # print ('Mask shape: ' + str(mask.shape))
+
+    label_mask = my_label2rgboverlay(mask,
+                                     colors=color_map,
+                                     image=img,
+                                     bglabel=void_label,
+                                     alpha=0.2)
+    combined_image = np.concatenate((img, label_mask),
+                                    axis=1)
+    scipy.misc.toimage(combined_image).save(fname)
 
 
 def displacement_vecs(std, grid_size):
@@ -58,7 +100,7 @@ def transform_matrix_offset_center(matrix, x, y):
 
 
 def apply_transform(x_in, transform_matrix, channel_index=0,
-                    fill_mode='nearest', cval=0.):
+                    fill_mode='nearest', cval=0., order=0):
     x_out = np.zeros(x_in.shape, dtype=x_in.dtype)
     for i, x in enumerate(x_in):
         x = np.rollaxis(x, channel_index, 0)
@@ -66,7 +108,7 @@ def apply_transform(x_in, transform_matrix, channel_index=0,
         final_offset = transform_matrix[:2, 2]
         channel_images = [ndi.interpolation.affine_transform(x_channel,
                                                              final_affine_matrix,
-                          final_offset, order=0, mode=fill_mode, cval=cval)
+                          final_offset, order=order, mode=fill_mode, cval=cval)
                           for x_channel in x]
         x = np.stack(channel_images, axis=0)
         x_out[i] = np.rollaxis(x, 0, channel_index+1)
@@ -208,12 +250,24 @@ def random_transform(x, y=None,
                      spline_warp=False,
                      warp_sigma=0.1,
                      warp_grid_size=3,
-                     crop_size=None):
+                     crop_size=None,
+                     nclasses=None,
+                     gamma=0.,
+                     gain=1.,
+                     void_label=None):
 
-    # x is a single image, so we don't have batch dimension 
+    # Set this to the dir where you want to save augmented images samples
+    save_to_dir = None
+
+    # x is a single image, so we don't have batch dimension
     img_row_index = 1
     img_col_index = 2
     img_channel_index = 0
+
+    # Gamma correction
+    if gamma > 0:
+        scale = float(1)
+        x = ((x / scale) ** gamma) * scale * gain
 
     if np.isscalar(zoom_range):
         zoom_range = [1 - zoom_range, 1 + zoom_range]
@@ -271,10 +325,10 @@ def random_transform(x, y=None,
     h, w = x.shape[img_row_index+1], x.shape[img_col_index+1]
     transform_matrix = transform_matrix_offset_center(transform_matrix, h, w)
     x = apply_transform(x, transform_matrix, img_channel_index,
-                        fill_mode=fill_mode, cval=cval)
+                        fill_mode=fill_mode, cval=cval, order=1)
     if y is not None:
         y = apply_transform(y, transform_matrix, img_channel_index,
-                            fill_mode=fill_mode, cval=cvalMask)
+                            fill_mode=fill_mode, cval=cvalMask, order=0)
 
     if channel_shift_range != 0:
         x = random_channel_shift(x, channel_shift_range, img_channel_index)
@@ -296,7 +350,7 @@ def random_transform(x, y=None,
                                     sigma=warp_sigma,
                                     grid_size=warp_grid_size)
         x = apply_warp(x, warp_field,
-                       interpolator=sitk.sitkNearestNeighbor,
+                       interpolator=sitk.sitkLinear,
                        fill_mode=fill_mode,
                        fill_constant=cval)
         if y is not None:
@@ -330,6 +384,16 @@ def random_transform(x, y=None,
 
         # print ('X after: ' + str(x.shape))
         # print ('Y after: ' + str(y.shape))
+
+    # Save data augmentation images for debug
+    if save_to_dir:
+        # print ('X shape: ' + str(x.shape))
+        # print ('Y shape: ' + str(y.shape))
+        fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
+        print ('Save to dir'.format(fname))
+        color_map = sns.hls_palette(nclasses)
+        save_img2(x[0], y[0, 0, :, :], os.path.join(save_to_dir, fname),
+                  color_map, void_label)
 
     if y is None:
         return x

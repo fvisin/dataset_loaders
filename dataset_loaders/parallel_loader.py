@@ -164,7 +164,10 @@ class ThreadedDataset(object):
             'rescale': None,
             'spline_warp': False,
             'warp_sigma': 0.1,
-            'warp_grid_size': 3}
+            'warp_grid_size': 3,
+            'gamma': 0,
+            'gain': 1}
+
         default_data_augm_kwargs.update(data_augm_kwargs)
         self.data_augm_kwargs = default_data_augm_kwargs
         del(default_data_augm_kwargs, data_augm_kwargs)
@@ -505,7 +508,10 @@ class ThreadedDataset(object):
             # apply random transform
             seq_x, seq_y = random_transform(
                 x_tmp, y_tmp,
+                nclasses=self.nclasses,
+                void_label=self.void_labels,
                 **self.data_augm_kwargs)
+
             # go back to (s, 0, 1, c) for x and (s, 0, 1) for y
             seq_x = seq_x.transpose(0, 2, 3, 1)
             seq_y = seq_y[:, 0, :, :].astype('int32')
