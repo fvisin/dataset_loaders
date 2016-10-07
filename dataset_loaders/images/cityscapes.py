@@ -35,7 +35,7 @@ class CityscapesDataset(ThreadedDataset):
     debug_shape = (512, 512, 3)
 
     # optional arguments
-    # data_shape = (512, 512, 3)
+    data_shape = (2048, 1024, 3)
 
     GT_classes = range(nclasses)
     GT_classes = GT_classes + [255]

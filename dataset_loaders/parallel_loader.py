@@ -106,6 +106,7 @@ class ThreadedDataset(object):
     def __init__(self,
                  seq_per_video=0,  # if 0 all frames
                  seq_length=0,  # if 0, return 4D
+                 overlap=None,
                  crop_size=None,
                  batch_size=1,
                  queues_size=50,
@@ -115,7 +116,6 @@ class ThreadedDataset(object):
                  nthreads=1,
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
-                 overlap=None,
                  remove_mean=False,  # dataset stats
                  divide_by_std=False,  # dataset stats
                  remove_per_img_mean=False,  # img stats
@@ -140,11 +140,6 @@ class ThreadedDataset(object):
             raise NameError('Mandatory argument(s) missing: {}'.format(
                 missing_attrs))
 
-        ds = getattr(self.__class__, 'data_shape', (None, None, 3))
-        self.data_shape = ds[2], ds[0], ds[1]
-
-        self.has_GT = getattr(self, 'has_GT', True)
-
         # Copy the data to the local path if not existing
         if not os.path.exists(self.path):
             print('The local path {} does not exist. Copying '
@@ -152,6 +147,7 @@ class ThreadedDataset(object):
             shutil.copytree(self.sharedpath, self.path)
             print('Done.')
 
+        # Save parameters in object
         self.seq_per_video = seq_per_video
         self.return_sequence = seq_length != 0
         self.seq_length = seq_length if seq_length else 1
@@ -167,24 +163,34 @@ class ThreadedDataset(object):
         self.nthreads = nthreads
         self.shuffle_at_each_epoch = shuffle_at_each_epoch
         self.infinite_iterator = infinite_iterator
-        self.rng = rng
-        self.sentinel = object()  # guaranteed unique reference
-        self.wait_time = wait_time
-        self.data_fetchers = []
         self.remove_mean = remove_mean
         self.divide_by_std = divide_by_std
         self.remove_per_img_mean = remove_per_img_mean
         self.divide_by_per_img_std = divide_by_per_img_std
+        self.rng = rng
+        self.wait_time = wait_time
 
-        # self.names_list = self.get_names()
-        # if len(self.names_list) == 0:
-        #     raise RuntimeError('The name list cannot be empty')
+        self.has_GT = getattr(self, 'has_GT', True)
+
+        # Set accessory variables
+        self.sentinel = object()  # guaranteed unique reference
+        self.data_fetchers = []
+
+        # ...01c
+        data_shape = list(getattr(self.__class__, 'data_shape',
+                                  (None, None, 3)))
+        if self.crop_size:
+            data_shape[-3:-1] = self.crop_size  # change 01
+        if self.get_01c:
+            self.data_shape = data_shape
+        else:
+            self.data_shape = [data_shape[i] for i in
+                               [2] + range(2) + range(3, len(data_shape))]
 
         # initialize
         if self.use_threads:
             self.names_queue = Queue.Queue(maxsize=self.queues_size)
             self.out_queue = Queue.Queue(maxsize=self.queues_size)
-
         self.reset(self.shuffle_at_each_epoch)
 
         if len(self.names_list) == 0:
