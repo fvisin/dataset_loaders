@@ -51,7 +51,7 @@ class ChangeDetectionDataset(ThreadedDataset):
     @property
     def filenames(self):
         if self._filenames is None:
-            inspect_dataset_properties = False
+            inspect_dataset_properties = False  # debugging purpose
             self._filenames = {}
             ROIS = {}
             ROIS2 = {}
@@ -76,6 +76,10 @@ class ChangeDetectionDataset(ThreadedDataset):
                     # Images or GT dir
                     category, video, kind = root.split('/')[-3:]
 
+                    if (category not in self.which_category or
+                            video not in self.which_video):
+                        continue
+
                     ff.sort(key=str.lower)
                     ff = [fname for fname in ff if 'Thumbs.db' not in fname]
 
@@ -94,6 +98,7 @@ class ChangeDetectionDataset(ThreadedDataset):
 
                     if kind == 'input':
                         print('Loading {}..'.format(root[len(self.path):-6]))
+
                         self._filenames.setdefault(video, {}).update(
                             {'category': category,
                              'root': root[:-6],  # remove '/input'
@@ -135,12 +140,51 @@ class ChangeDetectionDataset(ThreadedDataset):
     def __init__(self,
                  which_set='train',
                  with_filenames=False,
-                 split=.75, *args, **kwargs):
+                 split=.75,
+                 which_category=('badWeather', 'baseline',
+                                 'cameraJitter',
+                                 'dynamicBackground',
+                                 'intermittentObjectMotion', 'lowFramerate',
+                                 'nightVideos', 'PTZ', 'shadow', 'thermal',
+                                 'turbulence'),
+                 which_video=(
+                     # badWeather
+                     'blizzard', 'skating', 'snowFall', 'wetSnow',
+                     # baseline
+                     'highway', 'office', 'pedestrians', 'PETS2006',
+                     # cameraJitter
+                     'badminton', 'boulevard', 'sidewalk', 'traffic',
+                     # dynamicBackground
+                     'boats', 'canoe', 'fall', 'fountain01', 'fountain02',
+                     'overpass',
+                     # intermittentObjectMotion
+                     'abandonedBox', 'parking', 'sofa', 'streetLight',
+                     'tramstop', 'winterDriveway',
+                     # lowFramerate
+                     'port_0_17fps', 'tramCrossroad_1fps',
+                     'tunnelExit_0_35fps', 'turnpike_0_5fps',
+                     # nightVideos
+                     'bridgeEntry', 'busyBoulvard', 'fluidHighway',
+                     'streetCornerAtNight', 'tramStation', 'winterStreet',
+                     # PTZ
+                     'continuousPan', 'intermittentPan',
+                     'twoPositionPTZCam', 'zoomInZoomOut',
+                     # shadow
+                     'backdoor', 'bungalows', 'busStation', 'copyMachine',
+                     'cubicle', 'peopleInShade',
+                     # thermal
+                     'corridor', 'diningRoom', 'lakeSide', 'library', 'park',
+                     # turbulence
+                     'turbulence0', 'turbulence1', 'turbulence2',
+                     'turbulence3'),
+                 *args, **kwargs):
 
         self.which_set = 'valid' if which_set == 'val' else which_set
         assert self.which_set in ['train', 'valid', 'test'], self.which_set
         self.with_filenames = with_filenames
         self.split = split
+        self.which_category = which_category
+        self.which_video = which_video
 
         # Prepare data paths
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
