@@ -359,7 +359,34 @@ def random_transform(x, y=None,
                                     fill_mode=fill_mode,
                                     fill_constant=cvalMask))
 
+    # # Crop
+    # crop = list(crop_size) if crop_size else None
+    # if crop:
+    #     # print ('X before: ' + str(x.shape))
+    #     # print ('Y before: ' + str(y.shape))
+    #     # print ('Crop_size: ' + str(crop_size))
+    #     h, w = x.shape[img_row_index+1], x.shape[img_col_index+1]
+    #
+    #     if crop[0] < h:
+    #         top = np.random.randint(h - crop[0])
+    #     else:
+    #         print('Data augmentation: Crop height ({}) >= image size ({})'.format(crop[0], h))
+    #         top, crop[0] = 0, h
+    #     if crop[1] < w:
+    #         left = np.random.randint(w - crop[1])
+    #     else:
+    #         print('Data augmentation: Crop width ({}) >= image size ({})'.format(crop[1], w))
+    #         left, crop[1] = 0, w
+    #
+    #     x = x[:, :, top:top+crop[0], left:left+crop[1]]
+    #     if y is not None:
+    #         y = y[:, :, top:top+crop[0], left:left+crop[1]]
+    #
+    #     # print ('X after: ' + str(x.shape))
+    #     # print ('Y after: ' + str(y.shape))
+
     # Crop
+    # TODO: tf compatible???
     crop = list(crop_size) if crop_size else None
     if crop:
         # print ('X before: ' + str(x.shape))
@@ -367,17 +394,40 @@ def random_transform(x, y=None,
         # print ('Crop_size: ' + str(crop_size))
         h, w = x.shape[img_row_index+1], x.shape[img_col_index+1]
 
+        # Padd image if it is smaller than the crop size
+        pad_h1, pad_h2, pad_w1, pad_w2 = 0, 0, 0, 0
+        if h < crop[0]:
+            total_pad = crop[0] - h
+            pad_h1 = total_pad/2
+            pad_h2 = total_pad-pad_h1
+        if w < crop[1]:
+            total_pad = crop[1] - w
+            pad_w1 = total_pad/2
+            pad_w2 = total_pad - pad_w1
+        if h < crop[0] or w < crop[1]:
+            x = np.lib.pad(x, ((0, 0), (0, 0), (pad_h1, pad_h2), (pad_w1, pad_w2)),
+                           'constant')
+            y = np.lib.pad(y, ((0, 0), (0, 0), (pad_h1, pad_h2), (pad_w1, pad_w2)),
+                           'constant', constant_values=void_label)
+            h, w = x.shape[img_row_index+1], x.shape[img_col_index+1]
+            # print ('New size X: ' + str(x.shape))
+            # print ('New size Y: ' + str(y.shape))
+            # print ('ADDING BACKGROUND')
+
         if crop[0] < h:
             top = np.random.randint(h - crop[0])
         else:
-            print('Data augmentation: Crop height >= image size')
+            #print('Data augmentation: Crop height >= image size')
             top, crop[0] = 0, h
         if crop[1] < w:
             left = np.random.randint(w - crop[1])
         else:
-            print('Data augmentation: Crop width >= image size')
+            #print('Data augmentation: Crop width >= image size')
             left, crop[1] = 0, w
 
+        # x = x[..., :, top:top+crop[0], left:left+crop[1]]
+        # if y is not None:
+        #     y = y[..., :, top:top+crop[0], left:left+crop[1]]
         x = x[:, :, top:top+crop[0], left:left+crop[1]]
         if y is not None:
             y = y[:, :, top:top+crop[0], left:left+crop[1]]

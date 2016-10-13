@@ -7,6 +7,7 @@ from PIL import Image
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
+floatX = 'float32'
 
 class VOCdataset(ThreadedDataset):
     name = 'pascal_voc'
@@ -137,12 +138,13 @@ class VOCdataset(ThreadedDataset):
         for _, img_name in sequence:
             img = io.imread(os.path.join(self.image_path,
                                          img_name + ".jpg"))
-            img = img / 255.
+            img = img.astype(floatX) / 255.
 
             # Load mask
             if self.which_set != "test":
                 mask = np.array(Image.open(
                     os.path.join(self.mask_path, img_name + ".png")))
+                mask = mask.astype('int32')
 
             # Add to minibatch
             image_batch.append(img)
