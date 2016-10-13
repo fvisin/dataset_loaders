@@ -86,8 +86,8 @@ class GatechDataset(ThreadedDataset):
                                                'Original')
             self.mask_path = os.path.join(self.path, 'Images', 'Ground_Truth')
         elif 'test' in self.which_set:
-            self.image_path = \
-                os.path.join(self.path, 'Images_test', 'Original')
+            self.image_path = os.path.join(self.path, 'Images_test',
+                                           'Original')
             self.mask_path = os.path.join(self.path, 'Images_test',
                                           'Ground_Truth')
             self.split = split
