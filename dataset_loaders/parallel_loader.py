@@ -120,7 +120,7 @@ class ThreadedDataset(object):
                  divide_by_std=False,  # dataset stats
                  remove_per_img_mean=False,  # img stats
                  divide_by_per_img_std=False,  # img stats
-                 rng=RandomState(0xbeef),
+                 rng=None,
                  wait_time=0.05,
                  **kwargs):
 
@@ -167,7 +167,7 @@ class ThreadedDataset(object):
         self.divide_by_std = divide_by_std
         self.remove_per_img_mean = remove_per_img_mean
         self.divide_by_per_img_std = divide_by_per_img_std
-        self.rng = rng
+        self.rng = rng if rng is not None else RandomState(0xbeef)
         self.wait_time = wait_time
 
         self.has_GT = getattr(self, 'has_GT', True)
