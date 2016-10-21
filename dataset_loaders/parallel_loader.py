@@ -66,17 +66,24 @@ class ThreadedDataset(object):
         * _void_labels: a list of void labels. Empty if none
 
     Optional attributes
-        * data_shape: the shape of the data, when constant. (3, None,
-            None) else
+        * data_shape: the shape of the data, when constant. Else (3, None,
+            None)
         * has_GT: False if no mask is provided
         * GTclasses: a list of classes labels. To be provided when the
             classes labels (including the void ones) are not consecutive
+        * _void_labels: a *list* of labels that are void classes.
+        * _cmap: a *dictionary* of the form `class_id: (R, G, B)`. `class_id`
+            is the class id in the original data.
+        * _mask_labels: a *dictionary* of form `class_id: label`. `class_id`
+            is the class id in the original data.
+
 
     Optional arguments
         * split: percentage of the training set to be used for training.
             The remainder will be used for validation
         * val_test_split: percentage of the validation set to be used
             for validation. The remainder will be used for test
+
     Parallel loader will automatically map all non-void classes to be
     sequential starting from 0 and then map all void classes to the
     next class. E.g., suppose nclasses = 4 and _void_classes = [3, 5]
