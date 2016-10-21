@@ -147,6 +147,12 @@ class ThreadedDataset(object):
             raise NameError('Mandatory argument(s) missing: {}'.format(
                 missing_attrs))
 
+        if not hasattr(self, 'data_shape') and batch_size > 1:
+            raise RuntimeError(
+                '{} has no `data_shape` attribute, this means that the '
+                'shape of the samples varies across the dataset. You must set '
+                '`batch_size = 1`'.format(self.name))
+
         # Copy the data to the local path if not existing
         if not os.path.exists(self.path):
             print('The local path {} does not exist. Copying '
