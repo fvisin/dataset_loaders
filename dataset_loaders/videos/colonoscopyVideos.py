@@ -162,10 +162,12 @@ class PolypVideoDataset(ThreadedDataset):
             Y.append(mask)
             F.append(frame)
 
+        ret = {}
+        ret['data'] = np.array(X)
+        ret['labels'] = np.array(Y)
         if self.with_filenames:
-            return np.array(X), np.array(Y), np.array(F)
-        else:
-            return np.array(X), np.array(Y)
+            ret['filenames'] = np.array(F)
+        return ret
 
 
 def test():

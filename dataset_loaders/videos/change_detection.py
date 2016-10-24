@@ -279,10 +279,12 @@ class ChangeDetectionDataset(ThreadedDataset):
         # test only has void. No point in considering the mask
         Y = [] if self.which_set == 'test' else Y
 
+        ret = {}
+        ret['data'] = np.array(X)
+        ret['labels'] = np.array(Y)
         if self.with_filenames:
-            return np.array(X), np.array(Y), np.array(F)
-        else:
-            return np.array(X), np.array(Y)
+            ret['filenames'] = np.array(F)
+        return ret
 
 
 if __name__ == '__main__':

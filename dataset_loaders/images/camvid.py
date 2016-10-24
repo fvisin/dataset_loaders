@@ -153,14 +153,12 @@ class CamvidDataset(ThreadedDataset):
             Y.append(mask)
             F.append(frame)
 
-        X = np.array(X)
-        Y = np.array(Y)
-        F = np.array(F)
-
+        ret = {}
+        ret['data'] = np.array(X)
+        ret['labels'] = np.array(Y)
         if self.with_filenames:
-            return X, Y, F
-        else:
-            return X, Y
+            ret['filenames'] = np.array(F)
+        return ret
 
 
 def test3():

@@ -229,10 +229,10 @@ class IsbiEmStacksDataset(ThreadedDataset):
 
         X = X.astype("float32") / 255
 
-        if load_labels:
-            return X, Y
-        else:
-            return X
+        ret = {}
+        ret['data'] = X
+        ret['labels'] = Y
+        return ret
 
 
 def test2():

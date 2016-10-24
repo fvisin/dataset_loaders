@@ -46,7 +46,10 @@ class TestDataset(ThreadedDataset):
                                                               self.nclasses))
         print('Void labels: {}'.format(self._void_labels))
 
-        return np.array([img]), np.array([mask])
+        ret = {}
+        ret['data'] = np.array([img])
+        ret['labels'] = np.array([mask])
+        return ret
 
 
 def test_one_hot_mapping():

@@ -347,7 +347,6 @@ class ThreadedDataset(object):
         """
         X = []
         Y = []
-        Other = []
 
         # Create batches
         for el in batch_to_load:
@@ -357,7 +356,7 @@ class ThreadedDataset(object):
 
             # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
-            seq_x, seq_y = ret[0:2]
+            seq_x, seq_y = ret['data'], ret['labels']
 
             # Per-image normalization
             if self.remove_per_img_mean:
@@ -452,12 +451,10 @@ class ThreadedDataset(object):
             # Append stuff to minibatch list
             X.append(seq_x)
             Y.append(seq_y)
-            Other.append(ret[2:])
 
-        if len(Other[0]) == 0:
-            return np.array(X), np.array(Y)
-        else:
-            return np.array(X), np.array(Y), np.array(Other)
+        ret['data'] = np.array(X)
+        ret['labels'] = np.array(Y)
+        return ret
 
     def finish(self):
         for data_fetcher in self.data_fetchers:

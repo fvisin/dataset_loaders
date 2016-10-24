@@ -230,14 +230,12 @@ class Polyps300Dataset(ThreadedDataset):
         if self.with_filenames:
             filename_batch.append(img_name)
 
-        ret = [np.array(image_batch), np.array(mask_batch)]
-
-        other = []
+        ret = {}
+        ret['data'] = np.array(image_batch)
+        ret['labels'] = np.array(mask_batch)
         if self.with_filenames:
-            other += [np.array(filename_batch)]
-
-        # return image_batch, mask_batch, batch_to_load, pred_batch
-        return tuple(ret + other)
+            ret['filenames'] = np.array(filename_batch)
+        return ret
 
 
 def test1():

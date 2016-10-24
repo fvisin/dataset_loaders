@@ -133,9 +133,10 @@ class CocoDataset(ThreadedDataset):
         mask = np.array(mask.astype('int32'))
         im = np.array(im).astype(floatX)/255.
         im, mask = im[None, ...], mask[None, ...]  # add dim
-        f = img['file_name']
 
+        ret = {}
+        ret['data'] = im
+        ret['labels'] = mask
         if self.with_filenames:
-            return im, mask, f
-        else:
-            return im, mask
+            ret['filenames'] = img['file_name']
+        return ret
