@@ -123,6 +123,7 @@ class ThreadedDataset(object):
                  nthreads=1,
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
+                 return_list=False,
                  remove_mean=False,  # dataset stats
                  divide_by_std=False,  # dataset stats
                  remove_per_img_mean=False,  # img stats
@@ -176,6 +177,7 @@ class ThreadedDataset(object):
         self.nthreads = nthreads
         self.shuffle_at_each_epoch = shuffle_at_each_epoch
         self.infinite_iterator = infinite_iterator
+        self.return_list = return_list
         self.remove_mean = remove_mean
         self.divide_by_std = divide_by_std
         self.remove_per_img_mean = remove_per_img_mean
@@ -454,7 +456,12 @@ class ThreadedDataset(object):
 
         ret['data'] = np.array(X)
         ret['labels'] = np.array(Y)
-        return ret
+        if self.return_list:
+            keys = sorted(ret.keys())
+            return [ret['data'], ret['labels']] + [ret[k] for k in keys if k
+                                                   not in ['data', 'labels']]
+        else:
+            return ret
 
     def finish(self):
         for data_fetcher in self.data_fetchers:
