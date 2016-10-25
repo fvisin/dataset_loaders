@@ -123,7 +123,7 @@ class ThreadedDataset(object):
                  nthreads=1,
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
-                 return_list=False,
+                 return_list=False,  # for keras, return X,Y only
                  remove_mean=False,  # dataset stats
                  divide_by_std=False,  # dataset stats
                  remove_per_img_mean=False,  # img stats
@@ -457,9 +457,7 @@ class ThreadedDataset(object):
         ret['data'] = np.array(X)
         ret['labels'] = np.array(Y)
         if self.return_list:
-            keys = sorted(ret.keys())
-            return [ret['data'], ret['labels']] + [ret[k] for k in keys if k
-                                                   not in ['data', 'labels']]
+            return [ret['data'], ret['labels']]
         else:
             return ret
 
