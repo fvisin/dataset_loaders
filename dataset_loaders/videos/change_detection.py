@@ -139,7 +139,6 @@ class ChangeDetectionDataset(ThreadedDataset):
 
     def __init__(self,
                  which_set='train',
-                 with_filenames=False,
                  split=.75,
                  which_category=('badWeather', 'baseline',
                                  'cameraJitter',
@@ -181,7 +180,6 @@ class ChangeDetectionDataset(ThreadedDataset):
 
         self.which_set = 'valid' if which_set == 'val' else which_set
         assert self.which_set in ['train', 'valid', 'test'], self.which_set
-        self.with_filenames = with_filenames
         self.split = split
         self.which_category = which_category
         self.which_video = which_video
@@ -282,8 +280,7 @@ class ChangeDetectionDataset(ThreadedDataset):
         ret = {}
         ret['data'] = np.array(X)
         ret['labels'] = np.array(Y)
-        if self.with_filenames:
-            ret['filenames'] = np.array(F)
+        ret['filenames'] = np.array(F)
         return ret
 
 
@@ -295,7 +292,6 @@ if __name__ == '__main__':
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
-        with_filenames=True,
         split=.75)
     valid = ChangeDetectionDataset(
         which_set='valid',
@@ -304,7 +300,6 @@ if __name__ == '__main__':
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
-        with_filenames=True,
         split=.75)
     test = ChangeDetectionDataset(
         which_set='test',
@@ -313,7 +308,6 @@ if __name__ == '__main__':
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
-        with_filenames=True,
         split=.75)
     train_nsamples = train.nsamples
     valid_nsamples = valid.nsamples

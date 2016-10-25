@@ -24,11 +24,9 @@ class Polyps300Dataset(ThreadedDataset):
     _mask_labels = {0: 'Void', 1: 'Background', 2: 'Polyp', 3: 'Specularity',
                     4: 'Lumen'}
 
-    def __init__(self, which_set='train', with_filenames=False,
-                 select='sequences', *args, **kwargs):
+    def __init__(self, which_set='train', select='sequences', *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        self.with_filenames = with_filenames
         self.select = select
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'polyps')
@@ -227,14 +225,12 @@ class Polyps300Dataset(ThreadedDataset):
         # Add to minibatch
         image_batch.append(img)
         mask_batch.append(mask)
-        if self.with_filenames:
-            filename_batch.append(img_name)
+        filename_batch.append(img_name)
 
         ret = {}
         ret['data'] = np.array(image_batch)
         ret['labels'] = np.array(mask_batch)
-        if self.with_filenames:
-            ret['filenames'] = np.array(filename_batch)
+        ret['filenames'] = np.array(filename_batch)
         return ret
 
 

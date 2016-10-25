@@ -34,12 +34,10 @@ class PolypVideoDataset(ThreadedDataset):
     def __init__(self,
                  which_set='train',
                  threshold_masks=True,
-                 with_filenames=False,
                  split=.75, *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
         self.threshold_masks = threshold_masks
-        self.with_filenames = with_filenames
 
         # Prepare data paths
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
@@ -165,8 +163,8 @@ class PolypVideoDataset(ThreadedDataset):
         ret = {}
         ret['data'] = np.array(X)
         ret['labels'] = np.array(Y)
-        if self.with_filenames:
-            ret['filenames'] = np.array(F)
+        ret['subset'] = prefix
+        ret['filenames'] = np.array(F)
         return ret
 
 
@@ -216,7 +214,6 @@ def test():
         split=1.,
         get_one_hot=True,
         get_01c=False,
-        with_filenames=True,
         use_threads=True)
 
     train_nsamples = trainiter.nsamples

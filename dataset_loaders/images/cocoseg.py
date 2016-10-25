@@ -33,14 +33,12 @@ class CocoDataset(ThreadedDataset):
             self._filenames = self.coco.loadImgs(self.img_ids)
         return self._filenames
 
-    def __init__(self, which_set='train', with_filenames=False,
-                 warn_grayscale=False, val_test_split=0.5, *args,
-                 **kwargs):
+    def __init__(self, which_set='train', warn_grayscale=False,
+                 val_test_split=0.5, *args, **kwargs):
         sys.path.append(os.path.join(os.path.dirname(
             os.path.abspath(__file__)), 'coco', 'PythonAPI'))
         from pycocotools.coco import COCO
         self.which_set = 'val' if which_set == 'valid' else which_set
-        self.with_filenames = with_filenames
         self.warn_grayscale = warn_grayscale
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
                                  'COCO')
@@ -137,6 +135,5 @@ class CocoDataset(ThreadedDataset):
         ret = {}
         ret['data'] = im
         ret['labels'] = mask
-        if self.with_filenames:
-            ret['filenames'] = img['file_name']
+        ret['filenames'] = img['file_name']
         return ret

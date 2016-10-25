@@ -238,7 +238,6 @@ class IsbiEmStacksDataset(ThreadedDataset):
 def test2():
     d = IsbiEmStacksDataset(
         which_set='train',
-        with_filenames=True,
         batch_size=5,
         seq_per_video=0,
         seq_length=10,

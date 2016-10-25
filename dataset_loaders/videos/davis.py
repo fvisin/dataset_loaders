@@ -54,13 +54,11 @@ class DavisDataset(ThreadedDataset):
     def __init__(self,
                  which_set='train',
                  threshold_masks=False,
-                 with_filenames=False,
                  split=.75,
                  *args, **kwargs):
 
         self.which_set = which_set
         self.threshold_masks = threshold_masks
-        self.with_filenames = with_filenames
 
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
                                  'Davis', 'davis')
@@ -177,8 +175,8 @@ class DavisDataset(ThreadedDataset):
         ret = {}
         ret['data'] = np.array(X)
         ret['labels'] = np.array(Y)
-        if self.with_filenames:
-            ret['filenames'] = np.array(F)
+        ret['subset'] = prefix
+        ret['filenames'] = np.array(F)
         return ret
 
 

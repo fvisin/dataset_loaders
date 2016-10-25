@@ -51,11 +51,9 @@ class CamvidDataset(ThreadedDataset):
             self._filenames = filenames
         return self._filenames
 
-    def __init__(self, which_set='train', with_filenames=False, *args,
-                 **kwargs):
+    def __init__(self, which_set='train', *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        self.with_filenames = with_filenames
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'camvid', 'segnet')
         self.sharedpath = '/data/lisa/exp/visin/_datasets/camvid/segnet'
@@ -156,8 +154,8 @@ class CamvidDataset(ThreadedDataset):
         ret = {}
         ret['data'] = np.array(X)
         ret['labels'] = np.array(Y)
-        if self.with_filenames:
-            ret['filenames'] = np.array(F)
+        ret['subset'] = prefix
+        ret['filenames'] = np.array(F)
         return ret
 
 
@@ -240,7 +238,6 @@ def test1():
 def test2():
     d = CamvidDataset(
         which_set='train',
-        with_filenames=True,
         batch_size=5,
         seq_per_video=0,
         seq_length=10,

@@ -39,9 +39,6 @@ class VOCdataset(ThreadedDataset):
 
     def __init__(self,
                  which_set="train",
-                 with_filenames=False,
-                 with_predictions=False,
-                 with_teacher=False,
                  teacher_temperature=1,
                  year="VOC2012",
                  *args, **kwargs):
@@ -54,9 +51,6 @@ class VOCdataset(ThreadedDataset):
             raise ValueError("No test set for other than 2012 year")
         if self.which_set == 'test':
             self.has_GT = False
-        self.with_filenames = with_filenames
-        self.with_predictions = with_predictions
-        self.with_teacher = with_teacher
         self.teacher_temperature = teacher_temperature
         self.year = year
 
@@ -134,26 +128,20 @@ class VOCdataset(ThreadedDataset):
                 os.path.join(self.mask_path, img_name + ".png")))
 
         # Load teacher predictions and soft predictions
-        if self.with_predictions:
-            pred = np.load(os.path.join(self.pred_path, img_name +
-                                        ".npy"))
+        pred = np.load(os.path.join(self.pred_path, img_name + ".npy"))
 
         # Add to minibatch
         image_batch.append(img)
         if self.which_set != "test":
             mask_batch.append(mask)
-        if self.with_predictions:
-            pred_batch.append(pred)
-        if self.with_filenames:
-            filename_batch.append(img_name)
+        pred_batch.append(pred)
+        filename_batch.append(img_name)
 
         ret = {}
         ret['data'] = np.array(image_batch)
         ret['labels'] = np.array(mask_batch)
-        if self.with_filenames:
-            ret['filenames'] = np.array(filename_batch)
-        if self.with_teacher:
-            ret['teacher'] = np.array(pred_batch)
+        ret['filenames'] = np.array(filename_batch)
+        ret['teacher'] = np.array(pred_batch)
         return ret
 
 if __name__ == '__main__':
