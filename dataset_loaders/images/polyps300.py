@@ -1,6 +1,5 @@
 import numpy as np
 import os
-import time
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 floatX = 'float32'
@@ -180,13 +179,13 @@ class Polyps300Dataset(ThreadedDataset):
         from skimage import io
         image_batch = []
         mask_batch = []
-        pred_batch = []
         filename_batch = []
 
         if self.seq_length != 1:
             raise NotImplementedError()
 
-        image_path = self.image_path_300 if self.is_300 else self.image_path_612
+        image_path = (self.image_path_300 if self.is_300 else
+                      self.image_path_612)
         mask_path = self.mask_path_300 if self.is_300 else self.mask_path_612
 
         # Load image
@@ -197,14 +196,14 @@ class Polyps300Dataset(ThreadedDataset):
         # Load mask
         mask = np.array(io.imread(os.path.join(mask_path, img_name + ".tif")))
         mask = mask.astype('int32')
-        #mask[mask == 0] = 5  # Set the void mask value to 5 instead to 0
-        #mask = mask - 1  # Start the first class as 0 instead in 1
+        # mask[mask == 0] = 5  # Set the void mask value to 5 instead to 0
+        # mask = mask - 1  # Start the first class as 0 instead in 1
         # print 'Mask shape: ' + str(mask.shape)
         # print 'Mask: ' + str(mask)
 
-        from skimage.color import label2rgb
-        import scipy.misc
-        import seaborn as sns
+        # from skimage.color import label2rgb
+        # import scipy.misc
+        # import seaborn as sns
 
         # color_map = sns.hls_palette(4 + 1)
         # image = img.transpose((1, 2, 0))

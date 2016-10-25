@@ -106,21 +106,19 @@ class IsbiEmStacksDataset(ThreadedDataset):
         seq_length = self.seq_length
 
         self.video_length = {}
-        prefix = ""
         video_length = self.end - self.start
         frames = range(video_length)
 
         seq_per_video = self.seq_per_video
-        self.video_length[prefix] = video_length
+        self.video_length = video_length
 
-        # Fill sequences with (prefix, frame_idx)
+        # Fill sequences with (frame_idx)
         max_num_sequences = video_length - seq_length + 1
         if (not self.seq_length or not self.seq_per_video or
                 self.seq_length >= video_length):
             # Use all possible frames
-            for el in [(prefix, f) for f in frames[
-                       :max_num_sequences:self.seq_length - self.overlap]]:
-                sequences.append(el)
+            for f in frames[:max_num_sequences:self.seq_length - self.overlap]:
+                sequences.append(f)
         else:
             if max_num_sequences < seq_per_video:
                 # If there are not enough frames, cap seq_per_video to
@@ -140,7 +138,7 @@ class IsbiEmStacksDataset(ThreadedDataset):
                 max_num_sequences))[0:seq_per_video]
 
             for i in first_frame_indexes:
-                sequences.append((prefix, frames[i]))
+                sequences.append(frames[i])
 
         self.epoch_length = ((len(sequences) + self.batch_size - 1) /
                              self.batch_size)
@@ -161,12 +159,12 @@ class IsbiEmStacksDataset(ThreadedDataset):
 
         load_labels = self.target_path is not None
 
-        prefix, first_frame_name = first_frame
+        first_frame_name = first_frame
         first_frame_name = int(first_frame_name)
 
         if (self.seq_length is None or
-                self.seq_length > self.video_length[prefix]):
-            seq_length = self.video_length[prefix]
+                self.seq_length > self.video_length):
+            seq_length = self.video_length
         else:
             seq_length = self.seq_length
 
@@ -192,18 +190,18 @@ class IsbiEmStacksDataset(ThreadedDataset):
         # If needed, apply elastic deformation
         if self.elastic_deform:
             disp_x, disp_y = displacement_vecs(10, (3, 3))
-            X = batch_elastic_def(X[:,:,:,0], disp_x, disp_y)[:,:,:,None]
+            X = batch_elastic_def(X[:, :, :, 0], disp_x, disp_y)[:, :, :, None]
             Y = batch_elastic_def(Y, disp_x, disp_y)
 
         # If needed, apply flipping
         # X is in format B01C, Y is in format B01
         for i in range(len(X)):
             if self.h_flipping and np.random.random() < 0.5:
-                X[i] = X[i,:,::-1]
-                Y[i] = Y[i,:,::-1]
+                X[i] = X[i, :, ::-1]
+                Y[i] = Y[i, :, ::-1]
             if self.v_flipping and np.random.random() < 0.5:
-                X[i] = X[i,::-1,:]
-                Y[i] = Y[i,::-1,:]
+                X[i] = X[i, ::-1, :]
+                Y[i] = Y[i, ::-1, :]
 
         # If needed, apply shearing deformation
         if self.shearing_range > 0.0:
