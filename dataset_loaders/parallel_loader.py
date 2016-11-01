@@ -358,6 +358,7 @@ class ThreadedDataset(object):
 
             # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
+            ret['raw_data'] = ret['data'].copy()
             seq_x, seq_y = ret['data'], ret['labels']
 
             # Per-image normalization
