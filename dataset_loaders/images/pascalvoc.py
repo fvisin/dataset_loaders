@@ -3,6 +3,7 @@ import time
 
 import numpy as np
 from PIL import Image
+import shutil
 
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
@@ -64,18 +65,28 @@ class VOCdataset(ThreadedDataset):
 
     @property
     def filenames(self):
+        # Get file names from txt file
+        def get_file_names(file_name_txt, is_extra):
+            is_extra = "_" if is_extra else ""
+            filenames = []
+            with open(file_name_txt) as f:
+                for fi in f.readlines():
+                    raw_name = fi.strip()
+                    filenames.append(is_extra + raw_name)
+            return filenames
+
         if self._filenames is None:
             # Load filenames
             filenames = []
+            isextra = []
+            if self.which_set == 'train_extra':
+                filenames = get_file_names(self.txt_path_extra, True)
+                file_txt = os.path.join(self.txt_path, "train.txt")
+                filenames = filenames + get_file_names(file_txt, False)
+            else:
+                file_txt = os.path.join(self.txt_path, self.which_set + ".txt")
+                filenames = get_file_names(file_txt, False)
 
-            # Get paths for this year
-            with open(os.path.join(
-                    self.txt_path, self.which_set + ".txt")) as f:
-
-                # Get file names for this set and year
-                for fi in f.readlines():
-                    raw_name = fi.strip()
-                    filenames.append(raw_name)
             self._filenames = filenames
         return self._filenames
 
@@ -85,7 +96,10 @@ class VOCdataset(ThreadedDataset):
                  *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        if self.which_set not in ("train", "trainval", "val", "test"):
+        # Extra data
+        self.path_extra = '/Tmp/'+usr+'/datasets/PASCAL-VOC_Extra/'
+        self.sharedpath_extra = '/data/lisa/exp/vazquezd/datasets/PASCAL_Extension/dataset/dataset10253/'
+        if self.which_set not in ("train", "trainval", "train_extra", "val", "test"):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
         if self.which_set == "test" and year != "VOC2012":
@@ -104,6 +118,18 @@ class VOCdataset(ThreadedDataset):
         self.image_path = os.path.join(self.path, self.year, "JPEGImages")
         self.mask_path = os.path.join(self.path, self.year,
                                       "SegmentationClass")
+
+        # Extra data
+        self.txt_path_extra = os.path.join(self.path_extra, "train_nosegval.txt")
+        self.image_path_extra = os.path.join(self.path_extra, "images")
+        self.mask_path_extra = os.path.join(self.path_extra, "masks")
+
+        # Copy the extra data to the local path if not existing
+        if not os.path.exists(self.path_extra):
+            print('The local path {} does not exist. Copying '
+                  'dataset extra data...'.format(self.path_extra))
+            shutil.copytree(self.sharedpath_extra, self.path_extra)
+            print('Done.')
 
         super(VOCdataset, self).__init__(*args, **kwargs)
 
@@ -134,16 +160,27 @@ class VOCdataset(ThreadedDataset):
         mask_batch = []
         filename_batch = []
 
+        # Check if it is an image of the extra training dataset
+        if img_name[0] == "_":
+            is_extra = True
+            image_path = self.image_path_extra
+            mask_path = self.mask_path_extra
+            img_name = img_name[1:]
+        else:
+            is_extra = False
+            image_path = self.image_path
+            mask_path = self.mask_path
+
         # Load image
         for _, img_name in sequence:
-            img = io.imread(os.path.join(self.image_path,
+            img = io.imread(os.path.join(image_path,
                                          img_name + ".jpg"))
             img = img.astype(floatX) / 255.
 
             # Load mask
             if self.which_set != "test":
                 mask = np.array(Image.open(
-                    os.path.join(self.mask_path, img_name + ".png")))
+                    os.path.join(mask_path, img_name + ".png")))
                 mask = mask.astype('int32')
 
             # Add to minibatch
@@ -221,6 +258,17 @@ def test2():
         return_list=True,
         use_threads=True)
 
+    trainiter_extra = VOCdataset(
+        which_set='train_extra',
+        batch_size=100,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(224, 224),
+        get_one_hot=True,
+        get_01c=True,
+        return_list=True,
+        use_threads=True)
+
     validiter = VOCdataset(
         which_set='valid',
         batch_size=5,
@@ -249,26 +297,27 @@ def test2():
     train_batch_size = trainiter.get_batch_size()
     print("Train %d" % (train_nsamples))
 
+    train_nsamples_extra = trainiter_extra.nsamples
     valid_nsamples = validiter.nsamples
     test_nsamples = testiter.nsamples
+    print("Train extra %d" % (train_nsamples_extra))
     print("Valid %d" % (valid_nsamples))
     print("Test %d" % (test_nsamples))
 
-    start = time.time()
+    # Simulate training
     max_epochs = 2
-
+    start_training = time.time()
     for epoch in range(max_epochs):
+        start_epoch = time.time()
         for mb in range(nbatches):
-            train_group = trainiter.next()
+            start_batch = time.time()
+            train_group = trainiter_extra.next()
 
             # time.sleep approximates running some model
-            time.sleep(0.1)
-            stop = time.time()
-            tot = stop - start
-            print("Threaded time: %s" % (tot))
-            print("Minibatch %s" % str(mb))
-        print('ended epoch --> should reset!')
-        time.sleep(2)
+            # time.sleep(0.1)
+            print("Minibatch {}: {} seg".format(mb, (time.time() - start_batch)))
+        print("Epoch time: %s" % str(time.time() - start_epoch))
+    print("Training time: %s" % str(time.time() - start_training))
 
 
 if __name__ == '__main__':
