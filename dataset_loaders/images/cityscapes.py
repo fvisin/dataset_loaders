@@ -156,29 +156,23 @@ class CityscapesDataset(ThreadedDataset):
 
         if self.which_set == "train":
             self.image_path = os.path.join(self.path,
-                                           "leftImg8bit_trainvaltest",
                                            "leftImg8bit",
                                            "train")
             self.mask_path = os.path.join(self.path,
-                                          "gtFine_trainvaltest",
                                           "gtFine",
                                           "train")
         elif self.which_set == "val":
             self.image_path = os.path.join(self.path,
-                                           "leftImg8bit_trainvaltest",
                                            "leftImg8bit",
                                            "val")
             self.mask_path = os.path.join(self.path,
-                                          "gtFine_trainvaltest",
                                           "gtFine",
                                           "val")
         elif self.which_set == "test":
             self.image_path = os.path.join(self.path,
-                                           "leftImg8bit_trainvaltest",
                                            "leftImg8bit",
                                            "test")
             self.mask_path = os.path.join(self.path,
-                                          "gtFine_trainvaltest",
                                           "gtFine",
                                           "test")
             self.has_GT = False
