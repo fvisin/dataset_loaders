@@ -79,6 +79,17 @@ class ThreadedDataset(object):
 
 
     Optional arguments
+        * seq_per_video: the *maximum* number of sequences per each
+            video (a.k.a. prefix). If 0, all sequences will be used.
+            Default: 0.
+        * seq_length: the number of frames per sequence. If 0, 4D arrays
+            will be returned (not a sequence), else 5D arrays will be
+            returned. Default: 0.
+        * overlap: the number of frames of overlap between the first
+            frame of one sample and the first frame of the next. Note
+            that a negative overlap will instead specify the number of
+            frames that are *skipped* between the last frame of one
+            sample and the first frame of the next.
         * split: percentage of the training set to be used for training.
             The remainder will be used for validation
         * val_test_split: percentage of the validation set to be used
@@ -111,8 +122,8 @@ class ThreadedDataset(object):
         99 --> 5
     """
     def __init__(self,
-                 seq_per_video=0,  # if 0 all frames
-                 seq_length=0,  # if 0, return 4D
+                 seq_per_video=0,   # if 0 all sequences (or frames, if 4D)
+                 seq_length=0,      # if 0, return 4D
                  overlap=None,
                  crop_size=None,
                  batch_size=1,
@@ -148,11 +159,16 @@ class ThreadedDataset(object):
             raise NameError('Mandatory argument(s) missing: {}'.format(
                 missing_attrs))
 
-        if not hasattr(self, 'data_shape') and batch_size > 1:
-            raise RuntimeError(
+        if (not hasattr(self, 'data_shape') and batch_size > 1 and
+                not crop_size):
+            raise ValueError(
                 '{} has no `data_shape` attribute, this means that the '
-                'shape of the samples varies across the dataset. You must set '
-                '`batch_size = 1`'.format(self.name))
+                'shape of the samples varies across the dataset. You '
+                'must either set `batch_size = 1` or specify a '
+                '`crop_size`'.format(self.name))
+
+        if seq_length and overlap and overlap >= seq_length:
+            raise ValueError('`overlap` should be smaller than `seq_length`')
 
         # Copy the data to the local path if not existing
         if not os.path.exists(self.path):
@@ -202,7 +218,7 @@ class ThreadedDataset(object):
             self.data_shape = [data_shape[i] for i in
                                [2] + range(2) + range(3, len(data_shape))]
 
-        # initialize
+        # Initialize the queues
         if self.use_threads:
             self.names_queue = Queue.Queue(maxsize=self.queues_size)
             self.out_queue = Queue.Queue(maxsize=self.queues_size)
