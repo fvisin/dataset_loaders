@@ -16,6 +16,10 @@ class DavisDataset(ThreadedDataset):
     _void_labels = []
     debug_shape = (360, 640, 3)
 
+    # NOTE: we only load the 480p
+    # 1080p images are either (1920, 1080) or (1600, 900)
+    data_shape = (854, 480, 3)
+
     _cmap = {
         0: (255, 255, 255),        # background
         1: (0, 0, 0)}              # foreground
