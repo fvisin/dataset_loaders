@@ -5,8 +5,8 @@ from getpass import getuser
 import time
 import shutil
 
-import loader_adri.dataset_loaders
-from loader_adri.dataset_loaders.parallel_loader import ThreadedDataset
+from dataset_loaders.parallel_loader import ThreadedDataset
+
 
 floatX = 'float32'
 
@@ -81,16 +81,16 @@ class KITTIdataset2(ThreadedDataset):
         self.which_set = "val" if which_set == "valid" else which_set
         self.with_filenames = with_filenames
         usr = getuser()
-        self.path = '/home/michal/KITTI2/'
-        self.sharedpath = '/home/michal/KITTI2/'
-        # self.path = '/home/'+usr+'/datasets/KITTI/'
-        # self.sharedpath = '/home/dvazquez/Desktop/KITTI_SEMANTIC/'
+        # self.path = '/home/michal/KITTI2/'
+        # self.sharedpath = '/home/michal/KITTI2/'
+        self.path = '/home/'+usr+'/datasets/KITTI2/'
+        self.sharedpath = '/data/lisatmp4/romerosa/datasets/KITTI2'
 
         if self.which_set not in ("train", "val", "test"):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
 
-        
+
         if self.which_set == "train":
             set_folder = 'Training_00/'
         elif self.which_set == "test":
@@ -103,7 +103,7 @@ class KITTIdataset2(ThreadedDataset):
         print(self.image_path)
         print(self.mask_path)
 
-        super(KITTIdataset, self).__init__(*args, **kwargs)
+        super(KITTIdataset2, self).__init__(*args, **kwargs)
 
     def get_names(self):
 
