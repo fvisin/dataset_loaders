@@ -83,7 +83,7 @@ class KITTIdataset2(ThreadedDataset):
         usr = getuser()
         # self.path = '/home/michal/KITTI2/'
         # self.sharedpath = '/home/michal/KITTI2/'
-        self.path = '/home/'+usr+'/datasets/KITTI2/'
+        self.path = '/Tmp/'+usr+'/datasets/KITTI2/'
         self.sharedpath = '/data/lisatmp4/romerosa/datasets/KITTI2'
 
         if self.which_set not in ("train", "val", "test"):
