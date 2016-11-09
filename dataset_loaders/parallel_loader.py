@@ -1,4 +1,3 @@
-from itertools import izip_longest
 try:
     import Queue
 except ImportError:
@@ -11,7 +10,7 @@ from time import sleep
 import numpy as np
 from numpy.random import RandomState
 
-from utils_parallel_loader import classproperty
+from utils_parallel_loader import classproperty, grouper, overlap_grouper
 
 
 def threaded_fetch(names_queue, out_queue, sentinel, fetch_from_dataset):
@@ -222,28 +221,72 @@ class ThreadedDataset(object):
         if self.use_threads:
             self.names_queue = Queue.Queue(maxsize=self.queues_size)
             self.out_queue = Queue.Queue(maxsize=self.queues_size)
+        # Load all the names, per video
+        self.names_per_video = self.get_names()
+
+        # Fill the sequences list and initialize everything
         self.reset(self.shuffle_at_each_epoch)
 
-        if len(self.names_list) == 0:
+        if len(self.names_all_sequences) == 0:
             raise RuntimeError('The name list cannot be empty')
 
         # Give time to the data fetcher to die, in case of errors
         sleep(1)
 
-    def reset(self, shuffle_at_each_epoch):
-        # Reload the names list, so a different subset is selected when
-        # not all the possible sequences are picked
-        self.names_list = self.get_names()
-        # Shuffle data
-        if shuffle_at_each_epoch:
-            self.rng.shuffle(self.names_list)
+    def _get_all_sequences(self):
+        names_all_sequences = {}
+        for prefix, names in self.names_per_video.items():
+            seq_length = self.seq_length
 
-        # Group names into minibatches
-        names_batches = [el for el in izip_longest(
-            fillvalue=None, *[iter(self.names_list)] * self.batch_size)]
-        self.nsamples = len(self.names_list)
+            # Repeat first and last element so that the first and last
+            # sequences are filled with repeated elements up/from the
+            # middle element.
+            extended_names = ([names[0]] * (seq_length // 2) + names +
+                              [names[-1]] * (seq_length // 2))
+            # Fill sequences with (prefix, frame_idx). Frames here have
+            # overlap = (seq_length - 1), i.e., "stride" = 1
+            sequences = [el for el in overlap_grouper(
+                extended_names, seq_length, prefix=prefix)]
+            # Sequences of frames with the requested overlap
+            sequences = sequences[::self.seq_length - self.overlap]
+
+            names_all_sequences[prefix] = sequences
+        return names_all_sequences
+
+    def _select_desired_sequences(self, shuffle):
+        names_sequences = []
+        for prefix, sequences in self.names_all_sequences.items():
+
+            # Pick only a subset of sequences per each video
+            if self.seq_per_video:
+                # Pick `seq_per_video` random indices
+                idx = np.random.permutation(range(len(sequences)))[
+                    :self.seq_per_video]
+                # Select only those sequences
+                sequences = np.array(sequences)[idx]
+
+            names_sequences.extend(sequences)
+
+        # Shuffle the sequences
+        if shuffle:
+            self.rng.shuffle(names_sequences)
+
+        # Group the sequences into minibatches
+        names_batches = [el for el in grouper(names_sequences,
+                                              self.batch_size)]
+        self.nsamples = len(names_sequences)
         self.nbatches = len(names_batches)
         self.names_batches = iter(names_batches)
+
+    def reset(self, shuffle, reload_sequences_from_dataset=True):
+
+        if reload_sequences_from_dataset:
+            # Get all the sequences of names from the dataset
+            self.names_all_sequences = self._get_all_sequences()
+
+        # Select the sequences we want, according to the parameters
+        # Sets self.nsamples, self.nbatches and self.names_batches
+        self._select_desired_sequences(shuffle)
 
         # Reset the queues
         if self.use_threads:
@@ -319,7 +362,7 @@ class ThreadedDataset(object):
                         sleep(self.wait_time)
                     else:
                         # No more minibatches in the out queue
-                        self.reset(self.shuffle_at_each_epoch)
+                        self.reset(self.shuffle_at_each_epoch, False)
                         if not self.infinite_iterator:
                             raise StopIteration
                         # else, it will cycle again in the while loop
@@ -329,7 +372,7 @@ class ThreadedDataset(object):
                     data_batch = self.fetch_from_dataset(name_batch)
                     done = True
                 except StopIteration:
-                    self.reset(self.shuffle_at_each_epoch)
+                    self.reset(self.shuffle_at_each_epoch, False)
                     if not self.infinite_iterator:
                         raise
                     # else, loop to the next image
