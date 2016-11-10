@@ -76,12 +76,19 @@ class KITTIdataset(ThreadedDataset):
             dataset_loaders.__path__[0], 'datasets', 'KITTI_SEMANTIC')
         self.sharedpath = '/data/lisa/exp/vazquezd/datasets/KITTI_SEMANTIC/'
 
-        if self.which_set not in ("train", "val"):
+        if self.which_set not in ("train", "val",'test'):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
 
-        set_folder = ('Training_00/' if self.which_set == "train" else
-                      'Validation_07')
+        if self.which_set == 'train':
+            set_folder = 'Training_00/'
+        elif self.which_set == 'val':
+            set_folder = 'valid/'
+        elif self.which_set == 'test':
+            set_folder = 'Validation_07/'
+        else:
+            raise ValueError
+
         self.image_path = os.path.join(self.path, set_folder, "RGB")
         self.mask_path = os.path.join(self.path, set_folder, "GT_ind")
 
