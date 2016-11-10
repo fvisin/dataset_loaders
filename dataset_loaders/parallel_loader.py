@@ -406,8 +406,7 @@ class ThreadedDataset(object):
         or (frame, c, 0, 1) containing the data and the second 3D or 4D
         containing the label.
         """
-        X = []
-        Y = []
+        batch_ret = {}
 
         # Create batches
         for el in batch_to_load:
@@ -417,7 +416,7 @@ class ThreadedDataset(object):
 
             # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
-            ret['raw_data'] = ret['data'].copy()
+            raw_data = ret['data'].copy()
             seq_x, seq_y = ret['data'], ret['labels']
 
             # Per-image normalization
@@ -438,6 +437,7 @@ class ThreadedDataset(object):
             if seq_x.ndim == 3:
                 seq_x = seq_x[np.newaxis, ...]
                 seq_y = seq_y[np.newaxis, ...]
+                raw_data = raw_data[np.newaxis, ...]
             assert seq_x.ndim == 4
 
             # Crop
@@ -503,23 +503,27 @@ class ThreadedDataset(object):
                 seq_x = seq_x.transpose([0, 3, 1, 2])
                 if self.has_GT and self.get_one_hot:
                     seq_y = seq_y.transpose([0, 3, 1, 2])
+                raw_data = raw_data.transpose([0, 3, 1, 2])
 
             # Return 4D images
             if not self.return_sequence:
                 seq_x = seq_x[0, ...]
                 if self.has_GT:
                     seq_y = seq_y[0, ...]
+                raw_data = raw_data[0, ...]
 
-            # Append stuff to minibatch list
-            X.append(seq_x)
-            Y.append(seq_y)
+            ret['data'], ret['labels'] = seq_x, seq_y
+            ret['raw_data'] = raw_data
+            # Append the data of this batch to the minibatch array
+            for k, v in ret.iteritems():
+                batch_ret.setdefault(k, []).append(v)
 
-        ret['data'] = np.array(X)
-        ret['labels'] = np.array(Y)
+        for k, v in batch_ret.iteritems():
+            batch_ret[k] = np.array(v)
         if self.return_list:
-            return [ret['data'], ret['labels']]
+            return [batch_ret['data'], batch_ret['labels']]
         else:
-            return ret
+            return batch_ret
 
     def finish(self):
         for data_fetcher in self.data_fetchers:
