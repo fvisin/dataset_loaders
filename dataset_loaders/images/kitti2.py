@@ -103,6 +103,12 @@ class KITTIdataset2(ThreadedDataset):
         print(self.image_path)
         print(self.mask_path)
 
+        self.mu_camvid = [0.39068785, 0.40521392, 0.41434407]
+        self.sigma_camvid = [0.29652068, 0.30514979, 0.30080369]
+
+        self.mu_kitti = [0.35675976, 0.37380189, 0.3764753]
+        self.sigma_kitti = [0.32064945, 0.32098866, 0.32325324]
+
         super(KITTIdataset2, self).__init__(*args, **kwargs)
 
     def get_names(self):
@@ -155,6 +161,13 @@ class KITTIdataset2(ThreadedDataset):
         # Load image
         img = io.imread(os.path.join(self.image_path, img_name + ".png"))
         img = img.astype(floatX) / 255.
+
+        if '_' in img_name:
+            img -= self.mu_camvid
+            img /= self.sigma_camvid
+        else:
+            img -= self.mu_kitti
+            img /= self.sigma_kitti
 
         # Load mask
         mask = np.array(Image.open(
@@ -212,7 +225,7 @@ class KITTIdataset2(ThreadedDataset):
 
 
 def test():
-    trainiter = KITTIdataset(
+    trainiter = KITTIdataset2(
         which_set='train',
         batch_size=10,
         seq_per_video=0,
@@ -220,9 +233,9 @@ def test():
         crop_size=(224, 224),
         get_one_hot=True,
         get_01c=True,
-        use_threads=True)
+        use_threads=False)
 
-    validiter = KITTIdataset(
+    validiter = KITTIdataset2(
         which_set='valid',
         batch_size=5,
         seq_per_video=0,
