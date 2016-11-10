@@ -74,7 +74,7 @@ class KITTIdataset(ThreadedDataset):
         self.with_filenames = with_filenames
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'KITTI_SEMANTIC')
-        self.sharedpath = '/data/lisa/exp/vazquezd/datasets/KITTI_SEMANTIC/'
+        self.sharedpath = '/data/lisatmp4/romerosa/datasets/KITTI_NEWLABS/'
 
         if self.which_set not in ("train", "val",'test'):
             raise ValueError("Unknown argument to which_set %s" %
