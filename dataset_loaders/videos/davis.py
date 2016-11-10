@@ -125,7 +125,7 @@ class DavisDataset(ThreadedDataset):
 
             X.append(img)
             Y.append(mask)
-            F.append(frame)
+            F.append(frame + 'jpg')
 
         ret = {}
         ret['data'] = np.array(X)
