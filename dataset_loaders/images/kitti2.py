@@ -76,6 +76,7 @@ class KITTIdataset2(ThreadedDataset):
                  *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
+        print self.which_set
         self.with_filenames = with_filenames
         usr = getuser()
         # self.path = '/home/michal/KITTI2/'
@@ -83,7 +84,7 @@ class KITTIdataset2(ThreadedDataset):
         self.path = '/Tmp/'+usr+'/datasets/KITTI2/'
         self.sharedpath = '/data/lisatmp4/romerosa/datasets/KITTI2'
 
-        if self.which_set not in ("train", "val", "test"):
+        if self.which_set not in ("train", "val", "test", "trainval"):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
 
