@@ -95,8 +95,12 @@ class KITTIdataset2(ThreadedDataset):
             set_folder = 'Training_00/'
         elif self.which_set == "test":
             set_folder = 'Validation_07/'
-        else:
+        elif self.which_set == 'val':
             set_folder = 'valid/'
+        elif self.which_set == 'trainval':
+            set_folder = 'trainval/'
+        else:
+            raise ValueError('Unknown set.')
 
         self.image_path = os.path.join(self.path, set_folder, "RGB")
         self.mask_path = os.path.join(self.path, set_folder, "GT_ind")

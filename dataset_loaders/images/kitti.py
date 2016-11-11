@@ -18,6 +18,9 @@ class KITTIdataset(ThreadedDataset):
     # optional arguments
     # mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
     #    'float32')
+    mean = [0.35675976, 0.37380189, 0.3764753]
+    std = [0.32064945, 0.32098866, 0.32325324]
+
     _void_labels = [] # [255] (TODO: No void class???)
     GTclasses = range(11) + _void_labels
 
@@ -76,7 +79,7 @@ class KITTIdataset(ThreadedDataset):
             dataset_loaders.__path__[0], 'datasets', 'KITTI_SEMANTIC')
         self.sharedpath = '/data/lisatmp4/romerosa/datasets/KITTI_NEWLABS/'
 
-        if self.which_set not in ("train", "val",'test'):
+        if self.which_set not in ("train", "val", 'test'):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
 
@@ -86,6 +89,8 @@ class KITTIdataset(ThreadedDataset):
             set_folder = 'valid/'
         elif self.which_set == 'test':
             set_folder = 'Validation_07/'
+        elif self.which_set == 'trainval':
+            set_folder = 'trainval/'
         else:
             raise ValueError
 
