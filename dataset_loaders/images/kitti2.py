@@ -1,9 +1,10 @@
 import os
-import numpy as np
-from PIL import Image
-from getpass import getuser
 import time
 
+import numpy as np
+from PIL import Image
+
+import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 
@@ -16,11 +17,8 @@ class KITTIdataset2(ThreadedDataset):
     debug_shape = (375, 500, 3)
 
     data_shape = (None, None, 3)
-    # mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
-    #    'float32')
-    std = 1.
-    _void_labels = [11] # [255] (TODO: No void class???)
-    GTclasses = range(11) + _void_labels
+    _void_labels = [11]
+    GTclasses = range(12)
 
     _cmap = {
         0: (128, 128, 128),    # Sky
@@ -37,12 +35,9 @@ class KITTIdataset2(ThreadedDataset):
         # 255: (255, 255, 255)   # void
     }
 
-    _mask_labels = {0: 'Sky', 1: 'Building', 2:  'Pole', 3:  'Road',
-                    4:  'Sidewalk', 5:  'Vegetation', 6:  'Sign',
-                    7:  'Fence', 8:  'Car', 9:  'Pedestrian', 10:
-                    'Cyclist',
-                    11: 'Void'}
-                    # 255: 'void'}
+    _mask_labels = {0: 'Sky', 1: 'Building', 2: 'Pole', 3: 'Road',
+                    4: 'Sidewalk', 5: 'Vegetation', 6: 'Sign', 7: 'Fence',
+                    8: 'Car', 9: 'Pedestrian', 10: 'Cyclist', 11: 'Void'}
 
     _filenames = None
 
@@ -72,37 +67,30 @@ class KITTIdataset2(ThreadedDataset):
 
     def __init__(self,
                  which_set="train",
-                 with_filenames=False,
                  *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        print self.which_set
-        self.with_filenames = with_filenames
-        usr = getuser()
         # self.path = '/home/michal/KITTI2/'
         # self.sharedpath = '/home/michal/KITTI2/'
-        self.path = '/Tmp/'+usr+'/datasets/KITTI2/'
-        self.sharedpath = '/data/lisatmp4/romerosa/datasets/KITTI2'
+        self.path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'kitti2')
+        self.sharedpath = '/data/lisatmp4/romerosa/datasets/kitti2'
 
-        if self.which_set not in ("train", "val", "test", "trainval"):
+        if self.which_set not in ("train", "val", "test"):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
 
         if self.which_set == "train":
-            set_folder = 'Training_00/'
+            self.image_path = os.path.join(self.path, "train")
+            self.mask_path = os.path.join(self.path, "trainannot")
+        elif self.which_set == "val":
+            self.image_path = os.path.join(self.path, "val")
+            self.mask_path = os.path.join(self.path, "valannot")
         elif self.which_set == "test":
-            set_folder = 'Validation_07/'
-        elif self.which_set == 'val':
-            set_folder = 'valid/'
-        elif self.which_set == 'trainval':
-            set_folder = 'trainval/'
+            self.image_path = os.path.join(self.path, "test")
+            self.mask_path = os.path.join(self.path, "testannot")
         else:
             raise ValueError('Unknown set.')
-
-        self.image_path = os.path.join(self.path, set_folder, "RGB")
-        self.mask_path = os.path.join(self.path, set_folder, "GT_ind")
-        print(self.image_path)
-        print(self.mask_path)
 
         self.mu_camvid = [0.39068785, 0.40521392, 0.41434407]
         self.sigma_camvid = [0.29652068, 0.30514979, 0.30080369]
@@ -111,6 +99,9 @@ class KITTIdataset2(ThreadedDataset):
         self.sigma_kitti = [0.32064945, 0.32098866, 0.32325324]
 
         super(KITTIdataset2, self).__init__(*args, **kwargs)
+        # set specific flags for this dataset
+        self.remove_both_means = True if self.remove_mean else False
+        self.divide_by_both_stds = True if self.divide_by_std else False
 
     def get_names(self):
 
@@ -163,12 +154,17 @@ class KITTIdataset2(ThreadedDataset):
         img = io.imread(os.path.join(self.image_path, img_name + ".png"))
         img = img.astype(floatX) / 255.
 
-        if '_' in img_name:
-            img -= self.mu_camvid
-            img /= self.sigma_camvid
-        else:
-            img -= self.mu_kitti
-            img /= self.sigma_kitti
+        # Normalize
+        if self.remove_both_means:
+            if '_' in img_name:
+                img -= self.mu_camvid
+            else:
+                img -= self.mu_kitti
+        if self.divide_by_both_stds:
+            if '_' in img_name:
+                img /= self.sigma_camvid
+            else:
+                img /= self.sigma_kitti
 
         # Load mask
         mask = np.array(Image.open(

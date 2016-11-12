@@ -16,6 +16,8 @@ class CamvidDataset(ThreadedDataset):
 
     # optional arguments
     data_shape = (360, 480, 3)
+    mean = [0.39068785, 0.40521392, 0.41434407]
+    std = [0.29652068, 0.30514979, 0.30080369]
 
     _void_labels = [11]
     _cmap = {
@@ -77,6 +79,9 @@ class CamvidDataset(ThreadedDataset):
         elif self.which_set == "test":
             self.image_path = os.path.join(self.path, "test")
             self.mask_path = os.path.join(self.path, "testannot")
+        elif self.which_set == 'trainval':
+            self.image_path = os.path.join(self.path, "trainval")
+            self.mask_path = os.path.join(self.path, "trainvalannot")
 
         # constructing the ThreadedDataset
         # it also creates/copies the dataset in self.path if not already there

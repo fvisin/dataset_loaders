@@ -20,9 +20,8 @@ class KITTIdataset(ThreadedDataset):
     #    'float32')
     mean = [0.35675976, 0.37380189, 0.3764753]
     std = [0.32064945, 0.32098866, 0.32325324]
-
-    _void_labels = [] # [255] (TODO: No void class???)
-    GTclasses = range(11) + _void_labels
+    _void_labels = [11]
+    GTclasses = range(12)
 
     _cmap = {
         0: (128, 128, 128),    # Sky
@@ -35,14 +34,13 @@ class KITTIdataset(ThreadedDataset):
         7: (64, 0, 128),       # Car
         8: (192, 128, 128),    # Sign
         9: (64, 64, 0),        # Pedestrian
-        10: (0, 128, 192)      # Cyclist
-        # 255: (255, 255, 255)   # void
+        10: (0, 128, 192),     # Cyclist
+        11: (0, 0, 0)          # Void
     }
 
     _mask_labels = {0: 'Sky', 1: 'Building', 2: 'Road', 3: 'Sidewalk',
                     4: 'Fence', 5: 'Vegetation', 6: 'Pole', 7: 'Car',
-                    8: 'Sign', 9: 'Pedestrian', 10: 'Cyclist'}
-                    # 255: 'void'}
+                    8: 'Sign', 9: 'Pedestrian', 10: 'Cyclist', 11: 'void'}
 
     _filenames = None
 
@@ -70,14 +68,12 @@ class KITTIdataset(ThreadedDataset):
 
     def __init__(self,
                  which_set="train",
-                 with_filenames=False,
                  *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        self.with_filenames = with_filenames
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'KITTI_SEMANTIC')
-        self.sharedpath = '/data/lisatmp4/romerosa/datasets/KITTI_NEWLABS/'
+        self.sharedpath = '/data/lisatmp4/romerosa/datasets/kitti/'
 
         if self.which_set not in ("train", "val", 'test', 'trainval'):
             raise ValueError("Unknown argument to which_set %s" %
