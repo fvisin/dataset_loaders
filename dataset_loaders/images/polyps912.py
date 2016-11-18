@@ -11,20 +11,19 @@ floatX = 'float32'
 
 class Polyps912Dataset(ThreadedDataset):
     name = 'Polyps912'
-    non_void_nclasses = 3
+    non_void_nclasses = 2
     debug_shape = (384, 288, 3)
 
     # optional arguments
     data_shape = (384, 288, 3)
 
-    _void_labels = [3]
+    _void_labels = [2]
     _cmap = {
         0: (128, 128, 0),       # Background
         1: (128, 0, 0),         # Polyp
-        2: (128, 64, 128),      # Lumen
-        3: (0, 0, 0),           # Void
+        2: (0, 0, 128),         # Void
         }
-    _mask_labels = {0: 'Background', 1: 'Polyp', 2: 'Lumen', 3: 'Void'}
+    _mask_labels = {0: 'Background', 1: 'Polyp', 2:'Void'}
 
     _filenames = None
 
@@ -57,8 +56,7 @@ class Polyps912Dataset(ThreadedDataset):
         # Get dataset path
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'polyps912')
-        self.sharedpath = ('/data/lisa/exp/vazquezd/datasets/polyps_split5/'
-                           'CVC-912/')
+        self.sharedpath = '/data/lisa/exp/vazquezd/datasets/polyps_split7/'
 
         # Put which_set in canonical form: training, validation or testing
         if which_set in ("train", "training"):
@@ -72,7 +70,7 @@ class Polyps912Dataset(ThreadedDataset):
 
         # Define the images and mask paths
         self.image_path = os.path.join(self.path, self.which_set, 'images')
-        self.mask_path = os.path.join(self.path, self.which_set, 'masks4')
+        self.mask_path = os.path.join(self.path, self.which_set, 'masks2')
 
         super(Polyps912Dataset, self).__init__(*args, **kwargs)
 
