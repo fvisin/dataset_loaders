@@ -32,13 +32,13 @@ remap the training ID classes to the original class mapping from 0 to 33.
 class CityscapesDataset(ThreadedDataset):
     name = 'cityscapes'
     nclasses = 19
-    debug_shape = (512, 512, 3)
+    debug_shape = (32, 32, 3)
 
     # optional arguments
     data_shape = (2048, 1024, 3)
 
-    GT_classes = range(nclasses)
-    GT_classes = GT_classes + [255]
+    GTclasses = range(nclasses)
+    GTclasses = GTclasses + [255]
 
     _void_labels = [255]
 
@@ -77,7 +77,7 @@ class CityscapesDataset(ThreadedDataset):
         16: (0, 80, 100),       # train
         17: (0, 0, 230),        # motorcycle
         18: (119, 11, 32),      # bicycle
-        19: (0, 0, 0),          # void
+        255: (0, 0, 0),          # void
         # -1: (0, 0, 142)       # license plate
         }
 
@@ -116,7 +116,7 @@ class CityscapesDataset(ThreadedDataset):
         16: 'train',
         17: 'motorcycle',
         18: 'bicycle',
-        19: 'void'
+        255: 'void'
         # -1: 'license plate'
     }
 

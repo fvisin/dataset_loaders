@@ -1,4 +1,5 @@
 from images.camvid import CamvidDataset
+from images.cityscapes import CityscapesDataset
 from images.cocoseg import CocoDataset
 from images.em_stacks import IsbiEmStacksDataset
 from images.pascalvoc import VOCdataset
