@@ -1,4 +1,3 @@
-from itertools import izip_longest
 try:
     import Queue
 except ImportError:
@@ -11,7 +10,8 @@ from time import sleep
 import numpy as np
 from numpy.random import RandomState
 
-from utils_parallel_loader import classproperty
+import dataset_loaders
+from utils_parallel_loader import classproperty, grouper, overlap_grouper
 
 
 def threaded_fetch(names_queue, out_queue, sentinel, fetch_from_dataset):
@@ -79,6 +79,17 @@ class ThreadedDataset(object):
 
 
     Optional arguments
+        * seq_per_video: the *maximum* number of sequences per each
+            video (a.k.a. prefix). If 0, all sequences will be used.
+            Default: 0.
+        * seq_length: the number of frames per sequence. If 0, 4D arrays
+            will be returned (not a sequence), else 5D arrays will be
+            returned. Default: 0.
+        * overlap: the number of frames of overlap between the first
+            frame of one sample and the first frame of the next. Note
+            that a negative overlap will instead specify the number of
+            frames that are *skipped* between the last frame of one
+            sample and the first frame of the next.
         * split: percentage of the training set to be used for training.
             The remainder will be used for validation
         * val_test_split: percentage of the validation set to be used
@@ -111,8 +122,8 @@ class ThreadedDataset(object):
         99 --> 5
     """
     def __init__(self,
-                 seq_per_video=0,  # if 0 all frames
-                 seq_length=0,  # if 0, return 4D
+                 seq_per_video=0,   # if 0 all sequences (or frames, if 4D)
+                 seq_length=0,      # if 0, return 4D
                  overlap=None,
                  crop_size=None,
                  batch_size=1,
@@ -148,11 +159,26 @@ class ThreadedDataset(object):
             raise NameError('Mandatory argument(s) missing: {}'.format(
                 missing_attrs))
 
-        if not hasattr(self, 'data_shape') and batch_size > 1:
-            raise RuntimeError(
+        if (not hasattr(self, 'data_shape') and batch_size > 1 and
+                not crop_size):
+            raise ValueError(
                 '{} has no `data_shape` attribute, this means that the '
-                'shape of the samples varies across the dataset. You must set '
-                '`batch_size = 1`'.format(self.name))
+                'shape of the samples varies across the dataset. You '
+                'must either set `batch_size = 1` or specify a '
+                '`crop_size`'.format(self.name))
+
+        if seq_length and overlap and overlap >= seq_length:
+            raise ValueError('`overlap` should be smaller than `seq_length`')
+
+        # Create the `datasets` dir if missing
+        if not os.path.exists(os.path.join(dataset_loaders.__path__[0],
+                                           'datasets')):
+            print('The dataset path does not exist. Making a dir..')
+            the_path = os.path.join(dataset_loaders.__path__[0], 'datasets')
+            # Follow the symbolic link
+            if os.path.islink(the_path):
+                the_path = os.path.realpath(the_path)
+            os.makedirs(the_path)
 
         # Copy the data to the local path if not existing
         if not os.path.exists(self.path):
@@ -202,32 +228,76 @@ class ThreadedDataset(object):
             self.data_shape = [data_shape[i] for i in
                                [2] + range(2) + range(3, len(data_shape))]
 
-        # initialize
+        # Initialize the queues
         if self.use_threads:
             self.names_queue = Queue.Queue(maxsize=self.queues_size)
             self.out_queue = Queue.Queue(maxsize=self.queues_size)
+        # Load all the names, per video
+        self.names_per_video = self.get_names()
+
+        # Fill the sequences list and initialize everything
         self.reset(self.shuffle_at_each_epoch)
 
-        if len(self.names_list) == 0:
+        if len(self.names_all_sequences) == 0:
             raise RuntimeError('The name list cannot be empty')
 
         # Give time to the data fetcher to die, in case of errors
         sleep(1)
 
-    def reset(self, shuffle_at_each_epoch):
-        # Reload the names list, so a different subset is selected when
-        # not all the possible sequences are picked
-        self.names_list = self.get_names()
-        # Shuffle data
-        if shuffle_at_each_epoch:
-            self.rng.shuffle(self.names_list)
+    def _get_all_sequences(self):
+        names_all_sequences = {}
+        for prefix, names in self.names_per_video.items():
+            seq_length = self.seq_length
 
-        # Group names into minibatches
-        names_batches = [el for el in izip_longest(
-            fillvalue=None, *[iter(self.names_list)] * self.batch_size)]
-        self.nsamples = len(self.names_list)
+            # Repeat first and last element so that the first and last
+            # sequences are filled with repeated elements up/from the
+            # middle element.
+            extended_names = ([names[0]] * (seq_length // 2) + names +
+                              [names[-1]] * (seq_length // 2))
+            # Fill sequences with (prefix, frame_idx). Frames here have
+            # overlap = (seq_length - 1), i.e., "stride" = 1
+            sequences = [el for el in overlap_grouper(
+                extended_names, seq_length, prefix=prefix)]
+            # Sequences of frames with the requested overlap
+            sequences = sequences[::self.seq_length - self.overlap]
+
+            names_all_sequences[prefix] = sequences
+        return names_all_sequences
+
+    def _select_desired_sequences(self, shuffle):
+        names_sequences = []
+        for prefix, sequences in self.names_all_sequences.items():
+
+            # Pick only a subset of sequences per each video
+            if self.seq_per_video:
+                # Pick `seq_per_video` random indices
+                idx = np.random.permutation(range(len(sequences)))[
+                    :self.seq_per_video]
+                # Select only those sequences
+                sequences = np.array(sequences)[idx]
+
+            names_sequences.extend(sequences)
+
+        # Shuffle the sequences
+        if shuffle:
+            self.rng.shuffle(names_sequences)
+
+        # Group the sequences into minibatches
+        names_batches = [el for el in grouper(names_sequences,
+                                              self.batch_size)]
+        self.nsamples = len(names_sequences)
         self.nbatches = len(names_batches)
         self.names_batches = iter(names_batches)
+
+    def reset(self, shuffle, reload_sequences_from_dataset=True):
+
+        if reload_sequences_from_dataset:
+            # Get all the sequences of names from the dataset
+            self.names_all_sequences = self._get_all_sequences()
+
+        # Select the sequences we want, according to the parameters
+        # Sets self.nsamples, self.nbatches and self.names_batches
+        self._select_desired_sequences(shuffle)
 
         # Reset the queues
         if self.use_threads:
@@ -303,7 +373,7 @@ class ThreadedDataset(object):
                         sleep(self.wait_time)
                     else:
                         # No more minibatches in the out queue
-                        self.reset(self.shuffle_at_each_epoch)
+                        self.reset(self.shuffle_at_each_epoch, False)
                         if not self.infinite_iterator:
                             raise StopIteration
                         # else, it will cycle again in the while loop
@@ -313,7 +383,7 @@ class ThreadedDataset(object):
                     data_batch = self.fetch_from_dataset(name_batch)
                     done = True
                 except StopIteration:
-                    self.reset(self.shuffle_at_each_epoch)
+                    self.reset(self.shuffle_at_each_epoch, False)
                     if not self.infinite_iterator:
                         raise
                     # else, loop to the next image
@@ -347,8 +417,7 @@ class ThreadedDataset(object):
         or (frame, c, 0, 1) containing the data and the second 3D or 4D
         containing the label.
         """
-        X = []
-        Y = []
+        batch_ret = {}
 
         # Create batches
         for el in batch_to_load:
@@ -358,7 +427,7 @@ class ThreadedDataset(object):
 
             # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
-            ret['raw_data'] = ret['data'].copy()
+            raw_data = ret['data'].copy()
             seq_x, seq_y = ret['data'], ret['labels']
 
             # Per-image normalization
@@ -379,6 +448,7 @@ class ThreadedDataset(object):
             if seq_x.ndim == 3:
                 seq_x = seq_x[np.newaxis, ...]
                 seq_y = seq_y[np.newaxis, ...]
+                raw_data = raw_data[np.newaxis, ...]
             assert seq_x.ndim == 4
 
             # Crop
@@ -444,23 +514,27 @@ class ThreadedDataset(object):
                 seq_x = seq_x.transpose([0, 3, 1, 2])
                 if self.has_GT and self.get_one_hot:
                     seq_y = seq_y.transpose([0, 3, 1, 2])
+                raw_data = raw_data.transpose([0, 3, 1, 2])
 
             # Return 4D images
             if not self.return_sequence:
                 seq_x = seq_x[0, ...]
                 if self.has_GT:
                     seq_y = seq_y[0, ...]
+                raw_data = raw_data[0, ...]
 
-            # Append stuff to minibatch list
-            X.append(seq_x)
-            Y.append(seq_y)
+            ret['data'], ret['labels'] = seq_x, seq_y
+            ret['raw_data'] = raw_data
+            # Append the data of this batch to the minibatch array
+            for k, v in ret.iteritems():
+                batch_ret.setdefault(k, []).append(v)
 
-        ret['data'] = np.array(X)
-        ret['labels'] = np.array(Y)
+        for k, v in batch_ret.iteritems():
+            batch_ret[k] = np.array(v)
         if self.return_list:
-            return [ret['data'], ret['labels']]
+            return [batch_ret['data'], batch_ret['labels']]
         else:
-            return ret
+            return batch_ret
 
     def finish(self):
         for data_fetcher in self.data_fetchers:

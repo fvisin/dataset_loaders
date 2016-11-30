@@ -1,3 +1,4 @@
+from itertools import izip, izip_longest
 import os
 import re
 
@@ -76,3 +77,23 @@ def classproperty(func):
         func = classmethod(func)
 
     return ClassPropertyDescriptor(func)
+
+
+def grouper(iterable, n, fillvalue=None):
+    '''grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx'''
+    args = [iter(iterable)] * n
+    return izip_longest(fillvalue=fillvalue, *args)
+
+
+def overlap_grouper(iterable, n, prefix=None):
+    '''overlap_grouper('AABCDD', 3, 'a') -->
+        (('a', 'A'), ('a', 'A'), ('a', 'B')),
+        (('a', 'A'), ('a', 'B'), ('a', 'C')),
+        (('a', 'B'), ('a', 'C'), ('a', 'C'))'''
+    if prefix:
+        args = [zip([prefix] * len(iterable), iterable[el:])
+                for el in range(n)]
+        return izip(*args)
+    else:
+        args = [iter(iterable)] * n
+        return izip(*args)
