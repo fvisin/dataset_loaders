@@ -174,11 +174,11 @@ def test():
     train_nsamples = trainiter.nsamples
     valid_nsamples = validiter.nsamples
     test_nsamples = testiter.nsamples
-    nclasses = testiter.get_n_classes()
-    nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
-    valid_batch_size = validiter.get_batch_size()
-    test_batch_size = testiter.get_batch_size()
+    nclasses = testiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
+    valid_batch_size = validiter.batch_size
+    test_batch_size = testiter.batch_size
 
     print("Train %d, valid %d, test %d" % (train_nsamples, valid_nsamples,
                                            test_nsamples))
@@ -241,7 +241,7 @@ def test2():
         batch_size=500,
         seq_per_video=0,
         seq_length=7,
-        overlap=7,
+        overlap=6,
         crop_size=(224, 224),
         split=.75,
         get_one_hot=True,
@@ -250,9 +250,9 @@ def test2():
         nthreads=5)
 
     train_nsamples = trainiter.nsamples
-    nclasses = trainiter.get_n_classes()
-    nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
+    nclasses = trainiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
 
     print("Train %d" % (train_nsamples))
 
@@ -285,4 +285,5 @@ def test2():
             print("Threaded time: %s" % (tot))
             print("Minibatch %s" % str(mb))
 if __name__ == '__main__':
+    test()
     test2()

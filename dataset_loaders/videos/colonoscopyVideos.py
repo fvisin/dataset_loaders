@@ -219,11 +219,11 @@ def test():
     train_nsamples = trainiter.nsamples
     valid_nsamples = validiter.nsamples
     test_nsamples = testiter.nsamples
-    nclasses = testiter.get_n_classes()
-    nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
-    valid_batch_size = validiter.get_batch_size()
-    test_batch_size = testiter.get_batch_size()
+    nclasses = testiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
+    valid_batch_size = validiter.batch_size
+    test_batch_size = testiter.batch_size
 
     print("Train %d, valid %d, test %d" % (train_nsamples, valid_nsamples,
                                            test_nsamples))
@@ -316,9 +316,9 @@ def test2():
         nthreads=5)
 
     train_nsamples = trainiter.nsamples
-    nclasses = trainiter.get_n_classes()
-    nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
+    nclasses = trainiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
 
     print("Train %d" % (train_nsamples))
 

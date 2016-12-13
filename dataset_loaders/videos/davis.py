@@ -173,7 +173,7 @@ def test():
     train_nsamples = trainiter.nsamples
     valid_nsamples = validiter.nsamples
     test_nsamples = testiter.nsamples
-    nbatches = trainiter.get_n_batches()
+    nbatches = trainiter.nbatches
 
     print("Train %d, valid %d, test %d" % (train_nsamples, valid_nsamples,
                                            test_nsamples))

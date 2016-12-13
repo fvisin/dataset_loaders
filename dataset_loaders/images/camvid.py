@@ -172,9 +172,9 @@ def test3():
         nthreads=5)
 
     train_nsamples = trainiter.nsamples
-    nclasses = trainiter.get_n_classes()
-    nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
+    nclasses = trainiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
     print("Train %d" % (train_nsamples))
 
     start = time.time()
