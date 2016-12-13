@@ -396,6 +396,14 @@ class ThreadedDataset(object):
         return data_batch
 
     def get_names(self):
+        """ Loads ALL the names, per video.
+
+        Should return a *dictionary*, where each element of the
+        dictionary is a list of filenames. The keys of the dictionary
+        should be the prefixes, i.e., names of the subsets of the
+        dataset. If the dataset has no subset, 'default' can be used as
+        a key.
+        """
         raise NotImplementedError
 
     def load_sequence(self, first_frame):
