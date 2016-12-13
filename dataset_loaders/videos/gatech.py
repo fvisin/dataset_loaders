@@ -12,7 +12,7 @@ floatX = 'float32'
 
 class GatechDataset(ThreadedDataset):
     name = 'gatech'
-    nclasses = 8
+    non_void_nclasses = 8
     _void_labels = [0]
     debug_shape = (360, 640, 3)
 

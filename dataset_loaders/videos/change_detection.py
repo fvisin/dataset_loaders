@@ -19,7 +19,7 @@ class ChangeDetectionDataset(ThreadedDataset):
     ROI defines the area of the frame that we are interested in.
     '''
     name = 'changeD'
-    nclasses = 4
+    non_void_nclasses = 4
     _void_labels = [85]
     mean = [0.45483398, 0.4387207, 0.40405273]
     std = [0.04758175, 0.04148954, 0.05489637]

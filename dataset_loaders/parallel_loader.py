@@ -60,7 +60,7 @@ class ThreadedDataset(object):
     Mandatory attributes
         * debug_shape: any reasonable shape that can be used for debug purposes
         * name: the name of the dataset
-        * nclasses: the number of *non-void* classes
+        * non_void_nclasses: the number of *non-void* classes
         * path: a local path for the dataset
         * sharedpath: the network path where the dataset can be copied from
         * _void_labels: a list of void labels. Empty if none
@@ -97,7 +97,7 @@ class ThreadedDataset(object):
 
     Parallel loader will automatically map all non-void classes to be
     sequential starting from 0 and then map all void classes to the
-    next class. E.g., suppose nclasses = 4 and _void_classes = [3, 5]
+    next class. E.g., suppose non_void_nclasses = 4 and _void_classes = [3, 5]
     the non-void classes will be mapped to 0, 1, 2, 3 and the void
     classes will be mapped to 4, as follows:
         0 --> 0
@@ -111,7 +111,7 @@ class ThreadedDataset(object):
     suffices to list all the original labels as a list in GTclasses for
     parallel_loader to map the non-void classes sequentially starting
     from 0 and all the void classes to the next class. E.g. suppose
-    nclasses = 5, GTclasses = [0, 2, 5, 9, 11, 12, 99] and
+    non_void_nclasses = 5, GTclasses = [0, 2, 5, 9, 11, 12, 99] and
     _void_labels = [2, 99], then this will be the mapping:
          0 --> 0
          2 --> 5
@@ -151,7 +151,7 @@ class ThreadedDataset(object):
                                       'preserving')
 
         # Check that the implementing class has all the mandatory attributes
-        mandatory_attrs = ['name', 'nclasses', 'debug_shape',
+        mandatory_attrs = ['name', 'non_void_nclasses', 'debug_shape',
                            '_void_labels', 'path', 'sharedpath']
         missing_attrs = [attr for attr in mandatory_attrs if not
                          hasattr(self, attr)]
@@ -484,29 +484,31 @@ class ThreadedDataset(object):
                     seq_y = seq_y[..., top:top+crop[0], left:left+crop[1]]
 
             if self.has_GT and self._void_labels != []:
-                # Map all void classes to nclasses and shift the other values
-                # accordingly, so that the valid values are between 0 and
-                # nclasses-1 and the void_classes are all equal to nclasses.
+                # Map all void classes to non_void_nclasses and shift the other
+                # values accordingly, so that the valid values are between 0
+                # and non_void_nclasses-1 and the void_classes are all equal to
+                # non_void_nclasses.
                 void_l = self._void_labels
                 void_l.sort(reverse=True)
                 mapping = self._get_mapping()
 
                 # Apply the mapping
-                seq_y[seq_y == self.nclasses] = -1
+                seq_y[seq_y == self.non_void_nclasses] = -1
                 for i in sorted(mapping.keys()):
-                    if i == self.nclasses:
+                    if i == self.non_void_nclasses:
                         continue
                     seq_y[seq_y == i] = mapping[i]
                 try:
-                    seq_y[seq_y == -1] = mapping[self.nclasses]
+                    seq_y[seq_y == -1] = mapping[self.non_void_nclasses]
                 except KeyError:
-                    pass  # none of the original classes was self.nclasses
+                    # none of the original classes was self.non_void_nclasses
+                    pass
 
             # Transform targets seq_y to one hot code if get_one_hot
             # is True
             if self.has_GT and self.get_one_hot:
-                nc = (self.nclasses if self._void_labels == [] else
-                      self.nclasses + 1)
+                nc = (self.non_void_nclasses if self._void_labels == [] else
+                      self.non_void_nclasses + 1)
                 sh = seq_y.shape
                 seq_y = seq_y.flatten()
                 seq_y_hot = np.zeros((seq_y.shape[0], nc),
@@ -556,7 +558,7 @@ class ThreadedDataset(object):
 
     @classmethod
     def get_void_labels(self):
-        return ([self.nclasses] if hasattr(self, '_void_labels') and
+        return ([self.non_void_nclasses] if hasattr(self, '_void_labels') and
                 self._void_labels != [] else [])
 
     @classproperty
@@ -570,14 +572,14 @@ class ThreadedDataset(object):
             mapping = {cl: i for i, cl in enumerate(
                 set(self.GTclasses) - set(self._void_labels))}
             for l in self._void_labels:
-                mapping[l] = self.nclasses
+                mapping[l] = self.non_void_nclasses
         else:
             mapping = {}
             delta = 0
             # Prepare the mapping
-            for i in range(self.nclasses + len(self._void_labels)):
+            for i in range(self.non_void_nclasses + len(self._void_labels)):
                 if i in self._void_labels:
-                    mapping[i] = self.nclasses
+                    mapping[i] = self.non_void_nclasses
                     delta += 1
                 else:
                     mapping[i] = i - delta

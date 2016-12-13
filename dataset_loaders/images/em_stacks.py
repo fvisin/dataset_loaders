@@ -56,7 +56,7 @@ def batch_elastic_def(im_batch, disp_x, disp_y, grid_size=(3, 3),
 
 class IsbiEmStacksDataset(ThreadedDataset):
     name = 'isbi_em_stacks'
-    nclasses = 2
+    non_void_nclasses = 2
     debug_shape = (512, 512, 1)
 
     # optional arguments

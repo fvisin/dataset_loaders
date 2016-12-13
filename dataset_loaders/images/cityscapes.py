@@ -31,13 +31,13 @@ remap the training ID classes to the original class mapping from 0 to 33.
 
 class CityscapesDataset(ThreadedDataset):
     name = 'cityscapes'
-    nclasses = 19
+    non_void_nclasses = 19
     debug_shape = (32, 32, 3)
 
     # optional arguments
     data_shape = (2048, 1024, 3)
 
-    GTclasses = range(nclasses)
+    GTclasses = range(non_void_nclasses)
     GTclasses = GTclasses + [255]
 
     _void_labels = [255]

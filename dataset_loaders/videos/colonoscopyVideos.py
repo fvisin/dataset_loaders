@@ -12,7 +12,7 @@ floatX = 'float32'
 
 class PolypVideoDataset(ThreadedDataset):
     name = 'colonoscopyVideos'
-    nclasses = 2
+    non_void_nclasses = 2
     _void_labels = []
     debug_shape = (288, 384, 3)
 

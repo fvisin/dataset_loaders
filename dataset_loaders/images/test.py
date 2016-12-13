@@ -10,7 +10,7 @@ floatX = 'float32'
 
 class TestDataset(ThreadedDataset):
     name = 'test'
-    nclasses = 10
+    non_void_nclasses = 10
     debug_shape = (360, 480, 3)
 
     # optional arguments
@@ -38,9 +38,9 @@ class TestDataset(ThreadedDataset):
         return np.array(['test'])
 
     def load_sequence(self, first_frame):
-        max_label = self.nclasses + len(self._void_labels)
+        max_label = self.non_void_nclasses + len(self._void_labels)
         mask = np.array(range(max_label) * 8).reshape((max_label, 8))
-        img = np.random.random((self.nclasses, self.nclasses, 1))
+        img = np.random.random((max_label, max_label, 1))
         print('Mask before remap: \n{}'.format(mask))
         print('Max: {} \nExpected max after remap: {}'.format(mask.max(),
                                                               self.nclasses))
@@ -55,14 +55,14 @@ class TestDataset(ThreadedDataset):
 def test_one_hot_mapping():
     from dataset_loaders.images.test import TestDataset
     dd = TestDataset()
-    dd.nclasses = 10
+    dd.non_void_nclasses = 9
     dd._void_labels = [3, 5]
     mapping = {0: 0, 1: 1, 2: 2, 3: 10, 4: 3, 5: 10, 6: 4, 7: 5, 8: 6,
                9: 7, 10: 8, 11: 9}
     inv_mapping = {0: 0, 1: 1, 2: 2, 3: 4, 4: 6, 5: 7, 6: 8, 7: 9, 8: 10,
                    9: 11}
 
-    max_label = dd.nclasses + len(dd._void_labels)
+    max_label = dd.non_void_nclasses + len(dd._void_labels)
     original_aa = np.array(range(max_label) * 8).reshape((max_label, 8))
     aa = dd.next()[1][0]
     print(aa)

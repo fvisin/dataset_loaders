@@ -13,7 +13,7 @@ floatX = 'float32'
 
 class CocoDataset(ThreadedDataset):
     name = 'mscoco'
-    nclasses = 80
+    non_void_nclasses = 80
     debug_shape = (3, 255, 255)
 
     # optional arguments

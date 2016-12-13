@@ -12,7 +12,7 @@ floatX = 'float32'
 
 class DavisDataset(ThreadedDataset):
     name = 'davis'
-    nclasses = 2
+    non_void_nclasses = 2
     _void_labels = []
     debug_shape = (360, 640, 3)
 

@@ -7,7 +7,7 @@ floatX = 'float32'
 
 class Polyps300Dataset(ThreadedDataset):
     name = 'Polyps300'
-    nclasses = 4
+    non_void_nclasses = 4
     debug_shape = (384, 288, 3)
 
     # optional arguments

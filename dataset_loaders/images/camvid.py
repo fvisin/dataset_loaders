@@ -11,7 +11,7 @@ floatX = 'float32'
 
 class CamvidDataset(ThreadedDataset):
     name = 'camvid'
-    nclasses = 11
+    non_void_nclasses = 11
     debug_shape = (360, 480, 3)
 
     # optional arguments
