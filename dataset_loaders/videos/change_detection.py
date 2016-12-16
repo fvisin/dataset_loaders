@@ -23,10 +23,8 @@ class ChangeDetectionDataset(ThreadedDataset):
     _void_labels = [85]
     mean = [0.45483398, 0.4387207, 0.40405273]
     std = [0.04758175, 0.04148954, 0.05489637]
-    _is_one_hot = False
-    _is_01c = True
 
-    debug_shape = (500, 500, 3)  # whatever...
+    debug_shape = (120, 230, 3)
     GTclasses = [0, 50, 85, 170, 255]
     categories = ['badWeather', 'baseline', 'cameraJitter',
                   'dynamicBackground', 'intermittentObjectMotion',
@@ -47,6 +45,12 @@ class ChangeDetectionDataset(ThreadedDataset):
                     85: 'non-roi'}
 
     _filenames = None
+    _prefix_list = None
+
+    @property
+    def prefix_list(self):
+        return self.filenames.keys()
+
 
     @property
     def filenames(self):
@@ -196,49 +200,22 @@ class ChangeDetectionDataset(ThreadedDataset):
         super(ChangeDetectionDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
-        sequences = []
-        seq_length = self.seq_length
-        seq_per_video = self.seq_per_video
+        per_video_names = {}
         self.video_length = {}
 
-        # cycle through the different videos
+        # Populate self.filenames and self.prefix_list
+        filenames = self.filenames
+        prefix_list = self.prefix_list
+
+        # cycle through the videos
         for video, data in self.filenames.iteritems():
             video_length = len(data['images'])
             self.video_length[video] = video_length
+            # append a bunch of tuples (video_name, idx)
+            per_video_names[video] = [idx for idx in range(video_length)]
+        return per_video_names
 
-            # Fill sequences with (video, frame_idx)
-            max_num_sequences = video_length - seq_length + 1
-            if (not self.seq_length or not self.seq_per_video or
-                    self.seq_length >= video_length):
-                # Use all possible frames
-                for el in [(video, idx) for idx in range(
-                        0, max_num_sequences, seq_length - self.overlap)]:
-                    sequences.append(el)
-            else:
-                if max_num_sequences < seq_per_video:
-                    # If there are not enough frames, cap seq_per_video to
-                    # the number of available frames
-                    print("/!\ Warning : you asked {} sequences of {} "
-                          "frames each but video {} only has {} "
-                          "frames".format(seq_per_video, seq_length,
-                                          video, video_length))
-                    seq_per_video = max_num_sequences
-
-                if self.overlap != self.seq_length - 1:
-                    raise('Overlap other than seq_length - 1 is not '
-                          'implemented')
-
-                # pick `seq_per_video` random indexes between 0 and
-                # (video length - sequence length)
-                first_frame_indexes = self.rng.permutation(range(
-                    max_num_sequences))[0:seq_per_video]
-
-                for i in first_frame_indexes:
-                    sequences.append((video, i))
-
-        return np.array(sequences)
-
-    def load_sequence(self, first_frame):
+    def load_sequence(self, sequence):
         """
         Load ONE clip/sequence
         Auxiliary function which loads a sequence of frames with
@@ -250,20 +227,11 @@ class ChangeDetectionDataset(ThreadedDataset):
         Y = []
         F = []
 
-        video, idx = first_frame
-        idx = int(idx)
+        for video, idx in sequence:
+            data = self.filenames[video]
+            root = data['root']
 
-        if (self.seq_length is None or
-                self.seq_length > self.video_length[video]):
-            seq_length = self.video_length[video]
-        else:
-            seq_length = self.seq_length
-
-        data = self.filenames[video]
-        root = data['root']
-        for im, gt in zip(data['images'][idx:idx+seq_length],
-                          data['GTs'][idx:idx+seq_length]):
-
+            im, gt = data['images'][idx], data['GTs'][idx]
             img = io.imread(os.path.join(self.path, root, 'input', im))
             mask = io.imread(os.path.join(self.path, root, 'groundtruth', gt))
 
@@ -272,7 +240,7 @@ class ChangeDetectionDataset(ThreadedDataset):
 
             X.append(img)
             Y.append(mask)
-            F.append(os.path.join(root, 'input', im))
+            F.append(im)
 
         # test only has void. No point in considering the mask
         Y = [] if self.which_set == 'test' else Y
@@ -292,6 +260,7 @@ if __name__ == '__main__':
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
+        return_list=True,
         split=.75)
     valid = ChangeDetectionDataset(
         which_set='valid',
@@ -300,6 +269,7 @@ if __name__ == '__main__':
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
+        return_list=True,
         split=.75)
     test = ChangeDetectionDataset(
         which_set='test',
@@ -308,6 +278,7 @@ if __name__ == '__main__':
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
+        return_list=True,
         split=.75)
     train_nsamples = train.nsamples
     valid_nsamples = valid.nsamples
