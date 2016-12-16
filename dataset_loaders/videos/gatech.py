@@ -151,6 +151,7 @@ def test():
         split=.75,
         get_one_hot=True,
         get_01c=True,
+        return_list=True,
         use_threads=True)
     validiter = GatechDataset(
         which_set='valid',
@@ -160,6 +161,7 @@ def test():
         split=.75,
         get_one_hot=False,
         get_01c=True,
+        return_list=True,
         use_threads=True)
     testiter = GatechDataset(
         which_set='test',
@@ -169,6 +171,7 @@ def test():
         split=1.,
         get_one_hot=False,
         get_01c=False,
+        return_list=True,
         use_threads=True)
 
     train_nsamples = trainiter.nsamples
@@ -247,6 +250,7 @@ def test2():
         get_one_hot=True,
         get_01c=True,
         use_threads=True,
+        return_list=True,
         nthreads=5)
 
     train_nsamples = trainiter.nsamples
