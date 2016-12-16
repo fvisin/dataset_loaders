@@ -557,6 +557,12 @@ class ThreadedDataset(object):
         return getattr(self, 'std', [])
 
     @classmethod
+    def nclasses(self):
+        '''The number of classes in the output mask.'''
+        return (self.non_void_nclasses + 1 if hasattr(self, '_void_labels') and
+                self._void_labels != [] else self.non_void_nclasses)
+
+    @classmethod
     def get_void_labels(self):
         '''Returns the void label(s)
 
