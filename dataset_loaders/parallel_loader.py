@@ -558,6 +558,11 @@ class ThreadedDataset(object):
 
     @classmethod
     def get_void_labels(self):
+        '''Returns the void label(s)
+
+        If the dataset has void labels, returns self.non_void_nclasses,
+        i.e. the label to which all the void labels are mapped. Else,
+        returns an empty list.'''
         return ([self.non_void_nclasses] if hasattr(self, '_void_labels') and
                 self._void_labels != [] else [])
 
