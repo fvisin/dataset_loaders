@@ -108,7 +108,6 @@ class GatechDataset(ThreadedDataset):
                                        el.startswith(prefix + '_')]
         return per_video_names
 
-
     def load_sequence(self, sequence):
         """
         Load ONE clip/sequence
@@ -187,6 +186,7 @@ def test():
                                            test_nsamples))
 
     start = time.time()
+    tot = 0
     max_epochs = 2
 
     for epoch in range(max_epochs):
@@ -233,9 +233,12 @@ def test():
             # time.sleep approximates running some model
             time.sleep(1)
             stop = time.time()
-            tot = stop - start
-            print("Threaded time: %s" % (tot))
-            print("Minibatch %s" % str(mb))
+            part = stop - start - 1
+            start = stop
+            tot += part
+            print("Minibatch %s - Threaded time: %s (%s)" % (str(mb), part,
+                                                             tot))
+    print("Test succesfull!!")
 
 
 def test2():
@@ -261,6 +264,7 @@ def test2():
     print("Train %d" % (train_nsamples))
 
     start = time.time()
+    tot = 0
     max_epochs = 2
 
     for epoch in range(max_epochs):
@@ -285,9 +289,11 @@ def test2():
             # time.sleep approximates running some model
             time.sleep(1)
             stop = time.time()
-            tot = stop - start
-            print("Threaded time: %s" % (tot))
-            print("Minibatch %s" % str(mb))
+            part = stop - start - 1
+            start = stop
+            tot += part
+            print("Minibatch %s - Threaded time: %s (%s)" % (str(mb), part,
+                                                             tot))
 if __name__ == '__main__':
     test()
     test2()

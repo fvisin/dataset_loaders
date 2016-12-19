@@ -216,23 +216,21 @@ def test1():
         seq_length=0,
         crop_size=(224, 224))
     start = time.time()
+    tot = 0
     n_minibatches_to_run = 1000
-    itr = 1
-    while True:
+
+    for mb in range(n_minibatches_to_run):
         image_group = d.next()
         if image_group is None:
             raise NotImplementedError()
+
         # time.sleep approximates running some model
         time.sleep(1)
         stop = time.time()
-        tot = stop - start
-        print("Minibatch %s" % str(itr))
-        print("Time ratio (s per minibatch): %s" % (tot / float(itr)))
-        print("Tot time: %s" % (tot))
-        itr += 1
-        # test
-        if itr >= n_minibatches_to_run:
-            break
+        part = stop - start - 1
+        start = stop
+        tot += part
+        print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
 
 
 def test2():
@@ -255,4 +253,5 @@ def test2():
 
 
 if __name__ == '__main__':
+    test1()
     test2()
