@@ -540,7 +540,11 @@ class ThreadedDataset(object):
                 batch_ret.setdefault(k, []).append(v)
 
         for k, v in batch_ret.iteritems():
-            batch_ret[k] = np.array(v)
+            try:
+                batch_ret[k] = np.array(v)
+            except ValueError:
+                # Variable shape: cannot wrap with a numpy array
+                pass
         if self.return_list:
             return [batch_ret['data'], batch_ret['labels']]
         else:
