@@ -242,58 +242,66 @@ def test():
 
 
 def test2():
-    trainiter = GatechDataset(
-        which_set='train',
-        batch_size=500,
-        seq_per_video=0,
-        seq_length=7,
-        overlap=6,
-        crop_size=(224, 224),
-        split=.75,
-        get_one_hot=True,
-        get_01c=True,
-        use_threads=True,
-        return_list=True,
-        nthreads=5)
+    mean_time = {}
+    for use_threads in [False, True]:
+        trainiter = GatechDataset(
+            which_set='train',
+            batch_size=50,
+            seq_per_video=0,  # all of them
+            seq_length=7,
+            overlap=6,
+            crop_size=(224, 224),
+            split=.75,
+            get_one_hot=True,
+            get_01c=True,
+            use_threads=use_threads,
+            return_list=True,
+            nthreads=5)
 
-    train_nsamples = trainiter.nsamples
-    nclasses = trainiter.nclasses
-    nbatches = trainiter.nbatches
-    train_batch_size = trainiter.batch_size
+        train_nsamples = trainiter.nsamples
+        nclasses = trainiter.nclasses
+        nbatches = trainiter.nbatches
+        train_batch_size = trainiter.batch_size
 
-    print("Train %d" % (train_nsamples))
+        print("Train %d" % (train_nsamples))
 
-    start = time.time()
-    tot = 0
-    max_epochs = 2
+        start = time.time()
+        tot = 0
+        max_epochs = 1
 
-    for epoch in range(max_epochs):
-        for mb in range(nbatches):
-            train_group = trainiter.next()
+        for epoch in range(max_epochs):
+            for mb in range(nbatches):
+                train_group = trainiter.next()
 
-            print train_group[2]
-            # train_group checks
-            assert train_group[0].ndim == 4
-            assert train_group[0].shape[0] <= train_batch_size
-            assert train_group[0].shape[1] == 224
-            assert train_group[0].shape[2] == 224
-            assert train_group[0].shape[3] == 3
-            assert train_group[0].min() >= 0
-            assert train_group[0].max() <= 1
-            assert train_group[1].ndim == 4
-            assert train_group[1].shape[0] <= train_batch_size
-            assert train_group[1].shape[1] == 224
-            assert train_group[1].shape[2] == 224
-            assert train_group[1].shape[3] == nclasses
+                # train_group checks
+                assert train_group[0].ndim == 5
+                assert train_group[0].shape[0] <= train_batch_size
+                assert train_group[0].shape[1] == 7
+                assert train_group[0].shape[2] == 224
+                assert train_group[0].shape[3] == 224
+                assert train_group[0].shape[4] == 3
+                assert train_group[0].min() >= 0
+                assert train_group[0].max() <= 1
+                assert train_group[1].ndim == 5
+                assert train_group[1].shape[0] <= train_batch_size
+                assert train_group[1].shape[1] == 7
+                assert train_group[1].shape[2] == 224
+                assert train_group[1].shape[3] == 224
+                assert train_group[1].shape[4] == nclasses
 
-            # time.sleep approximates running some model
-            time.sleep(1)
-            stop = time.time()
-            part = stop - start - 1
-            start = stop
-            tot += part
-            print("Minibatch %s - Threaded time: %s (%s)" % (str(mb), part,
-                                                             tot))
+                # time.sleep approximates running some model
+                time.sleep(1)
+                stop = time.time()
+                part = stop - start - 1
+                start = stop
+                tot += part
+                print("Minibatch %s (Threaded %s): %s (%s)" %
+                      (str(mb), str(use_threads), part, tot))
+        mean_time[use_threads] = tot / nbatches*max_epochs
+    print("Test succesfull!!")
+    print("Mean times: %s (threaded) %s (unthreaded)" %
+          (str(mean_time[True]), str(mean_time[False])))
+
 if __name__ == '__main__':
     test()
     test2()
