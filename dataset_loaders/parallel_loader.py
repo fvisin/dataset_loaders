@@ -213,10 +213,6 @@ class ThreadedDataset(object):
 
         self.has_GT = getattr(self, 'has_GT', True)
 
-        # Set accessory variables
-        self.sentinel = object()  # guaranteed unique reference
-        self.data_fetchers = []
-
         # ...01c
         data_shape = list(getattr(self.__class__, 'data_shape',
                                   (None, None, 3)))
@@ -228,11 +224,16 @@ class ThreadedDataset(object):
             self.data_shape = [data_shape[i] for i in
                                [2] + range(2) + range(3, len(data_shape))]
 
+        # Set accessory variables
+        self.sentinel = object()  # guaranteed unique reference
+        self.data_fetchers = []
+
         # Initialize the queues
         if self.use_threads:
             self.names_queue = Queue.Queue(maxsize=self.queues_size)
             self.out_queue = Queue.Queue(maxsize=self.queues_size)
-        # Load all the names, per video
+
+        # Load a dict of names, per video/subset/prefix/...
         self.names_per_video = self.get_names()
 
         # Fill the sequences list and initialize everything
@@ -246,6 +247,8 @@ class ThreadedDataset(object):
 
     def _get_all_sequences(self):
         names_all_sequences = {}
+
+        # Cycle over prefix/subset/video/category/...
         for prefix, names in self.names_per_video.items():
             seq_length = self.seq_length
 
@@ -254,8 +257,9 @@ class ThreadedDataset(object):
             # middle element.
             extended_names = ([names[0]] * (seq_length // 2) + names +
                               [names[-1]] * (seq_length // 2))
-            # Fill sequences with (prefix, frame_idx). Frames here have
-            # overlap = (seq_length - 1), i.e., "stride" = 1
+            # Fill sequences with multiple el with form
+            # [(prefix, name1), (prefix, name2), ...]. The names here
+            # have overlap = (seq_length - 1), i.e., "stride" = 1
             sequences = [el for el in overlap_grouper(
                 extended_names, seq_length, prefix=prefix)]
             # Sequences of frames with the requested overlap
@@ -265,6 +269,7 @@ class ThreadedDataset(object):
         return names_all_sequences
 
     def _select_desired_sequences(self, shuffle):
+        '''Apply seq_per_video and create batches'''
         names_sequences = []
         for prefix, sequences in self.names_all_sequences.items():
 
@@ -292,11 +297,13 @@ class ThreadedDataset(object):
     def reset(self, shuffle, reload_sequences_from_dataset=True):
 
         if reload_sequences_from_dataset:
-            # Get all the sequences of names from the dataset
+            # Get all the sequences of names from the dataset, with the
+            # desired overlap
             self.names_all_sequences = self._get_all_sequences()
 
         # Select the sequences we want, according to the parameters
-        # Sets self.nsamples, self.nbatches and self.names_batches
+        # Sets self.nsamples, self.nbatches and self.names_batches.
+        # Self.names_batches is an iterator over the batches of names.
         self._select_desired_sequences(shuffle)
 
         # Reset the queues
@@ -308,6 +315,7 @@ class ThreadedDataset(object):
                     q.queue.clear()
                     q.all_tasks_done.notify_all()
                     q.unfinished_tasks = 0
+            # KILL THEM ALL!
             for _ in self.data_fetchers:
                 self.names_queue.put(self.sentinel)
             while any([df.isAlive() for df in self.data_fetchers]):
@@ -323,7 +331,7 @@ class ThreadedDataset(object):
                     target=threaded_fetch,
                     args=(self.names_queue, self.out_queue, self.sentinel,
                           self.fetch_from_dataset))
-                data_fetcher.setDaemon(True)
+                data_fetcher.setDaemon(True)  # Die when main dies
                 data_fetcher.start()
                 self.data_fetchers.append(data_fetcher)
 
@@ -356,6 +364,7 @@ class ThreadedDataset(object):
                 # Kill main process if fetcher died
                 if all([not df.isAlive() for df in self.data_fetchers]):
                     import sys
+                    print('All threads died. I am gonna suicide!')
                     sys.exit(0)
                 try:
                     # Get one minibatch from the out queue
@@ -368,6 +377,7 @@ class ThreadedDataset(object):
                         self.names_queue.put(name_batch)
                     except StopIteration:
                         pass
+                # out_queue is empty: epoch is done
                 except Queue.Empty:
                     if self.names_queue.unfinished_tasks:
                         sleep(self.wait_time)
