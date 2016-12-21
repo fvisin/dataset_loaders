@@ -1,7 +1,21 @@
-identify -format "%w %h %f\n" *.tiff | sort -n -r -k 1 | more
+# biggest and smallest image on X
+find . -type f -iname '*.png' -exec identify -format "%w %h %f\n" {} \+ | sort 
+-n -k 1 | sed '1p;$!d'
+# biggest and smallest image on Y
+find . -type f -iname '*.png' -exec identify -format "%w %h %f\n" {} \+ | sort 
+-n -k 2 | sed '1p;$!d'
 
-Biggest image on gatech:854 480 62_92.tiff
-Biggest image on gatech test:640 480 9_99.tiff
+MIN - MAX
+---------
+Change det: 320 240 gt000001.png - 720 576 gt001200.png
 
-Biggest image on change det: 720 576 48_96.jpg
-Biggest image on change det: 
+COCO train X: 59 72 COCO_train2014_000000363747.jpg - 640 640 COCO_train2014_000000581189.jpg
+COCO train Y: 72 51 COCO_train2014_000000187714.jpg - 640 640 COCO_train2014_000000581189.jpg
+COCO test: 75 75 COCO_test2015_000000319838.jpg - 640 640 COCO_test2015_000000581126.jpg
+
+PASCAL VOC X: 142 500 2009_003958.jpg - 500 71 2008_001823.jpg
+PASCAL VOC Y: 500 71 2008_001823.jpg - 500 500 2012_003719.jpg
+
+Gatech train X: 480 352 33_0.tiff - 854 480 62_9.tiff
+Gatech train Y: 480 352 33_0.tiff - 854 480 62_9.tiff
+Gatech test: 640 480 10_0.tiff - 640 480 9_9.tiff
