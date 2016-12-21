@@ -5,8 +5,8 @@ find . -type f -iname '*.png' -exec identify -format "%w %h %f\n" {} \+ | sort
 find . -type f -iname '*.png' -exec identify -format "%w %h %f\n" {} \+ | sort 
 -n -k 2 | sed '1p;$!d'
 
-MIN - MAX
----------
+MIN - MAX: note that the order is INVERTED w.r.t. numpy!!
+---------------------------------------------------------
 Change det: 320 240 gt000001.png - 720 576 gt001200.png
 
 COCO train X: 59 72 COCO_train2014_000000363747.jpg - 640 640 COCO_train2014_000000581189.jpg
