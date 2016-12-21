@@ -173,16 +173,15 @@ class CocoDataset(ThreadedDataset):
 
             mask = np.array(mask.astype('int32'))
             im = np.array(im).astype(floatX) / 255.
-            im, mask = im[None, ...], mask[None, ...]  # add dim
-            X.append(img)
+            X.append(im)
             Y.append(mask)
             F.append(img['file_name'])
 
         ret = {}
-        ret['data'] = im
-        ret['labels'] = mask
+        ret['data'] = np.array(X)
+        ret['labels'] = np.array(Y)
         ret['subset'] = prefix
-        ret['filenames'] = img['file_name']
+        ret['filenames'] = np.array(F)
         return ret
 
 
@@ -192,7 +191,7 @@ def test():
         batch_size=5,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(59, 72),
+        crop_size=(72, 59),
         get_one_hot=True,
         get_01c=True,
         return_list=True,
@@ -216,12 +215,12 @@ def test():
             # train_group checks
             assert train_group[0].ndim == 4
             assert train_group[0].shape[0] <= train_batch_size
-            assert train_group[0].shape[1:] == (59, 72, 3)
+            assert train_group[0].shape[1:] == (72, 59, 3)
             assert train_group[0].min() >= 0
             assert train_group[0].max() <= 1
             assert train_group[1].ndim == 4
             assert train_group[1].shape[0] <= train_batch_size
-            assert train_group[1].shape[1:] == (59, 72, nclasses)
+            assert train_group[1].shape[1:] == (72, 59, nclasses)
             # time.sleep approximates running some model
             time.sleep(1)
             stop = time.time()
