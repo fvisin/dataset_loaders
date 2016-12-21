@@ -287,14 +287,14 @@ if __name__ == '__main__':
     for split in ['train', 'valid', 'test']:
         for i, el in enumerate(data[split]):
             if el[0].min() < 0:
-                print('Image {} of {} is smaller than 0'.format(
+                raise Exception('Image {} of {} is smaller than 0'.format(
                     el[2], split, el[0].min()))
             if el[0].max() > 1:
-                print('Image {} of {} is greater than 1'.format(
+                raise Exception('Image {} of {} is greater than 1'.format(
                     el[2], split, el[0].max()))
             if split is not 'test' and el[1].max() > 4:
-                print('Mask {} of {} is greater than 4: {}'.format(
-                    el[2], split, el[1].max())),
+                raise Exception('Mask {} of {} is greater than 4: {}'.format(
+                    el[2], split, el[1].max()))
             if split is not 'test' and np.unique(el[1]).tolist() == [4]:
                 # check if the images is actually all void
                 filename = el[2][0, 0, 0]
@@ -302,9 +302,9 @@ if __name__ == '__main__':
                 mask_f = filename[:-18] + 'groundtruth/gt' + f + 'png'
                 un = np.unique(Image.open(mask_f))
                 if un.tolist() != [85]:  # discard test
-                    print('Image {} of {} is not test and is all void:{}. '
-                          'It should be {}'.format(
-                              el[2], split, np.unique(el[1]), un))
+                    raise Exception('Image {} of {} is not test and is all '
+                                    'void:{}. It should be {}'.format(
+                                        el[2], split, np.unique(el[1]), un))
                 # else:
                 #     print('Image {} of {} is not test and is all void. '
                 #           'Weird, but not an issue of the wrapper')
