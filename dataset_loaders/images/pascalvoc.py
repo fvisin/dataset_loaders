@@ -1,4 +1,6 @@
 import os
+import time
+
 import numpy as np
 from PIL import Image
 
@@ -8,17 +10,24 @@ from dataset_loaders.parallel_loader import ThreadedDataset
 
 class VOCdataset(ThreadedDataset):
     name = 'pascal_voc'
-    non_void_nclasses = 21
+    non_void_nclasses = 20
     debug_shape = (375, 500, 3)
 
-    data_shape = (None, None, 3)
     mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
         'float32')
     std = 1.
-    GT_classes = range(20) + [255]
+    GTclasses = range(20) + [255]
     _void_labels = [255]
 
     _filenames = None
+    _prefix_list = None
+
+    @property
+    def prefix_list(self):
+        if self._prefix_list is None:
+            prefix_list = np.array([el.split('_')[0] for el in self.filenames])
+            self._prefix_list = np.unique(prefix_list)
+        return self._prefix_list
 
     @property
     def filenames(self):
@@ -64,94 +73,106 @@ class VOCdataset(ThreadedDataset):
         self.image_path = os.path.join(self.path, self.year, "JPEGImages")
         self.mask_path = os.path.join(self.path, self.year,
                                       "SegmentationClass")
-        self.pred_path = os.path.join(self.path, self.which_set,
-                                      "teacher_pred_temp1")
+        # self.pred_path = os.path.join(self.path, self.which_set,
+        #                               "teacher_pred_temp1")
 
         super(VOCdataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
+        per_subset_names = {}
+        # Populate self.filenames and self.prefix_list
+        filenames = self.filenames
+        prefix_list = self.prefix_list
 
-        # Limit to the number of videos we want
-        sequences = []
-        seq_length = self.seq_length
-        seq_per_video = self.seq_per_video
-        image_names = self.filenames
-        video_length = len(image_names)
-        max_num_sequences = video_length - seq_length + 1
-        if (not self.seq_length or not self.seq_per_video or
-                self.seq_length >= video_length):
-            # Use all possible frames
-            sequences = image_names[:max_num_sequences:
-                                    self.seq_length - self.overlap]
-        else:
-            if max_num_sequences < seq_per_video:
-                # If there are not enough frames, cap seq_per_video to
-                # the number of available frames
-                print("/!\ Warning : you asked {} sequences of {} "
-                      "frames each but the dataset only has {} "
-                      "frames".format(seq_per_video, seq_length,
-                                      video_length))
-                seq_per_video = max_num_sequences
+        # cycle through the different videos
+        for prefix in prefix_list:
+            per_subset_names[prefix] = [el for el in filenames if
+                                        el.startswith(prefix)]
+        return per_subset_names
 
-            if self.overlap != self.seq_length - 1:
-                raise('Overlap other than seq_length - 1 is not '
-                      'implemented')
-            # pick `seq_per_video` random indexes between 0 and
-            # (video length - sequence length)
-            first_frame_indexes = self.rng.permutation(range(
-                max_num_sequences))[0:seq_per_video]
-
-            for i in first_frame_indexes:
-                sequences.append(image_names[i])
-
-        # Return images
-        return np.array(sequences)
-
-    def load_sequence(self, img_name):
+    def load_sequence(self, sequence):
         from skimage import io
         image_batch = []
         mask_batch = []
-        pred_batch = []
+        # pred_batch = []
         filename_batch = []
 
-        if self.seq_length != 1:
-            raise NotImplementedError()
-
         # Load image
-        img = io.imread(os.path.join(self.image_path, img_name +
-                                     ".jpg"))
-        img = img / 255.
+        for _, img_name in sequence:
+            img = io.imread(os.path.join(self.image_path,
+                                         img_name + ".jpg"))
+            img = img / 255.
 
-        # Load mask
-        if self.which_set != "test":
-            mask = np.array(Image.open(
-                os.path.join(self.mask_path, img_name + ".png")))
+            # Load mask
+            if self.which_set != "test":
+                mask = np.array(Image.open(
+                    os.path.join(self.mask_path, img_name + ".png")))
 
-        # Load teacher predictions and soft predictions
-        pred = np.load(os.path.join(self.pred_path, img_name + ".npy"))
+            # Load teacher predictions and soft predictions
+            # pred = np.load(os.path.join(self.pred_path, img_name + ".npy"))
 
-        # Add to minibatch
-        image_batch.append(img)
-        if self.which_set != "test":
-            mask_batch.append(mask)
-        pred_batch.append(pred)
-        filename_batch.append(img_name)
+            # Add to minibatch
+            image_batch.append(img)
+            if self.which_set != "test":
+                mask_batch.append(mask)
+            # pred_batch.append(pred)
+            filename_batch.append(img_name)
 
         ret = {}
         ret['data'] = np.array(image_batch)
         ret['labels'] = np.array(mask_batch)
         ret['filenames'] = np.array(filename_batch)
-        ret['teacher'] = np.array(pred_batch)
+        # ret['teacher'] = np.array(pred_batch)
         return ret
 
-if __name__ == '__main__':
-    dd = VOCdataset(which_set='test',
-                    shuffle_at_each_epoch=True,
-                    get_one_hot=True,
-                    get_01c=False,)
 
-    print('Tot {}'.format(dd.epoch_length))
-    for i, _ in enumerate(range(dd.epoch_length)):
-        dd.next()
-        if i % 20 == 0:
-            print str(i)
+def test():
+    trainiter = VOCdataset(
+        which_set='train',
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(71, 71),
+        get_one_hot=True,
+        get_01c=True,
+        return_list=True,
+        use_threads=False,
+        nthreads=5)
+
+    train_nsamples = trainiter.nsamples
+    nclasses = trainiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
+    print("Train %d" % (train_nsamples))
+
+    start = time.time()
+    tot = 0
+    max_epochs = 5
+
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+            if train_group is None:
+                raise RuntimeError('One batch was missing')
+
+            # train_group checks
+            assert train_group[0].ndim == 4
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1:] == (71, 71, 3)
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 4
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1:] == (71, 71, nclasses)
+
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            part = stop - start - 1
+            start = stop
+            tot += part
+            print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
+
+
+if __name__ == '__main__':
+    test()

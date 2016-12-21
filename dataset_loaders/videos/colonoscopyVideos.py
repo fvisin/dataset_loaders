@@ -22,11 +22,10 @@ class PolypVideoDataset(ThreadedDataset):
     _mask_labels = {0: 'polyp', 1: 'background'}
 
     _filenames = None
-    _prefix_list = None
 
     @property
-    def prefix_list(self):
-        if self._prefix_list is None:
+    def filenames(self):
+        if self._filenames is None:
             # Get file names for this set
             filenames = os.listdir(self.image_path)
             filenames.sort(key=natural_keys)
@@ -36,22 +35,16 @@ class PolypVideoDataset(ThreadedDataset):
                                                   for el in filenames]))
             nvideos = len(all_prefix_list)
             nvideos_set = int(nvideos*self.split)
-            self._prefix_list = all_prefix_list[nvideos_set:] \
-                if "val" in self.which_set else all_prefix_list[:nvideos_set]
+            this_set_prefix_list = (all_prefix_list[nvideos_set:]
+                                    if "val" in self.which_set else
+                                    all_prefix_list[:nvideos_set])
 
             # Create filenames, only include the current set (via prefix_list)
             self._filenames = {}
-            for prefix in self._prefix_list:
+            for prefix in this_set_prefix_list:
                 self._filenames[prefix] = [f for f in filenames if
-                                           f[:f.index('_')] == prefix
-                                           and f.index(prefix + '_') == 0]
-        return self._prefix_list
-
-    @property
-    def filenames(self):
-        if self._filenames is None:
-            # Let prefix_list update the filenames too
-            self.prefix_list
+                                           f[:f.index('_')] == prefix and
+                                           f.index(prefix + '_') == 0]
         return self._filenames
 
     def __init__(self,
@@ -64,7 +57,7 @@ class PolypVideoDataset(ThreadedDataset):
 
         # Prepare data paths
         self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                                 'POLYP_VIDEOS')
+                                 'polyp_videos')
         self.sharedpath = ('/data/lisatmp4/dejoieti/data/data_colo/')
         if self.which_set == "train" or self.which_set == "val":
             self.image_path = os.path.join(self.path,
@@ -88,9 +81,6 @@ class PolypVideoDataset(ThreadedDataset):
         super(PolypVideoDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
-        self.video_length = {}
-        for prefix in prefix_list:
-            self.video_length[prefix] = len(self.filenames[prefix])
         return self.filenames
 
     def load_sequence(self, sequence):
@@ -105,8 +95,7 @@ class PolypVideoDataset(ThreadedDataset):
         Y = []
         F = []
 
-        for prefix, frame_name in sequence:
-            frame = prefix + '/' + frame_name
+        for prefix, frame in sequence:
 
             img = io.imread(os.path.join(self.image_path, frame))
             mask = io.imread(os.path.join(self.mask_path, frame))
@@ -133,6 +122,7 @@ class PolypVideoDataset(ThreadedDataset):
 
 
 def test():
+    use_threads = False
     trainiter = PolypVideoDataset(
         which_set='train',
         batch_size=20,
@@ -143,7 +133,7 @@ def test():
         get_one_hot=True,
         get_01c=True,
         return_list=True,
-        use_threads=True)
+        use_threads=use_threads)
     validiter = PolypVideoDataset(
         which_set='valid',
         batch_size=1,
@@ -153,7 +143,7 @@ def test():
         get_one_hot=False,
         get_01c=True,
         return_list=True,
-        use_threads=True)
+        use_threads=use_threads)
     validiter2 = PolypVideoDataset(
         which_set='valid',
         batch_size=1,
@@ -163,7 +153,7 @@ def test():
         get_one_hot=False,
         get_01c=True,
         return_list=True,
-        use_threads=True)
+        use_threads=use_threads)
     testiter = PolypVideoDataset(
         which_set='test',
         batch_size=1,
@@ -173,7 +163,7 @@ def test():
         get_one_hot=False,
         get_01c=False,
         return_list=True,
-        use_threads=True)
+        use_threads=use_threads)
     testiter2 = PolypVideoDataset(
         which_set='test',
         batch_size=1,
@@ -183,7 +173,7 @@ def test():
         get_one_hot=True,
         get_01c=False,
         return_list=True,
-        use_threads=True)
+        use_threads=use_threads)
 
     train_nsamples = trainiter.nsamples
     valid_nsamples = validiter.nsamples
@@ -256,7 +246,7 @@ def test():
             assert test_group[1].max() < nclasses
 
             # test2_group checks
-            assert len(test2_group) == 3
+            assert len(test2_group) == 2
             assert test2_group[0].ndim == 4
             assert test2_group[0].shape[0] <= test_batch_size
             assert test2_group[0].shape[1] == 3

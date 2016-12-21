@@ -1,7 +1,8 @@
 import numpy as np
 import os
-from scipy import interpolate
 import time
+
+from scipy import interpolate
 
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
@@ -63,12 +64,9 @@ class IsbiEmStacksDataset(ThreadedDataset):
     data_shape = (512, 512, 1)
     _void_labels = []
     _cmap = {
-        0: (0, 0, 0), # Non-membranes
-        1: (255, 255, 255)} # Membranes
+        0: (0, 0, 0),  # Non-membranes
+        1: (255, 255, 255)}  # Membranes
     _mask_labels = {0: 'Non-membranes', 1: 'Membranes'}
-
-    _filenames = None
-
 
     def __init__(self, which_set='train', start=0, end=30,
                  elastic_deform=False, h_flipping=False, v_flipping=False,
@@ -102,49 +100,9 @@ class IsbiEmStacksDataset(ThreadedDataset):
         super(IsbiEmStacksDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
-        sequences = []
-        seq_length = self.seq_length
+        return {'default': range(self.end - self.start)}
 
-        self.video_length = {}
-        video_length = self.end - self.start
-        frames = range(video_length)
-
-        seq_per_video = self.seq_per_video
-        self.video_length = video_length
-
-        # Fill sequences with (frame_idx)
-        max_num_sequences = video_length - seq_length + 1
-        if (not self.seq_length or not self.seq_per_video or
-                self.seq_length >= video_length):
-            # Use all possible frames
-            for f in frames[:max_num_sequences:self.seq_length - self.overlap]:
-                sequences.append(f)
-        else:
-            if max_num_sequences < seq_per_video:
-                # If there are not enough frames, cap seq_per_video to
-                # the number of available frames
-                print("/!\ Warning : you asked {} sequences of {} "
-                      "frames each but the dataset only has {} "
-                      "frames".format(seq_per_video, seq_length, video_length))
-                seq_per_video = max_num_sequences
-
-            if self.overlap != self.seq_length - 1:
-                raise('Overlap other than seq_length - 1 is not '
-                      'implemented')
-
-            # pick `seq_per_video` random indexes between 0 and
-            # (video length - sequence length)
-            first_frame_indexes = self.rng.permutation(range(
-                max_num_sequences))[0:seq_per_video]
-
-            for i in first_frame_indexes:
-                sequences.append(frames[i])
-
-        self.epoch_length = ((len(sequences) + self.batch_size - 1) /
-                             self.batch_size)
-        return np.array(sequences)
-
-    def load_sequence(self, first_frame):
+    def load_sequence(self, sequence):
         """
         Load ONE clip/sequence
 
@@ -153,37 +111,24 @@ class IsbiEmStacksDataset(ThreadedDataset):
         Returns images in [0, 1]
         """
         from PIL import Image
-
         X = []
         Y = []
+        F = []
 
-        load_labels = self.target_path is not None
-
-        first_frame_name = first_frame
-        first_frame_name = int(first_frame_name)
-
-        if (self.seq_length is None or
-                self.seq_length > self.video_length):
-            seq_length = self.video_length
-        else:
-            seq_length = self.seq_length
-
-        start_idx = first_frame_name
-        end_idx = start_idx + seq_length
-
-        for i in range(start_idx, end_idx):
-
-            idx = i + self.start
+        for prefix, idx in sequence:
 
             imgs = Image.open(self.image_path)
             imgs.seek(idx)
-            X.append(np.array(imgs)[:, :, None].astype("uint8"))
+            imgs = np.array(imgs)[:, :, None].astype("uint8")
 
-            if load_labels:
+            if self.target_path is not None:
                 targets = Image.open(self.target_path)
                 targets.seek(idx)
-                Y.append(np.array(targets) / 255)
+                targets = np.array(targets) / 255
 
+            X.append(imgs)
+            Y.append(targets)
+            F.append(idx)
         X = np.array(X)
         Y = np.array(Y)
 
@@ -205,8 +150,8 @@ class IsbiEmStacksDataset(ThreadedDataset):
 
         # If needed, apply shearing deformation
         if self.shearing_range > 0.0:
-            from keras.preprocessing.image import (apply_transform,
-                                                   transform_matrix_offset_center)
+            from keras.preprocessing.image import (
+                apply_transform, transform_matrix_offset_center)
 
             height = X.shape[2]
             width = X.shape[3]
@@ -220,39 +165,68 @@ class IsbiEmStacksDataset(ThreadedDataset):
                                          [0, 0, 1]])
 
                 transform_matrix = transform_matrix_offset_center(shear_matrix,
-                                                                  height, width)
-                X[i] = apply_transform(X[i], transform_matrix, 2, 'nearest', 0.)
-                Y[i] = apply_transform(Y[i,:,:,None], transform_matrix, 2,
-                                       'nearest', 0.)[:,:,0]
+                                                                  height,
+                                                                  width)
+                X[i] = apply_transform(X[i], transform_matrix, 2,
+                                       'nearest', 0.)
+                Y[i] = apply_transform(Y[i, :, :, None], transform_matrix, 2,
+                                       'nearest', 0.)[:, :, 0]
 
         X = X.astype("float32") / 255
-
         ret = {}
-        ret['data'] = X
-        ret['labels'] = Y
+        ret['data'] = np.array(X)
+        ret['labels'] = np.array(Y)
+        ret['subset'] = prefix
+        ret['filenames'] = np.array(F)
+
         return ret
 
 
-def test2():
-    d = IsbiEmStacksDataset(
-        which_set='train',
-        batch_size=5,
-        seq_per_video=0,
-        seq_length=10,
-        overlap=9,
-        get_one_hot=True,
-        crop_size=(224, 224),
-        elastic_deform=True)
+def test():
+    trainiter = IsbiEmStacksDataset(
+                    which_set='train',
+                    batch_size=5,
+                    seq_per_video=0,
+                    seq_length=0,
+                    overlap=9,
+                    get_one_hot=True,
+                    get_01c=True,
+                    crop_size=(224, 224),
+                    return_list=True,
+                    elastic_deform=True)
 
-    for i, _ in enumerate(range(d.epoch_length)):
-        image_group = d.next()
-        if image_group is None:
-            raise NotImplementedError()
-        sh = image_group[0].shape
-        print sh
-        if sh[1:] != (10, 1, 224, 224):
-            raise RuntimeError()
+    train_nsamples = trainiter.nsamples
+    nclasses = trainiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
+    print("Train %d" % (train_nsamples))
+
+    start = time.time()
+    tot = 0
+    max_epochs = 2
+
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+
+            # train_group checks
+            assert train_group[0].ndim == 4
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1:] == (224, 224, 1)
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 4
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1:] == (224, 224, nclasses)
+
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            part = stop - start - 1
+            start = stop
+            tot += part
+            print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
 
 
 if __name__ == '__main__':
-    test2()
+    test()

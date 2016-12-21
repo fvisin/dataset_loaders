@@ -45,12 +45,6 @@ class ChangeDetectionDataset(ThreadedDataset):
                     85: 'non-roi'}
 
     _filenames = None
-    _prefix_list = None
-
-    @property
-    def prefix_list(self):
-        return self.filenames.keys()
-
 
     @property
     def filenames(self):
@@ -202,10 +196,6 @@ class ChangeDetectionDataset(ThreadedDataset):
     def get_names(self):
         per_video_names = {}
         self.video_length = {}
-
-        # Populate self.filenames and self.prefix_list
-        filenames = self.filenames
-        prefix_list = self.prefix_list
 
         # cycle through the videos
         for video, data in self.filenames.iteritems():

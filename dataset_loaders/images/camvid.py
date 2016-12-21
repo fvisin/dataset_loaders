@@ -36,6 +36,16 @@ class CamvidDataset(ThreadedDataset):
                     9: 'pedestrian', 10: 'byciclist', 11: 'void'}
 
     _filenames = None
+    _prefix_list = None
+
+    @property
+    def prefix_list(self):
+        if self._prefix_list is None:
+            # Create a list of prefix out of the number of requested videos
+            self._prefix_list = np.unique(np.array([el[:6]
+                                                    for el in self.filenames]))
+
+        return self._prefix_list
 
     @property
     def filenames(self):
@@ -73,52 +83,18 @@ class CamvidDataset(ThreadedDataset):
         super(CamvidDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
-        sequences = []
-        seq_length = self.seq_length
+        per_subset_names = {}
+        # Populate self.filenames and self.prefix_list
+        filenames = self.filenames
+        prefix_list = self.prefix_list
 
-        prefix_list = np.unique(np.array([el[:6] for el in self.filenames]))
-
-        self.video_length = {}
         # cycle through the different videos
         for prefix in prefix_list:
-            seq_per_video = self.seq_per_video
-            frames = [el for el in self.filenames if prefix in el]
-            video_length = len(frames)
-            self.video_length[prefix] = video_length
+            per_subset_names[prefix] = [el for el in filenames if
+                                        el.startswith(prefix)]
+        return per_subset_names
 
-            # Fill sequences with (prefix, frame_idx)
-            max_num_sequences = video_length - seq_length + 1
-            if (not self.seq_length or not self.seq_per_video or
-                    self.seq_length >= video_length):
-                # Use all possible frames
-                for el in [(prefix, f) for f in frames[
-                        :max_num_sequences:self.seq_length - self.overlap]]:
-                    sequences.append(el)
-            else:
-                if max_num_sequences < seq_per_video:
-                    # If there are not enough frames, cap seq_per_video to
-                    # the number of available frames
-                    print("/!\ Warning : you asked {} sequences of {} "
-                          "frames each but video {} only has {} "
-                          "frames".format(seq_per_video, seq_length,
-                                          prefix, video_length))
-                    seq_per_video = max_num_sequences
-
-                if self.overlap != self.seq_length - 1:
-                    raise('Overlap other than seq_length - 1 is not '
-                          'implemented')
-
-                # pick `seq_per_video` random indexes between 0 and
-                # (video length - sequence length)
-                first_frame_indexes = self.rng.permutation(range(
-                    max_num_sequences))[0:seq_per_video]
-
-                for i in first_frame_indexes:
-                    sequences.append((prefix, frames[i]))
-
-        return np.array(sequences)
-
-    def load_sequence(self, first_frame):
+    def load_sequence(self, sequence):
         """
         Load ONE clip/sequence
 
@@ -131,16 +107,7 @@ class CamvidDataset(ThreadedDataset):
         Y = []
         F = []
 
-        prefix, first_frame_name = first_frame
-
-        if (self.seq_length is None or
-                self.seq_length > self.video_length[prefix]):
-            seq_length = self.video_length[prefix]
-        else:
-            seq_length = self.seq_length
-
-        start_idx = self.filenames.index(first_frame_name)
-        for frame in self.filenames[start_idx:start_idx + seq_length]:
+        for prefix, frame in sequence:
             img = io.imread(os.path.join(self.image_path, frame))
             mask = io.imread(os.path.join(self.mask_path, frame))
 
@@ -157,55 +124,6 @@ class CamvidDataset(ThreadedDataset):
         ret['subset'] = prefix
         ret['filenames'] = np.array(F)
         return ret
-
-
-def test3():
-    trainiter = CamvidDataset(
-        which_set='train',
-        batch_size=5,
-        seq_per_video=0,
-        seq_length=0,
-        crop_size=(224, 224),
-        get_one_hot=True,
-        get_01c=True,
-        use_threads=True,
-        nthreads=5)
-
-    train_nsamples = trainiter.nsamples
-    nclasses = trainiter.nclasses
-    nbatches = trainiter.nbatches
-    train_batch_size = trainiter.batch_size
-    print("Train %d" % (train_nsamples))
-
-    start = time.time()
-    max_epochs = 5
-
-    for epoch in range(max_epochs):
-        for mb in range(nbatches):
-            train_group = trainiter.next()
-
-            # train_group checks
-            assert train_group[0].ndim == 4
-            assert train_group[0].shape[0] <= train_batch_size
-            assert train_group[0].shape[1] == 224
-            assert train_group[0].shape[2] == 224
-            assert train_group[0].shape[3] == 3
-            assert train_group[0].min() >= 0
-            assert train_group[0].max() <= 1
-            assert train_group[1].ndim == 3
-            assert train_group[1].shape[0] <= train_batch_size
-            assert train_group[1].shape[1] == 224
-            assert train_group[1].shape[2] == 224
-            assert train_group[1].shape[3] == nclasses
-
-            # time.sleep approximates running some model
-            time.sleep(0.1)
-            stop = time.time()
-            tot = stop - start
-            print("Threaded time: %s" % (tot))
-            print("Minibatch %s" % str(mb))
-        print('ended epoch --> should reset!')
-        time.sleep(2)
 
 
 def test1():
@@ -234,24 +152,104 @@ def test1():
 
 
 def test2():
-    d = CamvidDataset(
+    trainiter = CamvidDataset(
         which_set='train',
         batch_size=5,
         seq_per_video=0,
         seq_length=10,
-        overlap=10,
+        crop_size=(224, 224),
         get_one_hot=True,
-        crop_size=(224, 224))
-    for i, _ in enumerate(range(d.epoch_length)):
-        image_group = d.next()
-        if image_group is None:
-            raise NotImplementedError()
-        sh = image_group[0].shape
-        print(image_group[2])
-        if sh[1] != 2:
-            raise RuntimeError()
+        get_01c=True,
+        return_list=True,
+        use_threads=True,
+        nthreads=5)
+
+    train_nsamples = trainiter.nsamples
+    nclasses = trainiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
+    print("Train %d" % (train_nsamples))
+
+    start = time.time()
+    tot = 0
+    max_epochs = 5
+
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+            if train_group is None:
+                raise RuntimeError('One batch was missing')
+
+            # train_group checks
+            assert train_group[0].ndim == 5
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1:] == (10, 224, 224, 3)
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 5
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1:] == (10, 224, 224, nclasses)
+
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            part = stop - start - 1
+            start = stop
+            tot += part
+            print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
+
+
+def test3():
+    trainiter = CamvidDataset(
+        which_set='train',
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=0,
+        crop_size=(224, 224),
+        get_one_hot=True,
+        get_01c=True,
+        return_list=True,
+        use_threads=True,
+        nthreads=5)
+
+    train_nsamples = trainiter.nsamples
+    nclasses = trainiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
+    print("Train %d" % (train_nsamples))
+
+    start = time.time()
+    tot = 0
+    max_epochs = 5
+
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+
+            # train_group checks
+            assert train_group[0].ndim == 4
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1] == 224
+            assert train_group[0].shape[2] == 224
+            assert train_group[0].shape[3] == 3
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 4
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1] == 224
+            assert train_group[1].shape[2] == 224
+            assert train_group[1].shape[3] == nclasses
+
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            part = stop - start - 1
+            start = stop
+            tot += part
+            print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
 
 
 if __name__ == '__main__':
     test1()
     test2()
+    test3()

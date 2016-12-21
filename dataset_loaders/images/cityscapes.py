@@ -121,6 +121,15 @@ class CityscapesDataset(ThreadedDataset):
     }
 
     _filenames = None
+    _prefix_list = None
+
+    @property
+    def prefix_list(self):
+        if self._prefix_list is None:
+            # Create a list of prefix out of the number of requested videos
+            self._prefix_list = np.unique(np.array([el[:6]
+                                                    for el in self.filenames]))
+        return self._prefix_list
 
     @property
     def filenames(self):
@@ -179,57 +188,22 @@ class CityscapesDataset(ThreadedDataset):
         super(CityscapesDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
-        sequences = []
-        seq_length = self.seq_length
+        per_video_names = {}
+        # Populate self.filenames and self.prefix_list
+        prefix_list = self.prefix_list
 
-        prefix_list = np.unique(np.array([el[:6] for el in self.filenames]))
-
-        self.video_length = {}
         # cycle through the different videos
         for prefix in prefix_list:
-            seq_per_video = self.seq_per_video
-            frames = [el for el in self.filenames if prefix in el]
-            video_length = len(frames)
-            self.video_length[prefix] = video_length
+            per_video_names[prefix] = [el for el in self.filenames
+                                       if prefix in el]
+        return per_video_names
 
-            # Fill sequences with (prefix, frame_idx)
-            max_num_sequences = video_length - seq_length + 1
-            if (not self.seq_length or not self.seq_per_video or
-                    self.seq_length >= video_length):
-                # Use all possible frames
-                for el in [(prefix, f) for f in frames[
-                        :max_num_sequences:self.seq_length - self.overlap]]:
-                    sequences.append(el)
-            else:
-                if max_num_sequences < seq_per_video:
-                    # If there are not enough frames, cap seq_per_video to
-                    # the number of available frames
-                    print("/!\ Warning : you asked {} sequences of {} "
-                          "frames each but video {} only has {} "
-                          "frames".format(seq_per_video, seq_length,
-                                          prefix, video_length))
-                    seq_per_video = max_num_sequences
-
-                if self.overlap != self.seq_length - 1:
-                    raise('Overlap other than seq_length - 1 is not '
-                          'implemented')
-
-                # pick `seq_per_video` random indexes between 0 and
-                # (video length - sequence length)
-                first_frame_indexes = self.rng.permutation(range(
-                    max_num_sequences))[0:seq_per_video]
-
-                for i in first_frame_indexes:
-                    sequences.append((prefix, frames[i]))
-
-        return np.array(sequences)
-
-    def load_sequence(self, first_frame):
+    def load_sequence(self, sequence):
         """
         Load ONE clip/sequence
 
-        Auxiliary function which loads a sequence of frames with
-        the corresponding ground truth and potentially filenames.
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
         Returns images in [0, 1]
         """
         from skimage import io
@@ -237,16 +211,7 @@ class CityscapesDataset(ThreadedDataset):
         Y = []
         F = []
 
-        prefix, first_frame_name = first_frame
-
-        if (self.seq_length is None or
-                self.seq_length > self.video_length[prefix]):
-            seq_length = self.video_length[prefix]
-        else:
-            seq_length = self.seq_length
-
-        start_idx = self.filenames.index(first_frame_name)
-        for frame in self.filenames[start_idx:start_idx + seq_length]:
+        for prefix, frame in sequence:
             img = io.imread(os.path.join(self.image_path, frame))
             img = img.astype(floatX) / 255.
             X.append(img)
@@ -366,4 +331,6 @@ def test2():
 
 
 if __name__ == '__main__':
+    test1()
+    test2()
     test3()

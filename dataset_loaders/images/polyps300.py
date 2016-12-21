@@ -1,5 +1,7 @@
 import numpy as np
 import os
+import time
+
 import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 floatX = 'float32'
@@ -85,9 +87,9 @@ class Polyps300Dataset(ThreadedDataset):
 
         # Get the metadata info from the dataset
         self.CVC_300_data = read_csv(os.path.join(self.sharedpath,
-                                                  "CVC-300.csv"))
+                                                  'CVC-300', 'data.csv'))
         self.CVC_612_data = read_csv(os.path.join(self.sharedpath,
-                                                  "CVC-612.csv"))
+                                                  'CVC-612', 'data.csv'))
 
         if self.select == 'frames':
             # Get file names for this set
@@ -138,93 +140,47 @@ class Polyps300Dataset(ThreadedDataset):
                                                             21, 26)
                 self.is_300 = False
             else:
-                print 'EROR: Incorret set: ' + self.filenames
+                print 'ERROR: Incorrect set: ' + self.filenames
                 exit()
         else:
-            print 'EROR: Incorret select: ' + self.select
+            print 'ERROR: Incorrect select: ' + self.select
             exit()
 
-        # Limit to the number of videos we want
-        sequences = []
-        seq_length = self.seq_length
-        seq_per_video = self.seq_per_video
-        video_length = len(self.filenames)
-        max_num_sequences = video_length - seq_length + 1
-        if (not self.seq_length or not self.seq_per_video or
-                self.seq_length >= video_length):
-            # Use all possible frames
-            sequences = self.filenames[:max_num_sequences]
-        else:
-            if max_num_sequences < seq_per_video:
-                # If there are not enough frames, cap seq_per_video to
-                # the number of available frames
-                print("/!\ Warning : you asked {} sequences of {} "
-                      "frames each but the dataset only has {} "
-                      "frames".format(seq_per_video, seq_length,
-                                      video_length))
-                seq_per_video = max_num_sequences
+        return {'default': self.filenames}
 
-            # pick `seq_per_video` random indexes between 0 and
-            # (video length - sequence length)
-            first_frame_indexes = self.rng.permutation(range(
-                max_num_sequences))[0:seq_per_video]
+    def load_sequence(self, sequence):
+        """
+        Load ONE clip/sequence
 
-            for i in first_frame_indexes:
-                sequences.append(self.filenames[i])
-
-        # Return images
-        return np.array(sequences)
-
-    def load_sequence(self, img_name):
+        Auxiliary function which loads a sequence of frames with
+        the corresponding ground truth and potentially filenames.
+        Returns images in [0, 1]
+        """
         from skimage import io
         image_batch = []
         mask_batch = []
         filename_batch = []
 
-        if self.seq_length != 1:
-            raise NotImplementedError()
+        for prefix, frame in sequence:
 
-        image_path = (self.image_path_300 if self.is_300 else
-                      self.image_path_612)
-        mask_path = self.mask_path_300 if self.is_300 else self.mask_path_612
+            image_path = (self.image_path_300 if self.is_300 else
+                          self.image_path_612)
+            mask_path = (self.mask_path_300 if self.is_300 else
+                         self.mask_path_612)
 
-        # Load image
-        img = io.imread(os.path.join(image_path, img_name + ".bmp"))
-        img = img.astype(floatX) / 255.
-        # print 'Image shape: ' + str(img.shape)
+            # Load image
+            img = io.imread(os.path.join(image_path, frame + ".bmp"))
+            img = img.astype(floatX) / 255.
+            # print 'Image shape: ' + str(img.shape)
 
-        # Load mask
-        mask = np.array(io.imread(os.path.join(mask_path, img_name + ".tif")))
-        mask = mask.astype('int32')
-        # mask[mask == 0] = 5  # Set the void mask value to 5 instead to 0
-        # mask = mask - 1  # Start the first class as 0 instead in 1
-        # print 'Mask shape: ' + str(mask.shape)
-        # print 'Mask: ' + str(mask)
+            # Load mask
+            mask = np.array(io.imread(os.path.join(mask_path, frame + ".tif")))
+            mask = mask.astype('int32')
 
-        # from skimage.color import label2rgb
-        # import scipy.misc
-        # import seaborn as sns
-
-        # color_map = sns.hls_palette(4 + 1)
-        # image = img.transpose((1, 2, 0))
-        # image = img
-        # print 'Image shape: ' + str(image.shape)
-        # label_mask = label2rgb(mask, bg_label=0, colors=color_map)
-        # np.set_printoptions(threshold=np.inf)
-        # # print 'mask: ' + str(mask)
-        # print 'mask shape: ' + str(mask.shape)
-        # print 'mask max: ' + str(np.max(mask))
-        # print 'mask min: ' + str(np.min(mask))
-        # combined_image = np.concatenate((image, label_mask), axis=1)
-        # print 'combined_image shape: ' + str(combined_image.shape)
-        # scipy.misc.toimage(combined_image).save('./debugImage' + img_name + '.png')
-        # exit()
-        # import pdb; pdb.set_trace()
-
-        # Add to minibatch
-        image_batch.append(img)
-        mask_batch.append(mask)
-        filename_batch.append(img_name)
+            # Add to minibatch
+            image_batch.append(img)
+            mask_batch.append(mask)
+            filename_batch.append(frame)
 
         ret = {}
         ret['data'] = np.array(image_batch)
@@ -234,20 +190,51 @@ class Polyps300Dataset(ThreadedDataset):
 
 
 def test1():
-    dd = Polyps300Dataset(which_set='test',
-                          batch_size=10,
-                          seq_per_video=0,
-                          seq_length=0,
-                          crop_size=(224, 224),
-                          get_one_hot=False,
-                          get_01c=False,
-                          use_threads=False)
+    trainiter = Polyps300Dataset(
+        which_set='train',
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=10,
+        crop_size=(224, 224),
+        get_one_hot=True,
+        get_01c=True,
+        return_list=True,
+        use_threads=True,
+        nthreads=5)
 
-    print('Tot {}'.format(dd.epoch_length))
-    for i, _ in enumerate(range(dd.epoch_length)):
-        dd.next()
-        # if i % 20 == 0:
-        print str(i)
+    train_nsamples = trainiter.nsamples
+    nclasses = trainiter.nclasses
+    nbatches = trainiter.nbatches
+    train_batch_size = trainiter.batch_size
+    print("Train %d" % (train_nsamples))
+
+    start = time.time()
+    tot = 0
+    max_epochs = 5
+
+    for epoch in range(max_epochs):
+        for mb in range(nbatches):
+            train_group = trainiter.next()
+            if train_group is None:
+                raise RuntimeError('One batch was missing')
+
+            # train_group checks
+            assert train_group[0].ndim == 5
+            assert train_group[0].shape[0] <= train_batch_size
+            assert train_group[0].shape[1:] == (10, 224, 224, 3)
+            assert train_group[0].min() >= 0
+            assert train_group[0].max() <= 1
+            assert train_group[1].ndim == 5
+            assert train_group[1].shape[0] <= train_batch_size
+            assert train_group[1].shape[1:] == (10, 224, 224, nclasses)
+
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            part = stop - start - 1
+            start = stop
+            tot += part
+            print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
 
 
 if __name__ == '__main__':
