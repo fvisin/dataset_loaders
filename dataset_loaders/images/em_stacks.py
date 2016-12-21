@@ -100,15 +100,17 @@ class IsbiEmStacksDataset(ThreadedDataset):
         super(IsbiEmStacksDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
+        """Return a dict of names, per prefix/subset."""
         return {'default': range(self.end - self.start)}
 
     def load_sequence(self, sequence):
-        """
-        Load ONE clip/sequence
+        """Load a sequence of images/frames
 
-        Auxiliary function which loads a sequence of frames with
-        the corresponding ground truth and potentially filenames.
-        Returns images in [0, 1]
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
+        Returns a dict with the images in [0, 1], their corresponding
+        labels, their subset (i.e. category, clip, prefix) and their
+        filenames.
         """
         from PIL import Image
         X = []

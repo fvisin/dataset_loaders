@@ -95,6 +95,7 @@ class CocoDataset(ThreadedDataset):
                                           self.seq_length, self.seq_per_video))
 
     def get_names(self):
+        """Return a dict of names, per prefix/subset."""
         per_subset_names = {}
         coco = self.coco
         # Populate self.prefix_list
@@ -107,12 +108,13 @@ class CocoDataset(ThreadedDataset):
         return per_subset_names
 
     def load_sequence(self, sequence):
-        """
-        Load ONE clip/sequence
+        """Load a sequence of images/frames
 
-        Auxiliary function which loads a sequence of frames with
-        the corresponding ground truth and potentially filenames.
-        Returns images in [0, 1]
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
+        Returns a dict with the images in [0, 1], their corresponding
+        labels, their subset (i.e. category, clip, prefix) and their
+        filenames.
         """
         from pycocotools import mask as cocomask
         X = []
@@ -179,6 +181,7 @@ class CocoDataset(ThreadedDataset):
         ret = {}
         ret['data'] = im
         ret['labels'] = mask
+        ret['subset'] = prefix
         ret['filenames'] = img['file_name']
         return ret
 

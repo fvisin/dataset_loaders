@@ -79,6 +79,7 @@ class VOCdataset(ThreadedDataset):
         super(VOCdataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
+        """Return a dict of names, per prefix/subset."""
         per_subset_names = {}
         # Populate self.filenames and self.prefix_list
         filenames = self.filenames
@@ -91,6 +92,14 @@ class VOCdataset(ThreadedDataset):
         return per_subset_names
 
     def load_sequence(self, sequence):
+        """Load a sequence of images/frames
+
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
+        Returns a dict with the images in [0, 1], their corresponding
+        labels, their subset (i.e. category, clip, prefix) and their
+        filenames.
+        """
         from skimage import io
         image_batch = []
         mask_batch = []
@@ -121,6 +130,7 @@ class VOCdataset(ThreadedDataset):
         ret = {}
         ret['data'] = np.array(image_batch)
         ret['labels'] = np.array(mask_batch)
+        ret['subset'] = 'default'
         ret['filenames'] = np.array(filename_batch)
         # ret['teacher'] = np.array(pred_batch)
         return ret

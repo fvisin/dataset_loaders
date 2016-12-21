@@ -41,6 +41,7 @@ class Polyps300Dataset(ThreadedDataset):
         super(Polyps300Dataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
+        """Return a dict of names, per prefix/subset."""
 
         # Select elements where the column 'c' is in ids
         def select_elements(data, c, ids):
@@ -149,12 +150,13 @@ class Polyps300Dataset(ThreadedDataset):
         return {'default': self.filenames}
 
     def load_sequence(self, sequence):
-        """
-        Load ONE clip/sequence
+        """Load a sequence of images/frames
 
-        Auxiliary function which loads a sequence of frames with
-        the corresponding ground truth and potentially filenames.
-        Returns images in [0, 1]
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
+        Returns a dict with the images in [0, 1], their corresponding
+        labels, their subset (i.e. category, clip, prefix) and their
+        filenames.
         """
         from skimage import io
         image_batch = []
@@ -185,6 +187,7 @@ class Polyps300Dataset(ThreadedDataset):
         ret = {}
         ret['data'] = np.array(image_batch)
         ret['labels'] = np.array(mask_batch)
+        ret['subset'] = prefix
         ret['filenames'] = np.array(filename_batch)
         return ret
 

@@ -35,9 +35,18 @@ class TestDataset(ThreadedDataset):
         super(TestDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
+        """Return a dict of names, per prefix/subset."""
         return {'test': ['filename']}
 
     def load_sequence(self, first_frame):
+        """Load a sequence of images/frames
+
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
+        Returns a dict with the images in [0, 1], their corresponding
+        labels, their subset (i.e. category, clip, prefix) and their
+        filenames.
+        """
         max_label = self.non_void_nclasses + len(self._void_labels)
         mask = np.array(range(max_label) * 8).reshape((max_label, 8))
         img = np.random.random((max_label, 8, 1))
@@ -48,7 +57,9 @@ class TestDataset(ThreadedDataset):
 
         ret = {}
         ret['data'] = np.array([img])
+        ret['subset'] = 'default'
         ret['labels'] = np.array([mask])
+        ret['filenames'] = ['']
         return ret
 
 

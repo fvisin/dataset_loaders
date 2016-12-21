@@ -83,6 +83,7 @@ class CamvidDataset(ThreadedDataset):
         super(CamvidDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
+        """Return a dict of names, per prefix/subset."""
         per_subset_names = {}
         # Populate self.filenames and self.prefix_list
         filenames = self.filenames
@@ -95,12 +96,13 @@ class CamvidDataset(ThreadedDataset):
         return per_subset_names
 
     def load_sequence(self, sequence):
-        """
-        Load ONE clip/sequence
+        """Load a sequence of images/frames
 
-        Auxiliary function which loads a sequence of frames with
-        the corresponding ground truth and potentially filenames.
-        Returns images in [0, 1]
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
+        Returns a dict with the images in [0, 1], their corresponding
+        labels, their subset (i.e. category, clip, prefix) and their
+        filenames.
         """
         from skimage import io
         X = []

@@ -194,6 +194,7 @@ class ChangeDetectionDataset(ThreadedDataset):
         super(ChangeDetectionDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
+        """Return a dict of names, per prefix/subset."""
         per_video_names = {}
         self.video_length = {}
 
@@ -206,11 +207,13 @@ class ChangeDetectionDataset(ThreadedDataset):
         return per_video_names
 
     def load_sequence(self, sequence):
-        """
-        Load ONE clip/sequence
-        Auxiliary function which loads a sequence of frames with
-        the corresponding ground truth and potentially filenames.
-        Returns images in [0, 1]
+        """Load a sequence of images/frames
+
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
+        Returns a dict with the images in [0, 1], their corresponding
+        labels, their subset (i.e. category, clip, prefix) and their
+        filenames.
         """
         from skimage import io
         X = []
@@ -238,6 +241,7 @@ class ChangeDetectionDataset(ThreadedDataset):
         ret = {}
         ret['data'] = np.array(X)
         ret['labels'] = np.array(Y)
+        ret['subset'] = video
         ret['filenames'] = np.array(F)
         return ret
 

@@ -417,10 +417,13 @@ class ThreadedDataset(object):
         raise NotImplementedError
 
     def load_sequence(self, first_frame):
-        """ Loads ONE 4D batch or 5D sequence.
+        """ Loads a 4D sequence from the dataset.
 
-        Should return a *list* of 2+ elements. The first two have to
-        be input and labels. If no label is available, return None
+        Should return a *dict* with at least these keys:
+            * 'data': the images or frames of the sequence
+            * 'labels': the labels of the sequence
+            * 'subset': the subset/clip/category/.. the sequence belongs to
+            * 'filenames': the filenames of each image/frame of the sequence
         """
         raise NotImplementedError
 
