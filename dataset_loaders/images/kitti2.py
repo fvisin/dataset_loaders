@@ -212,9 +212,7 @@ def test():
         use_threads=False)
 
     train_nsamples = trainiter.nsamples
-    nclasses = trainiter.get_n_classes()
-    nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
+    nbatches = trainiter.nbatches
     print("Train %d" % (train_nsamples))
 
     valid_nsamples = validiter.nsamples
