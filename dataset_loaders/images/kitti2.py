@@ -13,10 +13,9 @@ floatX = 'float32'
 
 class KITTIdataset2(ThreadedDataset):
     name = 'kitti'
-    nclasses = 11
+    non_void_nclasses = 11
     debug_shape = (375, 500, 3)
 
-    data_shape = (None, None, 3)
     _void_labels = [11]
     GTclasses = range(12)
 
@@ -31,8 +30,8 @@ class KITTIdataset2(ThreadedDataset):
         7: (64, 0, 128),       # Car
         8: (192, 128, 128),    # Sign
         9: (64, 64, 0),        # Pedestrian
-        10: (0, 128, 192)      # Cyclist
-        # 255: (255, 255, 255)   # void
+        10: (0, 128, 192),     # Cyclist
+        11: (255, 255, 255)    # void
     }
 
     _mask_labels = {0: 'Sky', 1: 'Building', 2: 'Pole', 3: 'Road',
@@ -65,13 +64,9 @@ class KITTIdataset2(ThreadedDataset):
             self._filenames = filenames
         return self._filenames
 
-    def __init__(self,
-                 which_set="train",
-                 *args, **kwargs):
+    def __init__(self, which_set="train", *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        # self.path = '/home/michal/KITTI2/'
-        # self.sharedpath = '/home/michal/KITTI2/'
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'kitti2')
         self.sharedpath = '/data/lisatmp4/romerosa/datasets/kitti2'
@@ -104,87 +99,56 @@ class KITTIdataset2(ThreadedDataset):
         self.divide_by_both_stds = True if self.divide_by_std else False
 
     def get_names(self):
+        """Return a dict of names, per prefix/subset."""
+        return {'default': self.filenames}
 
-        # Limit to the number of videos we want
-        sequences = []
-        seq_length = self.seq_length
-        seq_per_video = self.seq_per_video
-        image_names = self.filenames
-        video_length = len(image_names)
-        max_num_sequences = video_length - seq_length + 1
-        if (not self.seq_length or not self.seq_per_video or
-                self.seq_length >= video_length):
-            # Use all possible frames
-            sequences = image_names[:max_num_sequences:
-                                    self.seq_length - self.overlap]
-        else:
-            if max_num_sequences < seq_per_video:
-                # If there are not enough frames, cap seq_per_video to
-                # the number of available frames
-                print("/!\ Warning : you asked {} sequences of {} "
-                      "frames each but the dataset only has {} "
-                      "frames".format(seq_per_video, seq_length,
-                                      video_length))
-                seq_per_video = max_num_sequences
+    def load_sequence(self, sequence):
+        """Load a sequence of images/frames
 
-            if self.overlap != self.seq_length - 1:
-                raise('Overlap other than seq_length - 1 is not '
-                      'implemented')
-            # pick `seq_per_video` random indexes between 0 and
-            # (video length - sequence length)
-            first_frame_indexes = self.rng.permutation(range(
-                max_num_sequences))[0:seq_per_video]
-
-            for i in first_frame_indexes:
-                sequences.append(image_names[i])
-
-        # Return images
-        return np.array(sequences)
-
-    def load_sequence(self, img_name):
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
+        Returns a dict with the images in [0, 1], their corresponding
+        labels, their subset (i.e. category, clip, prefix) and their
+        filenames.
+        """
         from skimage import io
         image_batch = []
         mask_batch = []
         filename_batch = []
 
-        if self.seq_length != 1:
-            raise NotImplementedError()
+        for prefix, img_name in sequence:
+            # Load image
+            img = io.imread(os.path.join(self.image_path, img_name + ".png"))
+            img = img.astype(floatX) / 255.
 
-        # Load image
-        img = io.imread(os.path.join(self.image_path, img_name + ".png"))
-        img = img.astype(floatX) / 255.
+            # Normalize
+            if self.remove_both_means:
+                if '_' in img_name:
+                    img -= self.mu_camvid
+                else:
+                    img -= self.mu_kitti
+            if self.divide_by_both_stds:
+                if '_' in img_name:
+                    img /= self.sigma_camvid
+                else:
+                    img /= self.sigma_kitti
 
-        # Normalize
-        if self.remove_both_means:
-            if '_' in img_name:
-                img -= self.mu_camvid
-            else:
-                img -= self.mu_kitti
-        if self.divide_by_both_stds:
-            if '_' in img_name:
-                img /= self.sigma_camvid
-            else:
-                img /= self.sigma_kitti
+            # Load mask
+            mask = np.array(Image.open(
+                    os.path.join(self.mask_path, img_name + ".png")))
+            mask = mask.astype('int32')
 
-        # Load mask
-        mask = np.array(Image.open(
-                os.path.join(self.mask_path, img_name + ".png")))
-        mask = mask.astype('int32')
-
-        # Add to minibatch
-        image_batch.append(img)
-        mask_batch.append(mask)
-        if self.with_filenames:
+            # Add to minibatch
+            image_batch.append(img)
+            mask_batch.append(mask)
             filename_batch.append(img_name)
 
-        image_batch = np.array(image_batch)
-        mask_batch = np.array(mask_batch)
-        filename_batch = np.array(filename_batch)
-
-        if self.with_filenames:
-            return image_batch, mask_batch, filename_batch
-        else:
-            return image_batch, mask_batch
+        ret = {}
+        ret['data'] = np.array(image_batch)
+        ret['labels'] = np.array(mask_batch)
+        ret['subset'] = prefix
+        ret['filenames'] = np.array(filename_batch)
+        return ret
 
 
 def test():
