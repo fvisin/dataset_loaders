@@ -145,7 +145,8 @@ def test():
         seq_per_video=0,
         seq_length=0,
         overlap=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
         split=0.75,
         get_one_hot=True,
         get_01c=True,

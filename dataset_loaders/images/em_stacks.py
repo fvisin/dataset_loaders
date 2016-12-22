@@ -186,16 +186,17 @@ class IsbiEmStacksDataset(ThreadedDataset):
 
 def test():
     trainiter = IsbiEmStacksDataset(
-                    which_set='train',
-                    batch_size=5,
-                    seq_per_video=0,
-                    seq_length=0,
-                    overlap=9,
-                    get_one_hot=True,
-                    get_01c=True,
-                    crop_size=(224, 224),
-                    return_list=True,
-                    elastic_deform=True)
+        which_set='train',
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=0,
+        overlap=9,
+        get_one_hot=True,
+        get_01c=True,
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
+        return_list=True,
+        elastic_deform=True)
 
     train_nsamples = trainiter.nsamples
     nclasses = trainiter.nclasses

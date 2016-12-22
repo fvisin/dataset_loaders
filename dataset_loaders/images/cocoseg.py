@@ -191,7 +191,8 @@ def test():
         batch_size=5,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(72, 59),
+        data_augm_kwargs={
+            'crop_size': (72, 59)},
         get_one_hot=True,
         get_01c=True,
         return_list=True,

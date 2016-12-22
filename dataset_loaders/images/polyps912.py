@@ -23,7 +23,7 @@ class Polyps912Dataset(ThreadedDataset):
         1: (128, 0, 0),         # Polyp
         2: (0, 0, 128),         # Void
         }
-    _mask_labels = {0: 'Background', 1: 'Polyp', 2:'Void'}
+    _mask_labels = {0: 'Background', 1: 'Polyp', 2: 'Void'}
 
     _filenames = None
 
@@ -118,7 +118,8 @@ def test():
         batch_size=10,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
         get_one_hot=True,
         get_01c=True,
         return_list=True,
@@ -129,7 +130,6 @@ def test():
         batch_size=1,
         seq_per_video=0,
         seq_length=0,
-        crop_size=None,
         get_one_hot=True,
         get_01c=True,
         return_list=True,
@@ -140,7 +140,6 @@ def test():
         batch_size=1,
         seq_per_video=0,
         seq_length=0,
-        crop_size=None,
         get_one_hot=True,
         get_01c=True,
         return_list=True,

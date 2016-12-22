@@ -100,9 +100,6 @@ def test_one_hot_mapping(dd, mapping, inv_mapping):
 
 if __name__ == "__main__":
     # 0 voids
-    from dataset_loaders.images.test_void_mapping import (TestDataset,
-                                                          TestDataset2voids,
-                                                          TestDataset4voids)
     dd = TestDataset(return_list=True)
     mapping = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9}
     inv_mapping = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9}

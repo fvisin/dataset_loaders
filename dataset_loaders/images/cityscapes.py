@@ -234,7 +234,8 @@ def test3():
         batch_size=5,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
         get_one_hot=False,
         get_01c=True,
         use_threads=True,
@@ -288,7 +289,8 @@ def test1():
         batch_size=5,
         seq_per_video=4,
         seq_length=0,
-        crop_size=(224, 224))
+        data_augm_kwargs={
+            'crop_size': (224, 224)})
     start = time.time()
     n_minibatches_to_run = 1000
     tot = 0
@@ -315,7 +317,8 @@ def test2():
         seq_length=10,
         overlap=10,
         get_one_hot=True,
-        crop_size=(224, 224))
+        data_augm_kwargs={
+            'crop_size': (224, 224)})
     for i, _ in enumerate(range(d.epoch_length)):
         image_group = d.next()
         if image_group is None:

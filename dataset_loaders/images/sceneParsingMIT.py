@@ -184,7 +184,8 @@ def test():
         batch_size=100,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
         get_one_hot=True,
         get_01c=True,
         use_threads=True)
@@ -194,7 +195,8 @@ def test():
         batch_size=5,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
         get_one_hot=True,
         get_01c=True,
         use_threads=False)
@@ -204,38 +206,36 @@ def test():
         batch_size=5,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
         get_one_hot=True,
         get_01c=True,
         use_threads=False)
 
     # Get number of classes
-    nclasses = trainiter.get_n_classes()
+    nclasses = trainiter.nclasses
     print ("N classes: " + str(nclasses))
 
     # Training info
     train_nsamples = trainiter.nsamples
-    train_batch_size = trainiter.get_batch_size()
-    train_nbatches = trainiter.get_n_batches()
-    print("Train n_images: {}, batch_size{}, n_batches{}".format(train_nsamples,
-                                                                 train_batch_size,
-                                                                 train_nbatches))
+    train_batch_size = trainiter.batch_size
+    train_nbatches = trainiter.nbatches
+    print("Train n_images: {}, batch_size{}, n_batches{}".format(
+        train_nsamples, train_batch_size, train_nbatches))
 
     # Validation info
     valid_nsamples = validiter.nsamples
-    valid_batch_size = validiter.get_batch_size()
-    valid_nbatches = validiter.get_n_batches()
-    print("Train n_images: {}, batch_size: {}, n_batches: {}".format(valid_nsamples,
-                                                                 valid_batch_size,
-                                                                 valid_nbatches))
+    valid_batch_size = validiter.batch_size
+    valid_nbatches = validiter.nbatches
+    print("Train n_images: {}, batch_size: {}, n_batches: {}".format(
+        valid_nsamples, valid_batch_size, valid_nbatches))
 
     # Testing info
     test_nsamples = testiter.nsamples
-    test_batch_size = testiter.get_batch_size()
-    test_nbatches = testiter.get_n_batches()
-    print("Test n_images: {}, batch_size: {}, n_batches: {}".format(test_nsamples,
-                                                                 test_batch_size,
-                                                                 test_nbatches))
+    test_batch_size = testiter.batch_size
+    test_nbatches = testiter.nbatches
+    print("Test n_images: {}, batch_size: {}, n_batches: {}".format(
+        test_nsamples, test_batch_size, test_nbatches))
 
     max_epochs = 2
 
@@ -243,9 +243,11 @@ def test():
         epoch_start = time.time()
         for mb in range(train_nbatches):
             mb_start = time.time()
-            train_batch = trainiter.next()
-            print("Minibatch {}: {:.3f} seg".format(mb, time.time() - mb_start))
-        print("End epoch {}: {:.3f} seg".format(epoch, time.time() - epoch_start))
+            trainiter.next()
+            print("Minibatch {}: {:.3f} seg".format(mb, time.time() -
+                                                    mb_start))
+        print("End epoch {}: {:.3f} seg".format(epoch, time.time() -
+                                                epoch_start))
 
 
 if __name__ == '__main__':

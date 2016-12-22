@@ -10,6 +10,7 @@ from dataset_loaders.parallel_loader import ThreadedDataset
 
 floatX = 'float32'
 
+
 class VOCdataset(ThreadedDataset):
     name = 'pascal_voc'
     non_void_nclasses = 21
@@ -78,7 +79,6 @@ class VOCdataset(ThreadedDataset):
         if self._filenames is None:
             # Load filenames
             filenames = []
-            isextra = []
             if self.which_set == 'train_extra':
                 filenames = get_file_names(self.txt_path_extra, True)
                 file_txt = os.path.join(self.txt_path, "train.txt")
@@ -96,10 +96,8 @@ class VOCdataset(ThreadedDataset):
                  *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        # Extra data
-        self.path_extra = '/Tmp/'+usr+'/datasets/PASCAL-VOC_Extra/'
-        self.sharedpath_extra = '/data/lisa/exp/vazquezd/datasets/PASCAL_Extension/dataset/dataset10253/'
-        if self.which_set not in ("train", "trainval", "train_extra", "val", "test"):
+        if self.which_set not in ("train", "trainval", "train_extra", "val",
+                                  "test"):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
         if self.which_set == "test" and year != "VOC2012":
@@ -112,6 +110,10 @@ class VOCdataset(ThreadedDataset):
             dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC',
             'VOCdevkit')
         self.sharedpath = '/data/lisa/data/PASCAL-VOC/VOCdevkit'
+        self.path_extra = (dataset_loaders.__path__[0], 'datasets',
+                           'PASCAL-VOC_Extra')
+        self.sharedpath_extra = ('/data/lisa/exp/vazquezd/datasets/'
+                                 'PASCAL_Extension/dataset/dataset10253/')
 
         self.txt_path = os.path.join(self.path, self.year,
                                      "ImageSets", "Segmentation")
@@ -120,7 +122,8 @@ class VOCdataset(ThreadedDataset):
                                       "SegmentationClass")
 
         # Extra data
-        self.txt_path_extra = os.path.join(self.path_extra, "train_nosegval.txt")
+        self.txt_path_extra = os.path.join(self.path_extra,
+                                           "train_nosegval.txt")
         self.image_path_extra = os.path.join(self.path_extra, "images")
         self.mask_path_extra = os.path.join(self.path_extra, "masks")
 
@@ -160,19 +163,17 @@ class VOCdataset(ThreadedDataset):
         mask_batch = []
         filename_batch = []
 
-        # Check if it is an image of the extra training dataset
-        if img_name[0] == "_":
-            is_extra = True
-            image_path = self.image_path_extra
-            mask_path = self.mask_path_extra
-            img_name = img_name[1:]
-        else:
-            is_extra = False
-            image_path = self.image_path
-            mask_path = self.mask_path
-
         # Load image
         for _, img_name in sequence:
+            # Check if it is an image of the extra training dataset
+            if img_name[0] == "_":
+                image_path = self.image_path_extra
+                mask_path = self.mask_path_extra
+                img_name = img_name[1:]
+            else:
+                image_path = self.image_path
+                mask_path = self.mask_path
+
             img = io.imread(os.path.join(image_path,
                                          img_name + ".jpg"))
             img = img.astype(floatX) / 255.
@@ -194,7 +195,6 @@ class VOCdataset(ThreadedDataset):
         ret['labels'] = np.array(mask_batch)
         ret['subset'] = 'default'
         ret['filenames'] = np.array(filename_batch)
-        # ret['teacher'] = np.array(pred_batch)
         return ret
 
 
@@ -204,7 +204,8 @@ def test():
         batch_size=5,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(71, 71),
+        data_augm_kwargs={
+            'crop_size': (71, 71)},
         get_one_hot=True,
         get_01c=True,
         return_list=True,
@@ -252,7 +253,8 @@ def test2():
         batch_size=100,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (71, 71)},
         get_one_hot=True,
         get_01c=True,
         return_list=True,
@@ -263,7 +265,8 @@ def test2():
         batch_size=100,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (71, 71)},
         get_one_hot=True,
         get_01c=True,
         return_list=True,
@@ -274,7 +277,8 @@ def test2():
         batch_size=5,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (71, 71)},
         get_one_hot=True,
         get_01c=True,
         return_list=True,
@@ -285,16 +289,15 @@ def test2():
         batch_size=5,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (71, 71)},
         get_one_hot=True,
         get_01c=True,
         return_list=True,
         use_threads=False)
 
     train_nsamples = trainiter.nsamples
-    nclasses = trainiter.get_n_classes()
-    nbatches = trainiter.get_n_batches()
-    train_batch_size = trainiter.get_batch_size()
+    nbatches = trainiter.nbatches
     print("Train %d" % (train_nsamples))
 
     train_nsamples_extra = trainiter_extra.nsamples

@@ -148,7 +148,8 @@ def test():
         batch_size=20,
         seq_per_video=0,
         seq_length=0,
-        crop_size=(224, 224),
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
         split=.75,
         get_one_hot=True,
         get_01c=True,
@@ -252,7 +253,8 @@ def test2():
             seq_per_video=0,  # all of them
             seq_length=7,
             overlap=6,
-            crop_size=(224, 224),
+            data_augm_kwargs={
+                'crop_size': (224, 224)},
             split=.75,
             get_one_hot=True,
             get_01c=True,
