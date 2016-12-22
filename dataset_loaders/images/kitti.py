@@ -168,9 +168,7 @@ def test():
         use_threads=False)
 
     train_nsamples = trainiter.nsamples
-    nclasses = trainiter.nclasses
     nbatches = trainiter.nbatches
-    train_batch_size = trainiter.batch_size
     print("Train %d" % (train_nsamples))
 
     valid_nsamples = validiter.nsamples
@@ -183,8 +181,9 @@ def test():
         start_epoch = time.time()
         for mb in range(nbatches):
             start_batch = time.time()
-            train_group = trainiter.next()
-            print("Minibatch {}: {} seg".format(mb, (time.time() - start_batch)))
+            trainiter.next()
+            print("Minibatch {}: {} seg".format(mb, (time.time() -
+                                                     start_batch)))
         print("Epoch time: %s" % str(time.time() - start_epoch))
     print("Training time: %s" % str(time.time() - start_training))
 

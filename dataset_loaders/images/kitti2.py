@@ -3,12 +3,12 @@ import numpy as np
 from PIL import Image
 from getpass import getuser
 import time
-import shutil
 
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 
 floatX = 'float32'
+
 
 class KITTIdataset2(ThreadedDataset):
     name = 'kitti'
@@ -46,8 +46,6 @@ class KITTIdataset2(ThreadedDataset):
 
     _filenames = None
 
-
-
     @property
     def filenames(self):
         import glob
@@ -65,7 +63,6 @@ class KITTIdataset2(ThreadedDataset):
             for file_name in file_names:
                 path, file_name = os.path.split(file_name)
                 file_name, ext = os.path.splitext(file_name)
-                raw_name = file_name.strip()
                 filenames.append(file_name)
                 # print (file_name)
 
@@ -89,7 +86,6 @@ class KITTIdataset2(ThreadedDataset):
         if self.which_set not in ("train", "val", "test"):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
-
 
         if self.which_set == "train":
             set_folder = 'Training_00/'
@@ -178,40 +174,6 @@ class KITTIdataset2(ThreadedDataset):
                 os.path.join(self.mask_path, img_name + ".png")))
         mask = mask.astype('int32')
 
-        # cmap2 = {
-        #     (128, 128, 128):0,    # Sky
-        #     (128, 0, 0):1,        # Building
-        #     (128, 64, 128):2,     # Road
-        #     (0, 0, 192):3,        # Sidewalk
-        #     (64, 64, 128):4,      # Fence
-        #     (128, 128, 0):5,      # Vegetation
-        #     (192, 192, 128):6,    # Pole
-        #     (64, 0, 128):7,       # Car
-        #     (192, 128, 128):8,    # Sign
-        #     (64, 64, 0):9,        # Pedestrian
-        #     (0, 128, 192):10      # Cyclist
-        #     # 255: (255, 255, 255)   # void
-        # }
-        #
-        # # Change color by classes
-        # # TODO: DO THIS FASTER!!!!
-        # mask2 = np.zeros(mask.shape[0:2]).astype('int32')
-        # # print (mask2.shape)
-        # for key, val in self._cmap.iteritems():
-        #     # print ('key: ' + str(key))
-        #     # print ('val: ' + str(val))
-        #     val = np.asarray(val)
-        #     for i in range (mask.shape[0]):
-        #         for j in range (mask.shape[1]):
-        #             if all(mask[i,j,:] == val):
-        #                 mask2[i,j] = key
-        # mask = mask2
-        # print (np.min(mask))
-        # print (np.max(mask))
-        #
-        # # Save image
-        # io.imsave(os.path.join(self.mask_path, 'ind', img_name + ".png"), mask)
-
         # Add to minibatch
         image_batch.append(img)
         mask_batch.append(mask)
@@ -265,11 +227,10 @@ def test():
         start_epoch = time.time()
         for mb in range(nbatches):
             start_batch = time.time()
-            train_group = trainiter.next()
+            trainiter.next()
 
-            # time.sleep approximates running some model
-            # time.sleep(0.1)
-            print("Minibatch {}: {} seg".format(mb, (time.time() - start_batch)))
+            print("Minibatch {}: {} seg".format(mb, (time.time() -
+                                                     start_batch)))
         print("Epoch time: %s" % str(time.time() - start_epoch))
     print("Training time: %s" % str(time.time() - start_training))
 
