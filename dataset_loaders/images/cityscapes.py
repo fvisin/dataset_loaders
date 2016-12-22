@@ -152,7 +152,7 @@ class CityscapesDataset(ThreadedDataset):
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'cityscapes')
 
-        self.sharedpath = '/data/lisa/exp/visin/_datasets/cityscapes'
+        self.sharedpath = '/data/lisa/exp/vazquezd/datasets/Cityscapes/'
 
         if self.which_set == "train":
             self.image_path = os.path.join(self.path,
