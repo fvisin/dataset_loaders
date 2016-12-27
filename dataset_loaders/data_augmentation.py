@@ -2,7 +2,7 @@ import numpy as np
 from scipy import interpolate
 import scipy.ndimage as ndi
 import SimpleITK as sitk
-from skimage.color import label2rgb, rgb2gray, gray2rgb
+from skimage.color import rgb2gray, gray2rgb
 from skimage import img_as_float
 import seaborn as sns
 import os
@@ -33,9 +33,6 @@ def my_label2rgboverlay(labels, colors, image, bglabel=None,
 # Save 2 images (Image and mask)
 def save_img2(img, mask, fname, color_map, void_label):
     img = img.transpose((1, 2, 0))
-    # print ('Img shape: ' + str(img.shape))
-    # print ('Mask shape: ' + str(mask.shape))
-
     label_mask = my_label2rgboverlay(mask,
                                      colors=color_map,
                                      image=img,
@@ -99,20 +96,16 @@ def transform_matrix_offset_center(matrix, x, y):
     return transform_matrix
 
 
-def apply_transform(x_in, transform_matrix, channel_index=0,
-                    fill_mode='nearest', cval=0., order=0):
-    x_out = np.zeros(x_in.shape, dtype=x_in.dtype)
-    for i, x in enumerate(x_in):
-        x = np.rollaxis(x, channel_index, 0)
-        final_affine_matrix = transform_matrix[:2, :2]
-        final_offset = transform_matrix[:2, 2]
-        channel_images = [ndi.interpolation.affine_transform(x_channel,
-                                                             final_affine_matrix,
-                          final_offset, order=order, mode=fill_mode, cval=cval)
-                          for x_channel in x]
-        x = np.stack(channel_images, axis=0)
-        x_out[i] = np.rollaxis(x, 0, channel_index+1)
-    return x_out
+def apply_transform(x, transform_matrix, fill_mode='nearest', cval=0.,
+                    order=0):
+    final_affine_matrix = transform_matrix[:2, :2]
+    final_offset = transform_matrix[:2, 2]
+    # Apply the transformation on each channel (sequence, batch, ..)
+    for i in range(x.shape[0]):
+        x[i] = ndi.interpolation.affine_transform(x[i], final_affine_matrix,
+                                                  final_offset, order=order,
+                                                  mode=fill_mode, cval=cval)
+    return x
 
 
 def random_channel_shift(x_in, intensity, channel_index=0):
@@ -179,25 +172,29 @@ def pad_image(x, pad_amount, mode='reflect', constant=0.):
         x_padded[e:-e, e:-e] = x.copy()
 
     if mode == 'reflect':
-        x_padded[:e, e:-e] = np.flipud(x[:e, :])  # left edge
-        x_padded[-e:, e:-e] = np.flipud(x[-e:, :])  # right edge
-        x_padded[e:-e, :e] = np.fliplr(x[:, :e])  # top edge
-        x_padded[e:-e, -e:] = np.fliplr(x[:, -e:])  # bottom edge
-        x_padded[:e, :e] = np.fliplr(np.flipud(x[:e, :e]))  # top-left corner
-        x_padded[-e:, :e] = np.fliplr(np.flipud(x[-e:, :e]))  # top-right corner
-        x_padded[:e, -e:] = np.fliplr(np.flipud(x[:e, -e:]))  # bottom-left corner
-        x_padded[-e:, -e:] = np.fliplr(np.flipud(x[-e:, -e:]))  # bottom-right corner
+        # Edges
+        x_padded[:e, e:-e] = np.flipud(x[:e, :])  # left
+        x_padded[-e:, e:-e] = np.flipud(x[-e:, :])  # right
+        x_padded[e:-e, :e] = np.fliplr(x[:, :e])  # top
+        x_padded[e:-e, -e:] = np.fliplr(x[:, -e:])  # bottom
+        # Corners
+        x_padded[:e, :e] = np.fliplr(np.flipud(x[:e, :e]))  # top-left
+        x_padded[-e:, :e] = np.fliplr(np.flipud(x[-e:, :e]))  # top-right
+        x_padded[:e, -e:] = np.fliplr(np.flipud(x[:e, -e:]))  # bottom-left
+        x_padded[-e:, -e:] = np.fliplr(np.flipud(x[-e:, -e:]))  # bottom-right
     elif mode == 'zero' or mode == 'constant':
         pass
     elif mode == 'nearest':
-        x_padded[:e, e:-e] = x[[0], :]  # left edge
-        x_padded[-e:, e:-e] = x[[-1], :]  # right edge
-        x_padded[e:-e, :e] = x[:, [0]]  # top edge
-        x_padded[e:-e, -e:] = x[:, [-1]]  # bottom edge
-        x_padded[:e, :e] = x[[0], [0]]  # top-left corner
-        x_padded[-e:, :e] = x[[-1], [0]]  # top-right corner
-        x_padded[:e, -e:] = x[[0], [-1]]  # bottom-left corner
-        x_padded[-e:, -e:] = x[[-1], [-1]]  # bottom-right corner
+        # Edges
+        x_padded[:e, e:-e] = x[[0], :]  # left
+        x_padded[-e:, e:-e] = x[[-1], :]  # right
+        x_padded[e:-e, :e] = x[:, [0]]  # top
+        x_padded[e:-e, -e:] = x[:, [-1]]  # bottom
+        # Corners
+        x_padded[:e, :e] = x[[0], [0]]  # top-left
+        x_padded[-e:, :e] = x[[-1], [0]]  # top-right
+        x_padded[:e, -e:] = x[[0], [-1]]  # bottom-left
+        x_padded[-e:, -e:] = x[[-1], [-1]]  # bottom-right
     else:
         raise ValueError("Unsupported padding mode \"{}\"".format(mode))
     return x_padded
@@ -244,8 +241,8 @@ def random_transform(x, y=None,
                      fill_mode='nearest',
                      cval=0.,
                      cvalMask=0.,
-                     horizontal_flip=False,
-                     vertical_flip=False,
+                     horizontal_flip=0.,  # probability
+                     vertical_flip=0.,  # probability
                      rescale=None,
                      spline_warp=False,
                      warp_sigma=0.1,
@@ -254,20 +251,13 @@ def random_transform(x, y=None,
                      nclasses=None,
                      gamma=0.,
                      gain=1.,
+                     chan_idx=1,  # No batch yet: (s, 0, 1, c)
+                     rows_idx=2,  # No batch yet: (s, 0, 1, c)
+                     cols_idx=3,  # No batch yet: (s, 0, 1, c)
                      void_label=None):
 
-    # Set this to the dir where you want to save augmented images samples
+    # Set this to a dir, if you want to save augmented images samples
     save_to_dir = None
-
-    # x is a single image, so we don't have batch dimension
-    img_row_index = 1
-    img_col_index = 2
-    img_channel_index = 0
-
-    # Gamma correction
-    if gamma > 0:
-        scale = float(1)
-        x = ((x / scale) ** gamma) * scale * gain
 
     if np.isscalar(zoom_range):
         zoom_range = [1 - zoom_range, 1 + zoom_range]
@@ -277,74 +267,101 @@ def random_transform(x, y=None,
         raise Exception('zoom_range should be a float or '
                         'a tuple or list of two floats. '
                         'Received arg: ', zoom_range)
-    # use composition of homographies to generate final transform that needs
-    # to be applied
-    if rotation_range:
-        theta = np.pi / 180 * np.random.uniform(-rotation_range,
-                                                rotation_range)
-    else:
-        theta = 0
-    rotation_matrix = np.array([[np.cos(theta), -np.sin(theta), 0],
-                                [np.sin(theta), np.cos(theta), 0],
-                                [0, 0, 1]])
-    if height_shift_range:
-        tx = np.random.uniform(-height_shift_range, height_shift_range) * \
-            x.shape[img_row_index]
-    else:
-        tx = 0
 
-    if width_shift_range:
-        ty = np.random.uniform(-width_shift_range, width_shift_range) \
-            * x.shape[img_col_index]
-    else:
-        ty = 0
-
-    translation_matrix = np.array([[1, 0, tx],
-                                   [0, 1, ty],
-                                   [0, 0, 1]])
-    if shear_range:
-        shear = np.random.uniform(-shear_range, shear_range)
-    else:
-        shear = 0
-    shear_matrix = np.array([[1, -np.sin(shear), 0],
-                             [0, np.cos(shear), 0],
-                             [0, 0, 1]])
-
-    if zoom_range[0] == 1 and zoom_range[1] == 1:
-        zx, zy = 1, 1
-    else:
-        zx, zy = np.random.uniform(zoom_range[0], zoom_range[1], 2)
-    zoom_matrix = np.array([[zx, 0, 0],
-                            [0, zy, 0],
-                            [0, 0, 1]])
-
-    transform_matrix = np.dot(np.dot(np.dot(rotation_matrix,
-                                            translation_matrix),
-                                     shear_matrix), zoom_matrix)
-
-    h, w = x.shape[img_row_index+1], x.shape[img_col_index+1]
-    transform_matrix = transform_matrix_offset_center(transform_matrix, h, w)
-    x = apply_transform(x, transform_matrix, img_channel_index,
-                        fill_mode=fill_mode, cval=cval, order=1)
-    if y is not None:
-        y = apply_transform(y, transform_matrix, img_channel_index,
-                            fill_mode=fill_mode, cval=cvalMask, order=0)
-
+    # Channel shift
     if channel_shift_range != 0:
-        x = random_channel_shift(x, channel_shift_range, img_channel_index)
+        x = random_channel_shift(x, channel_shift_range, chan_idx)
 
-    if horizontal_flip:
-        if np.random.random() < 0.5:
-            x = flip_axis(x, img_col_index)
-            if y is not None:
-                y = flip_axis(y, img_col_index)
+    # Reshape to (anything_else, 0, 1)
+    pattern = [el for el in range(x.ndim) if el != rows_idx and el != cols_idx]
+    pattern += [rows_idx, cols_idx]
+    inv_pattern = [pattern.index(el) for el in range(x.ndim)]
+    x = x.transpose(pattern)
+    x_shape = x.shape
+    x = x.reshape((-1,) + x_shape[-2:])  # squash everything on channels
+    if y is not None and len(y) > 0:
+        y = y.transpose(pattern)
+        y_shape = y.shape
+        y = y.reshape((-1,) + y_shape[-2:])  # squash everything on channels
+    chan_idx = None
+    rows_idx = 1
+    cols_idx = 2
 
-    if vertical_flip:
-        if np.random.random() < 0.5:
-            x = flip_axis(x, img_row_index)
-            if y is not None:
-                y = flip_axis(y, img_row_index)
+    # Gamma correction
+    if (gamma > 0 or rotation_range or height_shift_range or
+            width_shift_range or shear_range or list(zoom_range) == [1, 1]):
+        if gamma > 0:
+            scale = float(1)
+            x = ((x / scale) ** gamma) * scale * gain
 
+        # Affine transformations (zoom, rotation, shift, ..)
+        # --> Rotation
+        if rotation_range:
+            theta = np.pi / 180 * np.random.uniform(-rotation_range,
+                                                    rotation_range)
+        else:
+            theta = 0
+        rotation_matrix = np.array([[np.cos(theta), -np.sin(theta), 0],
+                                    [np.sin(theta), np.cos(theta), 0],
+                                    [0, 0, 1]])
+        # --> Shift/Translation
+        if height_shift_range:
+            tx = (np.random.uniform(-height_shift_range, height_shift_range) *
+                  x.shape[rows_idx])
+        else:
+            tx = 0
+        if width_shift_range:
+            ty = (np.random.uniform(-width_shift_range, width_shift_range) *
+                  x.shape[cols_idx])
+        else:
+            ty = 0
+        translation_matrix = np.array([[1, 0, tx],
+                                       [0, 1, ty],
+                                       [0, 0, 1]])
+        # --> Shear
+        if shear_range:
+            shear = np.random.uniform(-shear_range, shear_range)
+        else:
+            shear = 0
+        shear_matrix = np.array([[1, -np.sin(shear), 0],
+                                 [0, np.cos(shear), 0],
+                                 [0, 0, 1]])
+        # --> Zoom
+        if zoom_range[0] == 1 and zoom_range[1] == 1:
+            zx, zy = 1, 1
+        else:
+            zx, zy = np.random.uniform(zoom_range[0], zoom_range[1], 2)
+        zoom_matrix = np.array([[zx, 0, 0],
+                                [0, zy, 0],
+                                [0, 0, 1]])
+        # Use a composition of homographies to generate the final transform
+        # that has to be applied
+        transform_matrix = np.dot(np.dot(np.dot(rotation_matrix,
+                                                translation_matrix),
+                                         shear_matrix), zoom_matrix)
+        h, w = x.shape[rows_idx], x.shape[cols_idx]
+        transform_matrix = transform_matrix_offset_center(transform_matrix,
+                                                          h, w)
+        # Apply all the transformations together
+        x = apply_transform(x, transform_matrix, fill_mode=fill_mode,
+                            cval=cval, order=1)
+        if y is not None and len(y) > 0:
+            y = apply_transform(y, transform_matrix, fill_mode=fill_mode,
+                                cval=cvalMask, order=0)
+
+    # Horizontal flip
+    if np.random.random() < horizontal_flip:  # 0 = disabled
+        x = flip_axis(x, cols_idx)
+        if y is not None and len(y) > 0:
+            y = flip_axis(y, cols_idx)
+
+    # Vertical flip
+    if np.random.random() < vertical_flip:  # 0 = disabled
+        x = flip_axis(x, rows_idx)
+        if y is not None and len(y) > 0:
+            y = flip_axis(y, rows_idx)
+
+    # Spline warp
     if spline_warp:
         warp_field = gen_warp_field(shape=x.shape[-2:],
                                     sigma=warp_sigma,
@@ -353,99 +370,64 @@ def random_transform(x, y=None,
                        interpolator=sitk.sitkLinear,
                        fill_mode=fill_mode,
                        fill_constant=cval)
-        if y is not None:
+        if y is not None and len(y) > 0:
             y = np.round(apply_warp(y, warp_field,
                                     interpolator=sitk.sitkNearestNeighbor,
                                     fill_mode=fill_mode,
                                     fill_constant=cvalMask))
 
-    # # Crop
-    # crop = list(crop_size) if crop_size else None
-    # if crop:
-    #     # print ('X before: ' + str(x.shape))
-    #     # print ('Y before: ' + str(y.shape))
-    #     # print ('Crop_size: ' + str(crop_size))
-    #     h, w = x.shape[img_row_index+1], x.shape[img_col_index+1]
-    #
-    #     if crop[0] < h:
-    #         top = np.random.randint(h - crop[0])
-    #     else:
-    #         print('Data augmentation: Crop height ({}) >= image size ({})'.format(crop[0], h))
-    #         top, crop[0] = 0, h
-    #     if crop[1] < w:
-    #         left = np.random.randint(w - crop[1])
-    #     else:
-    #         print('Data augmentation: Crop width ({}) >= image size ({})'.format(crop[1], w))
-    #         left, crop[1] = 0, w
-    #
-    #     x = x[:, :, top:top+crop[0], left:left+crop[1]]
-    #     if y is not None:
-    #         y = y[:, :, top:top+crop[0], left:left+crop[1]]
-    #
-    #     # print ('X after: ' + str(x.shape))
-    #     # print ('Y after: ' + str(y.shape))
-
     # Crop
-    # TODO: tf compatible???
-    crop = list(crop_size) if crop_size else None
-    if crop:
-        # print ('X before: ' + str(x.shape))
-        # print ('Y before: ' + str(y.shape))
-        # print ('Crop_size: ' + str(crop_size))
-        h, w = x.shape[img_row_index+1], x.shape[img_col_index+1]
+    # Expects axes with shape (..., 0, 1)
+    if crop_size:
+        crop = list(crop_size)
+        pad = [0, 0]
+        h, w = x.shape[rows_idx], x.shape[cols_idx]
 
-        # Padd image if it is smaller than the crop size
-        pad_h1, pad_h2, pad_w1, pad_w2 = 0, 0, 0, 0
-        if h < crop[0]:
-            total_pad = crop[0] - h
-            pad_h1 = total_pad/2
-            pad_h2 = total_pad-pad_h1
-        if w < crop[1]:
-            total_pad = crop[1] - w
-            pad_w1 = total_pad/2
-            pad_w2 = total_pad - pad_w1
-        if h < crop[0] or w < crop[1]:
-            x = np.lib.pad(x, ((0, 0), (0, 0), (pad_h1, pad_h2), (pad_w1, pad_w2)),
-                           'constant')
-            y = np.lib.pad(y, ((0, 0), (0, 0), (pad_h1, pad_h2), (pad_w1, pad_w2)),
-                           'constant', constant_values=void_label)
-            h, w = x.shape[img_row_index+1], x.shape[img_col_index+1]
-            # print ('New size X: ' + str(x.shape))
-            # print ('New size Y: ' + str(y.shape))
-            # print ('ADDING BACKGROUND')
-
+        # Compute amounts
         if crop[0] < h:
+            # Do random crop
             top = np.random.randint(h - crop[0])
         else:
-            #print('Data augmentation: Crop height >= image size')
+            # Set pad and reset crop
+            pad[0] = crop[0] - h
             top, crop[0] = 0, h
         if crop[1] < w:
+            # Do random crop
             left = np.random.randint(w - crop[1])
         else:
-            #print('Data augmentation: Crop width >= image size')
+            # Set pad and reset crop
+            pad[1] = crop[1] - w
             left, crop[1] = 0, w
 
-        # x = x[..., :, top:top+crop[0], left:left+crop[1]]
-        # if y is not None:
-        #     y = y[..., :, top:top+crop[0], left:left+crop[1]]
-        x = x[:, :, top:top+crop[0], left:left+crop[1]]
-        if y is not None:
-            y = y[:, :, top:top+crop[0], left:left+crop[1]]
+        # Cropping
+        x = x[..., top:top+crop[0], left:left+crop[1]]
+        if y is not None and len(y) > 0:
+            y = y[..., top:top+crop[0], left:left+crop[1]]
+        # Padding
+        if pad != [0, 0]:
+            import ipdb; ipdb.set_trace()
+            pad_pattern = ((0, 0),) * (x.ndim - 2) + (
+                (pad[0]//2, pad[0] - pad[0]//2),
+                (pad[1]//2, pad[1] - pad[1]//2))
+            x = np.pad(x, pad_pattern, 'constant')
+            y = np.pad(y, pad_pattern, 'constant', constant_values=void_label)
 
-        # print ('X after: ' + str(x.shape))
-        # print ('Y after: ' + str(y.shape))
+        # Restore the original axes:
+        x = x.transpose(inv_pattern)
+        if y is not None and len(y) > 0:
+            y = y.transpose(inv_pattern)
 
-    # Save data augmentation images for debug
+    # Save augmented images
     if save_to_dir:
-        # print ('X shape: ' + str(x.shape))
-        # print ('Y shape: ' + str(y.shape))
         fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
         print ('Save to dir'.format(fname))
         color_map = sns.hls_palette(nclasses)
         save_img2(x[0], y[0, 0, :, :], os.path.join(save_to_dir, fname),
                   color_map, void_label)
 
-    if y is None:
-        return x
-    else:
-        return x, y
+    x = x.reshape(x_shape)  # unsquash
+    x = x.transpose(inv_pattern)
+    if y is not None and len(y) > 0:
+        y = y.reshape(y_shape)  # unsquash
+        y = y.transpose(inv_pattern)
+    return x, y

@@ -172,6 +172,19 @@ class ThreadedDataset(object):
         self.data_augm_kwargs = default_data_augm_kwargs
         del(default_data_augm_kwargs, data_augm_kwargs)
 
+        # Put crop_size into canonical form [c1, 2]
+        cs = self.data_augm_kwargs['crop_size']
+        if cs is not None:
+            # Convert to list
+            if isinstance(cs, int):
+                cs = [cs, cs]
+            elif isinstance(cs, tuple):
+                cs = list(cs)
+            # set 0, 0 to None
+            if cs == [0, 0]:
+                cs = None
+            self.data_augm_kwargs['crop_size'] = cs
+
         # Do not support multithread without shuffling
         if use_threads and nthreads > 1 and not shuffle_at_each_epoch:
             raise NotImplementedError('Multiple threads are not order '
@@ -220,9 +233,6 @@ class ThreadedDataset(object):
         self.return_sequence = seq_length != 0
         self.seq_length = seq_length if seq_length else 1
         self.overlap = overlap if overlap is not None else self.seq_length - 1
-        if (self.data_augm_kwargs['crop_size'] and
-            tuple(self.data_augm_kwargs['crop_size']) == (0, 0)):
-            self.data_augm_kwargs['crop_size'] = None
         self.batch_size = batch_size
         self.queues_size = queues_size
         self.get_one_hot = get_one_hot
@@ -240,7 +250,6 @@ class ThreadedDataset(object):
         self.wait_time = wait_time
 
         self.has_GT = getattr(self, 'has_GT', True)
-
 
         # ...01c
         data_shape = list(getattr(self.__class__, 'data_shape',
@@ -487,34 +496,31 @@ class ThreadedDataset(object):
             if self.divide_by_per_img_std:
                 seq_x /= seq_x.std(axis=tuple(range(seq_x.ndim - 1)),
                                    keepdims=True)
-
             # Dataset statistics normalization
             if self.remove_mean:
                 seq_x -= getattr(self, 'mean', 0)
             if self.divide_by_std:
                 seq_x /= getattr(self, 'std', 1)
 
+            # Make sure data is in 4D
             if seq_x.ndim == 3:
                 seq_x = seq_x[np.newaxis, ...]
-                seq_y = seq_y[np.newaxis, ...]
                 raw_data = raw_data[np.newaxis, ...]
             assert seq_x.ndim == 4
+            # and labels in 3D
+            if self.has_GT:
+                if seq_y.ndim == 2:
+                    seq_y = seq_y[np.newaxis, ...]
+                assert seq_y.ndim == 3
 
-            # Perform data augmentation, if any
-            # change order to (s, c, 0, 1)
-            # add extra dimension to y to work with data augm
-            x_tmp = seq_x.transpose(0, 3, 1, 2)
-            y_tmp = np.expand_dims(seq_y, axis=1).astype('float32')
-            # apply random transform
+            # Perform data augmentation, if needed
+            seq_y = seq_y[..., None]  # Add extra dim to simplify computation
             seq_x, seq_y = random_transform(
-                x_tmp, y_tmp,
+                seq_x, seq_y,
                 nclasses=self.nclasses,
                 void_label=self.void_labels,
                 **self.data_augm_kwargs)
-
-            # go back to (s, 0, 1, c) for x and (s, 0, 1) for y
-            seq_x = seq_x.transpose(0, 2, 3, 1)
-            seq_y = seq_y[:, 0, :, :].astype('int32')
+            seq_y = seq_y[..., 0]#.astype('int32')  # Undo extra dim
 
             if self.has_GT and self._void_labels != []:
                 # Map all void classes to non_void_nclasses and shift the other
