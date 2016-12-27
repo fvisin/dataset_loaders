@@ -1,9 +1,10 @@
-# Imports
 import os
+import time
+
 import numpy as np
 from PIL import Image
-from getpass import getuser
-import time
+
+import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 floatX = 'float32'
 
@@ -26,20 +27,15 @@ def load_class_names(file_name):
     return mask_labels
 
 
-class sceneParsingMIT(ThreadedDataset):
-
-    # Set basic info from the dataset
+class sceneParsingMITDataset(ThreadedDataset):
     name = 'scene_parsing_MIT'
-    nclasses = 150
+    non_void_nclasses = 150
     debug_shape = (375, 500, 3)
-    data_shape = (None, None, 3)
-    mean = np.asarray([0., 0., 0.]).astype('float32')
-    std = 1.
+
     _void_labels = [-1]   # TODO: Check
-    GTclasses = range(nclasses) + _void_labels
+    GTclasses = range(non_void_nclasses) + _void_labels
+
     _filenames = None
-    _cmap = {}
-    _mask_labels = {}
 
     @property
     def filenames(self):
@@ -58,7 +54,6 @@ class sceneParsingMIT(ThreadedDataset):
             for file_name in file_names:
                 path, file_name = os.path.split(file_name)
                 file_name, ext = os.path.splitext(file_name)
-                raw_name = file_name.strip()
                 filenames.append(file_name)
                 # print (file_name)
 
@@ -66,116 +61,77 @@ class sceneParsingMIT(ThreadedDataset):
             self._filenames = filenames
         return self._filenames
 
-    def __init__(self,
-                 which_set="train",
-                 with_filenames=False,
-                 *args, **kwargs):
+    def __init__(self, which_set="train", *args, **kwargs):
 
         # Get dataset path
-        usr = getuser()
-        self.path = '/Tmp/'+usr+'/datasets/SceneParsingMIT/'
+        self.path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'SceneParsingMIT')
         self.sharedpath = '/data/lisa/exp/vazquezd/datasets/SceneParsingMIT/'
 
-        # Put the which_set in the cannonical form ("training", "validation", "testing")
-        self.which_set = which_set
-        self.which_set = "training" if self.which_set in ("train", "training") else self.which_set
-        self.which_set = "validation" if self.which_set in ("val", "valid", "validation") else self.which_set
-        self.which_set = "testing" if self.which_set in ("test", "testing") else self.which_set
-        if self.which_set not in ("training", "validation", "testing"):
-            raise ValueError("Unknown argument to which_set %s" %
-                             self.which_set)
-        if self.which_set == 'testing':
+        # Put which_set in canonical form:training, validation, testing
+        if which_set in ("train", "training"):
+            self.which_set = "training"
+        elif which_set in ("val", "valid", "validation"):
+            self.which_set = "validation"
+        elif which_set in ("test", "testing"):
+            self.which_set = "testing"
             self.has_GT = False
+        else:
+            raise ValueError("Unknown set requested: %s" % which_set)
 
         # Define the txt, images and mask paths
         self.txt_path = os.path.join(self.path, "objectInfo150.txt")
         self.image_path = os.path.join(self.path, "images", self.which_set)
         self.mask_path = os.path.join(self.path, "annotations", self.which_set)
 
-        # Other stuff
-        self.with_filenames = with_filenames
-
         # Load info from the classes
-        _mask_labels = load_class_names(self.txt_path)
-
-        super(sceneParsingMIT, self).__init__(*args, **kwargs)
-
-    def get_names(self):
-
-        # # Load info from the classes
         # _mask_labels = load_class_names(self.txt_path)
 
-        # Limit to the number of videos we want
-        sequences = []
-        seq_length = self.seq_length
-        seq_per_video = self.seq_per_video
-        image_names = self.filenames
-        video_length = len(image_names)
-        max_num_sequences = video_length - seq_length + 1
-        if (not self.seq_length or not self.seq_per_video or
-                self.seq_length >= video_length):
-            # Use all possible frames
-            sequences = image_names[:max_num_sequences:
-                                    self.seq_length - self.overlap]
-        else:
-            if max_num_sequences < seq_per_video:
-                # If there are not enough frames, cap seq_per_video to
-                # the number of available frames
-                print("/!\ Warning : you asked {} sequences of {} "
-                      "frames each but the dataset only has {} "
-                      "frames".format(seq_per_video, seq_length,
-                                      video_length))
-                seq_per_video = max_num_sequences
+        super(sceneParsingMITDataset, self).__init__(*args, **kwargs)
 
-            if self.overlap != self.seq_length - 1:
-                raise('Overlap other than seq_length - 1 is not '
-                      'implemented')
-            # pick `seq_per_video` random indexes between 0 and
-            # (video length - sequence length)
-            first_frame_indexes = self.rng.permutation(range(
-                max_num_sequences))[0:seq_per_video]
+    def get_names(self):
+        """Return a dict of names, per prefix/subset."""
+        return {'default': self.filenames}
 
-            for i in first_frame_indexes:
-                sequences.append(image_names[i])
+    def load_sequence(self, sequence):
+        """Load a sequence of images/frames
 
-        # Return images
-        return np.array(sequences)
-
-    def load_sequence(self, img_name):
+        Auxiliary function that loads a sequence of frames with
+        the corresponding ground truth and their filenames.
+        Returns a dict with the images in [0, 1], their corresponding
+        labels, their subset (i.e. category, clip, prefix) and their
+        filenames.
+        """
         from skimage import io
         image_batch = []
         mask_batch = []
         filename_batch = []
 
-        if self.seq_length != 1:
-            raise NotImplementedError()
+        for prefix, img_name in sequence:
 
-        # Load image
-        img = io.imread(os.path.join(self.image_path, img_name +
-                                     ".jpg"))
-        img = img.astype(floatX) / 255.
+            # Load image
+            img = io.imread(os.path.join(self.image_path, img_name + ".jpg"))
+            img = img.astype(floatX) / 255.
 
-        # Load mask
-        if self.which_set != "test":
-            mask = np.array(Image.open(
-                os.path.join(self.mask_path, img_name + ".png")))
-            mask = mask.astype('int32')
+            # Load mask
+            if self.has_GT:
+                mask = np.array(Image.open(
+                    os.path.join(self.mask_path, img_name + ".png")))
+                mask = mask.astype('int32')
+            else:
+                mask = []
 
-        # Add to minibatch
-        image_batch.append(img)
-        if self.which_set != "test":
+            # Add to minibatch
+            image_batch.append(img)
             mask_batch.append(mask)
-        if self.with_filenames:
             filename_batch.append(img_name)
 
-        image_batch = np.array(image_batch)
-        mask_batch = np.array(mask_batch)
-        filename_batch = np.array(filename_batch)
-
-        if self.with_filenames:
-            return image_batch, mask_batch, filename_batch
-        else:
-            return image_batch, mask_batch
+        ret = {}
+        ret['data'] = np.array(image_batch)
+        ret['labels'] = np.array(mask_batch)
+        ret['subset'] = prefix
+        ret['filenames'] = np.array(filename_batch)
+        return ret
 
 
 def test():

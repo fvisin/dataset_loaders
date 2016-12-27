@@ -19,7 +19,6 @@ class VOCdataset(ThreadedDataset):
     data_shape = (None, None, 3)
     mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
         'float32')
-    std = 1.
     GTclasses = range(21) + [255]
     _void_labels = [255]
 
@@ -110,8 +109,8 @@ class VOCdataset(ThreadedDataset):
             dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC',
             'VOCdevkit')
         self.sharedpath = '/data/lisa/data/PASCAL-VOC/VOCdevkit'
-        self.path_extra = (dataset_loaders.__path__[0], 'datasets',
-                           'PASCAL-VOC_Extra')
+        self.path_extra = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC_Extra')
         self.sharedpath_extra = ('/data/lisa/exp/vazquezd/datasets/'
                                  'PASCAL_Extension/dataset/dataset10253/')
 
