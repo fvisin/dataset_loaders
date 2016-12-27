@@ -179,7 +179,7 @@ class sceneParsingMIT(ThreadedDataset):
 
 
 def test():
-    trainiter = sceneParsingMIT(
+    trainiter = sceneParsingMITDataset(
         which_set='train',
         batch_size=100,
         seq_per_video=0,
@@ -188,9 +188,10 @@ def test():
             'crop_size': (224, 224)},
         get_one_hot=True,
         get_01c=True,
-        use_threads=True)
+        return_list=True,
+        use_threads=False)
 
-    validiter = sceneParsingMIT(
+    validiter = sceneParsingMITDataset(
         which_set='valid',
         batch_size=5,
         seq_per_video=0,
@@ -199,9 +200,10 @@ def test():
             'crop_size': (224, 224)},
         get_one_hot=True,
         get_01c=True,
+        return_list=True,
         use_threads=False)
 
-    testiter = sceneParsingMIT(
+    testiter = sceneParsingMITDataset(
         which_set='test',
         batch_size=5,
         seq_per_video=0,
@@ -210,6 +212,7 @@ def test():
             'crop_size': (224, 224)},
         get_one_hot=True,
         get_01c=True,
+        return_list=True,
         use_threads=False)
 
     # Get number of classes
@@ -244,9 +247,9 @@ def test():
         for mb in range(train_nbatches):
             mb_start = time.time()
             trainiter.next()
-            print("Minibatch {}: {:.3f} seg".format(mb, time.time() -
+            print("Minibatch {}: {:.3f} sec".format(mb, time.time() -
                                                     mb_start))
-        print("End epoch {}: {:.3f} seg".format(epoch, time.time() -
+        print("End epoch {}: {:.3f} sec".format(epoch, time.time() -
                                                 epoch_start))
 
 

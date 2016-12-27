@@ -209,6 +209,7 @@ def test():
     tot = 0
     max_epochs = 2
 
+    print('Total number of batches: %d' % nbatches)
     for epoch in range(max_epochs):
         for mb in range(nbatches):
             train_group = trainiter.next()
@@ -223,9 +224,9 @@ def test():
             assert train_group[1].shape[0] <= train_batch_size
             assert train_group[1].shape[1:] == (72, 59, nclasses)
             # time.sleep approximates running some model
-            time.sleep(1)
+            time.sleep(0.1)
             stop = time.time()
-            part = stop - start - 1
+            part = stop - start - 0.1
             start = stop
             tot += part
             print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))

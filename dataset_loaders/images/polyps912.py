@@ -119,7 +119,7 @@ def test():
         seq_per_video=0,
         seq_length=0,
         data_augm_kwargs={
-            'crop_size': (224, 224)},
+            'crop_size': (288, 384)},
         get_one_hot=True,
         get_01c=True,
         return_list=True,
@@ -183,14 +183,14 @@ def test():
                 raise RuntimeError('One batch was missing')
 
             # train_group checks
-            assert train_group[0].ndim == 5
+            assert train_group[0].ndim == 4
             assert train_group[0].shape[0] <= train_batch_size
-            assert train_group[0].shape[1:] == (10, 224, 224, 3)
+            assert train_group[0].shape[1:] == (288, 384, 3)
             assert train_group[0].min() >= 0
             assert train_group[0].max() <= 1
-            assert train_group[1].ndim == 5
+            assert train_group[1].ndim == 4
             assert train_group[1].shape[0] <= train_batch_size
-            assert train_group[1].shape[1:] == (10, 224, 224, nclasses)
+            assert train_group[1].shape[1:] == (288, 384, nclasses)
 
             # time.sleep approximates running some model
             time.sleep(1)

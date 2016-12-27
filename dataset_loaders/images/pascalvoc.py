@@ -258,7 +258,7 @@ def test2():
         get_one_hot=True,
         get_01c=True,
         return_list=True,
-        use_threads=True)
+        use_threads=False)
 
     trainiter_extra = VOCdataset(
         which_set='train_extra',
@@ -270,7 +270,7 @@ def test2():
         get_one_hot=True,
         get_01c=True,
         return_list=True,
-        use_threads=True)
+        use_threads=False)
 
     validiter = VOCdataset(
         which_set='valid',
@@ -314,11 +314,10 @@ def test2():
         start_epoch = time.time()
         for mb in range(nbatches):
             start_batch = time.time()
-            train_group = trainiter_extra.next()
+            trainiter_extra.next()
 
-            # time.sleep approximates running some model
-            # time.sleep(0.1)
-            print("Minibatch {}: {} seg".format(mb, (time.time() - start_batch)))
+            print("Minibatch {}: {} seg".format(mb, (time.time() -
+                                                     start_batch)))
         print("Epoch time: %s" % str(time.time() - start_epoch))
     print("Training time: %s" % str(time.time() - start_training))
 

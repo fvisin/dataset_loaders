@@ -254,7 +254,6 @@ if __name__ == '__main__':
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
-        return_list=True,
         split=.75)
     valid = ChangeDetectionDataset(
         which_set='valid',
@@ -263,7 +262,6 @@ if __name__ == '__main__':
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
-        return_list=True,
         split=.75)
     test = ChangeDetectionDataset(
         which_set='test',
@@ -272,39 +270,41 @@ if __name__ == '__main__':
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
-        return_list=True,
         split=.75)
+    data = {'train': train, 'valid': valid, 'test': test}
+
     train_nsamples = train.nsamples
     valid_nsamples = valid.nsamples
     test_nsamples = test.nsamples
-    data = {'train': train, 'valid': valid, 'test': test}
-
     print("#samples: train %d, valid %d, test %d" % (train_nsamples,
                                                      valid_nsamples,
                                                      test_nsamples))
 
     start = time.time()
     for split in ['train', 'valid', 'test']:
-        for i, el in enumerate(data[split]):
-            if el[0].min() < 0:
+        nbatches = data[split].nbatches
+        for i, mb in enumerate(range(nbatches)):
+            el = data[split].next()
+            if el['data'].min() < 0:
                 raise Exception('Image {} of {} is smaller than 0'.format(
-                    el[2], split, el[0].min()))
-            if el[0].max() > 1:
+                    el['filenames'], split, el['data'].min()))
+            if el['data'].max() > 1:
                 raise Exception('Image {} of {} is greater than 1'.format(
-                    el[2], split, el[0].max()))
-            if split is not 'test' and el[1].max() > 4:
+                    el['filenames'], split, el['data'].max()))
+            if split is not 'test' and el['labels'].max() > 4:
                 raise Exception('Mask {} of {} is greater than 4: {}'.format(
-                    el[2], split, el[1].max()))
-            if split is not 'test' and np.unique(el[1]).tolist() == [4]:
+                    el['filenames'], split, el['labels'].max()))
+            if split is not 'test' and np.unique(el['labels']).tolist() == [4]:
                 # check if the images is actually all void
-                filename = el[2][0, 0, 0]
+                filename = el['filenames'][0, 0, 0]
                 f = filename[-10:-3]
                 mask_f = filename[:-18] + 'groundtruth/gt' + f + 'png'
                 un = np.unique(Image.open(mask_f))
                 if un.tolist() != [85]:  # discard test
                     raise Exception('Image {} of {} is not test and is all '
                                     'void:{}. It should be {}'.format(
-                                        el[2], split, np.unique(el[1]), un))
+                                        el['filenames'], split,
+                                        np.unique(el['labels']), un))
                 # else:
                 #     print('Image {} of {} is not test and is all void. '
                 #           'Weird, but not an issue of the wrapper')

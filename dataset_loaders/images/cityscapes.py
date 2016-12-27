@@ -228,6 +228,54 @@ class CityscapesDataset(ThreadedDataset):
         return ret
 
 
+def test1():
+    d = CityscapesDataset(
+        which_set='train',
+        batch_size=5,
+        seq_per_video=4,
+        seq_length=0,
+        data_augm_kwargs={
+            'crop_size': (224, 224)})
+    start = time.time()
+    n_minibatches_to_run = 1000
+    tot = 0
+
+    for mb in range(n_minibatches_to_run):
+        image_group = d.next()
+        if image_group is None:
+            raise NotImplementedError()
+
+        # time.sleep approximates running some model
+        time.sleep(1)
+        stop = time.time()
+        part = stop - start - 1
+        start = stop
+        tot += part
+        print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
+    print("TEST 1 PASSED!!\n\n")
+
+
+def test2():
+    d = CityscapesDataset(
+        which_set='train',
+        batch_size=5,
+        seq_per_video=0,
+        seq_length=10,
+        overlap=9,
+        get_one_hot=True,
+        data_augm_kwargs={
+            'crop_size': (224, 224)})
+
+    for i, _ in enumerate(range(d.nbatches)):
+        image_group = d.next()
+        if image_group is None:
+            raise RuntimeError()
+        sh = image_group[0].shape
+        assert(sh[0] > 5)
+        assert(sh[1] == 10)
+    print("TEST 2 PASSED!! \n\n")
+
+
 def test3():
     trainiter = CityscapesDataset(
         which_set='val',
@@ -281,52 +329,6 @@ def test3():
             print("Minibatch %s" % str(mb))
         print('ended epoch --> should reset!')
         time.sleep(2)
-
-
-def test1():
-    d = CityscapesDataset(
-        which_set='train',
-        batch_size=5,
-        seq_per_video=4,
-        seq_length=0,
-        data_augm_kwargs={
-            'crop_size': (224, 224)})
-    start = time.time()
-    n_minibatches_to_run = 1000
-    tot = 0
-
-    for mb in range(n_minibatches_to_run):
-        image_group = d.next()
-        if image_group is None:
-            raise NotImplementedError()
-
-        # time.sleep approximates running some model
-        time.sleep(1)
-        stop = time.time()
-        part = stop - start - 1
-        start = stop
-        tot += part
-        print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
-
-
-def test2():
-    d = CityscapesDataset(
-        which_set='train',
-        batch_size=5,
-        seq_per_video=0,
-        seq_length=10,
-        overlap=10,
-        get_one_hot=True,
-        data_augm_kwargs={
-            'crop_size': (224, 224)})
-    for i, _ in enumerate(range(d.epoch_length)):
-        image_group = d.next()
-        if image_group is None:
-            raise NotImplementedError()
-        sh = image_group[0].shape
-        print(image_group[2])
-        if sh[1] != 2:
-            raise RuntimeError()
 
 
 if __name__ == '__main__':
