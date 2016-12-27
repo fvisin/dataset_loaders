@@ -54,34 +54,28 @@ class VOCdataset(ThreadedDataset):
                     19: 'train', 20: 'tv_monitor', 255: 'void'}
 
     _filenames = None
-    _prefix_list = None
-
-    @property
-    def prefix_list(self):
-        if self._prefix_list is None:
-            prefix_list = np.array([el.split('_')[0] for el in self.filenames])
-            self._prefix_list = np.unique(prefix_list)
-        return self._prefix_list
 
     @property
     def filenames(self):
         # Get file names from txt file
         def get_file_names(file_name_txt, is_extra):
             is_extra = "_" if is_extra else ""
-            filenames = []
+            filenames = {}
             with open(file_name_txt) as f:
                 for fi in f.readlines():
                     raw_name = fi.strip()
-                    filenames.append(is_extra + raw_name)
+                    prefix = raw_name.split('_')[0]
+                    filenames.setdefault(prefix, []).append(is_extra +
+                                                            raw_name)
             return filenames
 
         if self._filenames is None:
             # Load filenames
-            filenames = []
             if self.which_set == 'train_extra':
                 filenames = get_file_names(self.txt_path_extra, True)
                 file_txt = os.path.join(self.txt_path, "train.txt")
-                filenames = filenames + get_file_names(file_txt, False)
+                for k, v in get_file_names(file_txt, False).iteritems():
+                    filenames.setdefault(k, []).extend(v)
             else:
                 file_txt = os.path.join(self.txt_path, self.which_set + ".txt")
                 filenames = get_file_names(file_txt, False)
@@ -137,16 +131,7 @@ class VOCdataset(ThreadedDataset):
 
     def get_names(self):
         """Return a dict of names, per prefix/subset."""
-        per_subset_names = {}
-        # Populate self.filenames and self.prefix_list
-        filenames = self.filenames
-        prefix_list = self.prefix_list
-
-        # cycle through the different videos
-        for prefix in prefix_list:
-            per_subset_names[prefix] = [el for el in filenames if
-                                        el.startswith(prefix)]
-        return per_subset_names
+        return self.filenames
 
     def load_sequence(self, sequence):
         """Load a sequence of images/frames
@@ -219,7 +204,7 @@ def test():
 
     start = time.time()
     tot = 0
-    max_epochs = 5
+    max_epochs = 2
 
     for epoch in range(max_epochs):
         for mb in range(nbatches):
@@ -315,8 +300,7 @@ def test2():
             start_batch = time.time()
             trainiter_extra.next()
 
-            print("Minibatch {}: {} seg".format(mb, (time.time() -
-                                                     start_batch)))
+            print("Minibatch {}: {}".format(mb, (time.time() - start_batch)))
         print("Epoch time: %s" % str(time.time() - start_epoch))
     print("Training time: %s" % str(time.time() - start_training))
 
