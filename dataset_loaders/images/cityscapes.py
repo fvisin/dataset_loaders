@@ -9,23 +9,32 @@ from dataset_loaders.utils_parallel_loader import natural_keys
 
 floatX = 'float32'
 
-"""
-To prepare the dataset with the correct class mapping we use the scritps
-provided by the authors https://github.com/mcordts/cityscapesScripts
+""" The cityscapes dataset [1]_
 
-NOTE: if we want to change the class mapping we can modify
-cityscapesscripts/helpers/labels.py
-and run the script cityscapesscripts/preparation/createTrainIdLabelImgs.py
-in order to generate the new ground truth images.
-Then we need to modify the dictionaries "_cmap" and "_mask_labels"
-in the definition of CityscapesDataset.
+To prepare the dataset with the correct class mapping, use the scripts
+provided by the authors: [2]_
 
-id = -1  means that we do not consider the class when we create the gt
-id = 255 means that the class is considered as void/unlabeled
+Notes
+-----
+To change the class mapping it suffices to edit
+`cityscapesscripts/helpers/labels.py`:
+    * id = -1  ignores the class when building the GT
+    * id = 255 considers the class as void/unlabeled when building the GT
+and run the script
+`cityscapesscripts/preparation/createTrainIdLabelImgs.py`
+in order to generate the new ground truth images. The `_cmap`,
+`_mask_labels`, `GTclasses`, `_void_labels` and `non_void_nclasses`
+attributes of the dataset class must be modified accordingly.
 
-TODO: before to submit the results to the evaluation server we need to
-remap the training ID classes to the original class mapping from 0 to 33.
+Notes
+-----
+To submit the results to the evaluation server the classes have to be
+remapped to the original 0 to 33 range.
 
+References
+----------
+.. [1] https://www.cityscapes-dataset.com
+.. [2] https://github.com/mcordts/cityscapesScripts
 """
 
 
@@ -149,36 +158,24 @@ class CityscapesDataset(ThreadedDataset):
     def __init__(self, which_set='train', *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
+
         self.path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'cityscapes')
+        self.sharedpath = '/data/lisatmp4/visin/_datasets/cityscapes/'
 
-        self.sharedpath = '/data/lisa/exp/vazquezd/datasets/Cityscapes/'
-
-        if self.which_set == "train":
-            self.image_path = os.path.join(self.path,
-                                           "leftImg8bit",
-                                           "train")
-            self.mask_path = os.path.join(self.path,
-                                          "gtFine",
-                                          "train")
-        elif self.which_set == "val":
-            self.image_path = os.path.join(self.path,
-                                           "leftImg8bit",
-                                           "val")
-            self.mask_path = os.path.join(self.path,
-                                          "gtFine",
-                                          "val")
-        elif self.which_set == "test":
-            self.image_path = os.path.join(self.path,
-                                           "leftImg8bit",
-                                           "test")
-            self.mask_path = os.path.join(self.path,
-                                          "gtFine",
-                                          "test")
+        if self.which_set not in ['train', 'val', 'test']:
+            raise NotImplementedError('Unknown set: ' + which_set)
+        if self.which_set == 'test':
             self.has_GT = False
 
-        # constructing the ThreadedDataset
-        # it also creates/copies the dataset in self.path if not already there
+        self.image_path = os.path.join(self.path,
+                                       "leftImg8bit",
+                                       self.which_set)
+        self.mask_path = os.path.join(self.path,
+                                      "gtFine",
+                                      self.which_set)
+
+        # This also creates/copies the dataset in self.path if missing
         super(CityscapesDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
@@ -263,16 +260,27 @@ def test2():
         seq_length=10,
         overlap=9,
         get_one_hot=True,
+        return_list=True,
         data_augm_kwargs={
-            'crop_size': (224, 224)})
+            'crop_size': (224, 224)},
+        use_threads=True)
 
+    start = time.time()
+    tot = 0
     for i, _ in enumerate(range(d.nbatches)):
         image_group = d.next()
         if image_group is None:
             raise RuntimeError()
         sh = image_group[0].shape
-        assert(sh[0] > 5)
+        assert(sh[0] <= 5)
         assert(sh[1] == 10)
+        # time.sleep approximates running some model
+        time.sleep(1)
+        stop = time.time()
+        part = stop - start - 1
+        start = stop
+        tot += part
+        print("Minibatch %i/%i time: %s (%s)" % (i, d.nbatches, part, tot))
     print("TEST 2 PASSED!! \n\n")
 
 
@@ -287,6 +295,7 @@ def test3():
         get_one_hot=False,
         get_01c=True,
         use_threads=True,
+        return_list=True,
         nthreads=8)
     train_nsamples = trainiter.nsamples
     nclasses = trainiter.nclasses
@@ -326,8 +335,8 @@ def test3():
             stop = time.time()
             tot = stop - start
             print("Threaded time: %s" % (tot))
-            print("Minibatch %s" % str(mb))
-        print('ended epoch --> should reset!')
+            print("Epoch %i, minibatch %i/%i" % (epoch, mb, nbatches))
+        print('End of epoch --> should reset!')
         time.sleep(2)
 
 
