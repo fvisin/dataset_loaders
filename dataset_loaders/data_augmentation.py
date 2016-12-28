@@ -251,18 +251,19 @@ def random_transform(x, y=None,
                      nclasses=None,
                      gamma=0.,
                      gain=1.,
-                     chan_idx=1,  # No batch yet: (s, 0, 1, c)
-                     rows_idx=2,  # No batch yet: (s, 0, 1, c)
-                     cols_idx=3,  # No batch yet: (s, 0, 1, c)
+                     chan_idx=3,  # No batch yet: (s, 0, 1, c)
+                     rows_idx=1,  # No batch yet: (s, 0, 1, c)
+                     cols_idx=2,  # No batch yet: (s, 0, 1, c)
                      void_label=None):
 
     # Set this to a dir, if you want to save augmented images samples
     save_to_dir = None
 
+    # listify zoom range
     if np.isscalar(zoom_range):
         zoom_range = [1 - zoom_range, 1 + zoom_range]
     elif len(zoom_range) == 2:
-        zoom_range = [zoom_range[0], zoom_range[1]]
+        zoom_range = list(zoom_range)
     else:
         raise Exception('zoom_range should be a float or '
                         'a tuple or list of two floats. '
@@ -277,19 +278,19 @@ def random_transform(x, y=None,
     pattern += [rows_idx, cols_idx]
     inv_pattern = [pattern.index(el) for el in range(x.ndim)]
     x = x.transpose(pattern)
-    x_shape = x.shape
-    x = x.reshape((-1,) + x_shape[-2:])  # squash everything on channels
+    x_shape = list(x.shape)
+    x = x.reshape([-1] + x_shape[-2:])  # squash everything on channels
     if y is not None and len(y) > 0:
         y = y.transpose(pattern)
-        y_shape = y.shape
-        y = y.reshape((-1,) + y_shape[-2:])  # squash everything on channels
+        y_shape = list(y.shape)
+        y = y.reshape([-1] + y_shape[-2:])  # squash everything on channels
     chan_idx = None
     rows_idx = 1
     cols_idx = 2
 
     # Gamma correction
     if (gamma > 0 or rotation_range or height_shift_range or
-            width_shift_range or shear_range or list(zoom_range) == [1, 1]):
+            width_shift_range or shear_range or zoom_range != [1, 1]):
         if gamma > 0:
             scale = float(1)
             x = ((x / scale) ** gamma) * scale * gain
@@ -327,7 +328,7 @@ def random_transform(x, y=None,
                                  [0, np.cos(shear), 0],
                                  [0, 0, 1]])
         # --> Zoom
-        if zoom_range[0] == 1 and zoom_range[1] == 1:
+        if zoom_range == [1, 1]:
             zx, zy = 1, 1
         else:
             zx, zy = np.random.uniform(zoom_range[0], zoom_range[1], 2)
@@ -405,17 +406,11 @@ def random_transform(x, y=None,
             y = y[..., top:top+crop[0], left:left+crop[1]]
         # Padding
         if pad != [0, 0]:
-            import ipdb; ipdb.set_trace()
             pad_pattern = ((0, 0),) * (x.ndim - 2) + (
                 (pad[0]//2, pad[0] - pad[0]//2),
                 (pad[1]//2, pad[1] - pad[1]//2))
             x = np.pad(x, pad_pattern, 'constant')
             y = np.pad(y, pad_pattern, 'constant', constant_values=void_label)
-
-        # Restore the original axes:
-        x = x.transpose(inv_pattern)
-        if y is not None and len(y) > 0:
-            y = y.transpose(inv_pattern)
 
     # Save augmented images
     if save_to_dir:
@@ -425,9 +420,13 @@ def random_transform(x, y=None,
         save_img2(x[0], y[0, 0, :, :], os.path.join(save_to_dir, fname),
                   color_map, void_label)
 
+    x_shape[-2] = x.shape[rows_idx]
+    x_shape[-1] = x.shape[cols_idx]
     x = x.reshape(x_shape)  # unsquash
     x = x.transpose(inv_pattern)
     if y is not None and len(y) > 0:
+        y_shape[-2] = y.shape[rows_idx]
+        y_shape[-1] = y.shape[cols_idx]
         y = y.reshape(y_shape)  # unsquash
         y = y.transpose(inv_pattern)
     return x, y
