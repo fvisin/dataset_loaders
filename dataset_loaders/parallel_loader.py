@@ -4,6 +4,7 @@ except ImportError:
     import queue as Queue
 import os
 import shutil
+import sys
 from threading import Thread
 from time import sleep
 
@@ -13,39 +14,6 @@ from dataset_loaders.data_augmentation import random_transform
 
 import dataset_loaders
 from utils_parallel_loader import classproperty, grouper, overlap_grouper
-
-
-def threaded_fetch(names_queue, out_queue, sentinel, fetch_from_dataset):
-    """
-    Fill the out_queue.
-
-    Whenever there are names in the names queue, it will read them,
-    fetch the corresponding data and fill the out_queue.
-    """
-    while True:
-        try:
-            # Grabs names from queue
-            batch_to_load = names_queue.get()
-
-            if batch_to_load is sentinel:
-                names_queue.task_done()
-                break
-
-            # Load the data
-            minibatch_data = fetch_from_dataset(batch_to_load)
-
-            # Place it in out_queue
-            out_queue.put(minibatch_data)
-
-            # Signal to the names queue that the job is done
-            names_queue.task_done()
-        except IOError as e:
-            print("Image in image_group corrupted!")
-            print "I/O error({0}): {1}".format(e.errno, e.strerror)
-        except:
-            # If any uncaught exception, die
-            raise
-            break
 
 
 class ThreadedDataset(object):
@@ -262,35 +230,65 @@ class ThreadedDataset(object):
             self.data_shape = [data_shape[i] for i in
                                [2] + range(2) + range(3, len(data_shape))]
 
-        # Set accessory variables
-        self.sentinel = object()  # guaranteed unique reference
-        self.data_fetchers = []
-
-        # Initialize the queues
-        if self.use_threads:
-            self.names_queue = Queue.Queue(maxsize=self.queues_size)
-            self.out_queue = Queue.Queue(maxsize=self.queues_size)
-
         # Load a dict of names, per video/subset/prefix/...
-        self.names_per_video = self.get_names()
+        self.names_per_subset = self.get_names()
 
-        # Fill the sequences list and initialize everything
-        self.reset(self.shuffle_at_each_epoch)
-
-        if len(self.names_all_sequences) == 0:
+        # Fill the sequences/batches lists and initialize everything
+        self._fill_names_sequences()
+        if len(self.names_sequences) == 0:
             raise RuntimeError('The name list cannot be empty')
+        self._fill_names_batches(shuffle_at_each_epoch)
 
-        # Give time to the data fetcher to die, in case of errors
-        sleep(1)
+        if self.use_threads:
+            # Initialize the queues
+            self.names_queue = Queue.Queue(maxsize=self.queues_size)
+            self.data_queue = Queue.Queue(maxsize=self.queues_size)
+            self._init_names_queue()  # Fill the names queue
 
-    def _get_all_sequences(self):
-        names_all_sequences = {}
+            # Start the data fetcher threads
+            self.sentinel = object()  # guaranteed unique reference
+            self.data_fetchers = []
+            for _ in range(self.nthreads):
+                data_fetcher = Thread(
+                    target=threaded_fetch,
+                    args=(self.names_queue, self.data_queue, self.sentinel,
+                          self.fetch_from_dataset))
+                data_fetcher.setDaemon(True)  # Die when main dies
+                data_fetcher.start()
+                self.data_fetchers.append(data_fetcher)
+            # Give time to the data fetcher to die, in case of errors
+            # sleep(1)
+
+    def get_names(self):
+        """ Loads ALL the names, per video.
+
+        Should return a *dictionary*, where each element of the
+        dictionary is a list of filenames. The keys of the dictionary
+        should be the prefixes, i.e., names of the subsets of the
+        dataset. If the dataset has no subset, 'default' can be used as
+        a key.
+        """
+        raise NotImplementedError
+
+    def load_sequence(self, sequence):
+        """ Loads a 4D sequence from the dataset.
+
+        Should return a *dict* with at least these keys:
+            * 'data': the images or frames of the sequence
+            * 'labels': the labels of the sequence
+            * 'subset': the subset/clip/category/.. the sequence belongs to
+            * 'filenames': the filenames of each image/frame of the sequence
+        """
+        raise NotImplementedError
+
+    def _fill_names_sequences(self):
+        names_sequences = {}
 
         # Cycle over prefix/subset/video/category/...
-        for prefix, names in self.names_per_video.items():
+        for prefix, names in self.names_per_subset.items():
             seq_length = self.seq_length
 
-            # Repeat first and last element so that the first and last
+            # Repeat the first and last elements so that the first and last
             # sequences are filled with repeated elements up/from the
             # middle element.
             extended_names = ([names[0]] * (seq_length // 2) + names +
@@ -303,13 +301,18 @@ class ThreadedDataset(object):
             # Sequences of frames with the requested overlap
             sequences = sequences[::self.seq_length - self.overlap]
 
-            names_all_sequences[prefix] = sequences
-        return names_all_sequences
+            names_sequences[prefix] = sequences
+        self.names_sequences = names_sequences
 
-    def _select_desired_sequences(self, shuffle):
-        '''Apply seq_per_video and create batches'''
+    def _fill_names_batches(self, shuffle):
+        '''Create the desired batches of sequences
+
+        * Select the desired sequences according to the parameters
+        * Set self.nsamples, self.nbatches and self.names_batches.
+        * Set self.names_batches, an iterator over the batches of names.
+        '''
         names_sequences = []
-        for prefix, sequences in self.names_all_sequences.items():
+        for prefix, sequences in self.names_sequences.items():
 
             # Pick only a subset of sequences per each video
             if self.seq_per_video:
@@ -332,51 +335,6 @@ class ThreadedDataset(object):
         self.nbatches = len(names_batches)
         self.names_batches = iter(names_batches)
 
-    def reset(self, shuffle, reload_sequences_from_dataset=True):
-
-        if reload_sequences_from_dataset:
-            # Get all the sequences of names from the dataset, with the
-            # desired overlap
-            self.names_all_sequences = self._get_all_sequences()
-
-        # Select the sequences we want, according to the parameters
-        # Sets self.nsamples, self.nbatches and self.names_batches.
-        # Self.names_batches is an iterator over the batches of names.
-        self._select_desired_sequences(shuffle)
-
-        # Reset the queues
-        if self.use_threads:
-            # Empty the queues and kill the threads
-            queues = self.names_queue, self.out_queue
-            for q in queues:
-                with q.mutex:
-                    q.queue.clear()
-                    q.all_tasks_done.notify_all()
-                    q.unfinished_tasks = 0
-            # KILL THEM ALL!
-            for _ in self.data_fetchers:
-                self.names_queue.put(self.sentinel)
-            while any([df.isAlive() for df in self.data_fetchers]):
-                sleep(self.wait_time)
-
-            # Refill the names queue
-            self._init_names_queue()
-
-            # Start the data fetcher threads
-            self.data_fetchers = []
-            for _ in range(self.nthreads):
-                data_fetcher = Thread(
-                    target=threaded_fetch,
-                    args=(self.names_queue, self.out_queue, self.sentinel,
-                          self.fetch_from_dataset))
-                data_fetcher.setDaemon(True)  # Die when main dies
-                data_fetcher.start()
-                self.data_fetchers.append(data_fetcher)
-
-            # # Wait for the out queue to be filled
-            # while self.out_queue.empty():
-            #     sleep(0.1)
-
     def _init_names_queue(self):
         for _ in range(self.queues_size):
             try:
@@ -396,74 +354,68 @@ class ThreadedDataset(object):
         return self._step()
 
     def _step(self):
+        '''Return one batch
+
+        In case of threading, get one batch from the `data_queue`.
+        The infinite loop allows to wait for the fetchers if data is
+        consumed too fast.
+        '''
         done = False
         while not done:
             if self.use_threads:
+                # THREADS
                 # Kill main process if fetcher died
                 if all([not df.isAlive() for df in self.data_fetchers]):
                     import sys
-                    print('All threads died. I am gonna suicide!')
+                    print('All fetchers threads died. I will suicide!')
                     sys.exit(0)
                 try:
                     # Get one minibatch from the out queue
-                    data_batch = self.out_queue.get(False)
-                    self.out_queue.task_done()
+                    data_batch = self.data_queue.get(False)
+                    self.data_queue.task_done()
+                    # Exception handling
+                    if len(data_batch) == 3:
+                        if isinstance(data_batch[1], IOError):
+                            print('WARNING: Image corrupted or missing!')
+                            print(data_batch[1])
+                            continue  # fetch the next element
+                        elif isinstance(data_batch[1], Exception):
+                            raise data_batch[0], data_batch[1], data_batch[2]
                     done = True
-                    # Refill the names queue, if any left
+                    # Refill the names queue, if we still have batches
                     try:
                         name_batch = self.names_batches.next()
                         self.names_queue.put(name_batch)
                     except StopIteration:
                         pass
-                # out_queue is empty: epoch is done
+                # The data_queue is empty: the epoch is over or we
+                # consumed the data too fast
                 except Queue.Empty:
-                    if self.names_queue.unfinished_tasks:
-                        sleep(self.wait_time)
-                    else:
-                        # No more minibatches in the out queue
-                        self.reset(self.shuffle_at_each_epoch, False)
+                    if not self.names_queue.unfinished_tasks:
+                        # END OF EPOCH - The data_queue is empty, i.e.
+                        # the name_batches is empty: refill both
+                        self._fill_names_batches(self.shuffle_at_each_epoch)
+                        self._init_names_queue()  # Fill the names queue
                         if not self.infinite_iterator:
                             raise StopIteration
-                        # else, it will cycle again in the while loop
             else:
+                # NO THREADS
                 try:
                     name_batch = self.names_batches.next()
                     data_batch = self.fetch_from_dataset(name_batch)
                     done = True
                 except StopIteration:
-                    self.reset(self.shuffle_at_each_epoch, False)
+                    # END OF EPOCH - The name_batches is empty: refill it
+                    self._fill_names_batches(self.shuffle_at_each_epoch)
                     if not self.infinite_iterator:
                         raise
                     # else, loop to the next image
                 except IOError as e:
-                    print "{0} I/O error({1}): {2}".format(name_batch, e.errno,
-                                                           e.strerror)
+                    print('WARNING: Image corrupted or missing!')
+                    print(e)
 
-        if data_batch is None:
-            raise RuntimeError("WTF")
+        assert(data_batch is not None)
         return data_batch
-
-    def get_names(self):
-        """ Loads ALL the names, per video.
-
-        Should return a *dictionary*, where each element of the
-        dictionary is a list of filenames. The keys of the dictionary
-        should be the prefixes, i.e., names of the subsets of the
-        dataset. If the dataset has no subset, 'default' can be used as
-        a key.
-        """
-        raise NotImplementedError
-
-    def load_sequence(self, first_frame):
-        """ Loads a 4D sequence from the dataset.
-
-        Should return a *dict* with at least these keys:
-            * 'data': the images or frames of the sequence
-            * 'labels': the labels of the sequence
-            * 'subset': the subset/clip/category/.. the sequence belongs to
-            * 'filenames': the filenames of each image/frame of the sequence
-        """
-        raise NotImplementedError
 
     def fetch_from_dataset(self, batch_to_load):
         """
@@ -589,7 +541,64 @@ class ThreadedDataset(object):
         else:
             return batch_ret
 
+    def reset(self, shuffle, reload_sequences_from_dataset=True):
+        '''Reset the dataset loader
+
+        Resets the dataset loader according to the current parameters.
+        If the parameters changed since initialization, by resetting the
+        dataset they will be taken into account.
+
+        Note that `reset` stops all the fetcher threads and makes sure the
+        queues are emptied before adding new elements to them. This
+        can introduce a slowdown in the fetching process. For this
+        reason `shuffle` should be used to reshuffle the data when the
+        parameters of the dataset have not been modified.
+        '''
+        if reload_sequences_from_dataset:
+            # Get all the sequences of names from the dataset, with the
+            # desired overlap
+            self._fill_names_sequences()
+
+        # Select the sequences we want, according to the parameters
+        # Sets self.nsamples, self.nbatches and self.names_batches.
+        # Self.names_batches is an iterator over the batches of names.
+        self._fill_names_batches(shuffle)
+
+        # Reset the queues
+        if self.use_threads:
+            # Empty names_queue
+            with self.names_queue.mutex:
+                done = False
+                while not done:
+                    try:
+                        self.names_queue.get(False)
+                        self.names_queue.task_done()
+                    except Queue.Empty:
+                        done = True
+            # Wait for the fetchers to be done
+            while not self.names_queue.unfinished_tasks:
+                sleep(self.wait_time)
+            # Empty the data_queue
+            self.data_queue.queue.clear()
+            self.data_queue.all_tasks_done.notify_all()
+            self.data_queue.unfinished_tasks = 0
+
+            # Refill the names queue
+            self._init_names_queue()
+
+    def shuffle(self):
+        '''Shuffles the sequences and creates new batches, according to
+        the initial parameters. To account for changes in the parameters
+        of the dataset use `reset`.'''
+        self._fill_names_batches(True)
+
     def finish(self):
+        # Stop fetchers
+        for _ in self.data_fetchers:
+            self.names_queue.put(self.sentinel)
+        while any([df.isAlive() for df in self.data_fetchers]):
+            sleep(self.wait_time)
+        # Kill threads
         for data_fetcher in self.data_fetchers:
             data_fetcher.join()
 
@@ -666,6 +675,38 @@ class ThreadedDataset(object):
         return np.array([mask_labels[inv_mapping[k]] for k in
                          sorted(inv_mapping.keys())])
 
-
     def get_cmap_values(self):
         return self._cmap.values()
+
+
+def threaded_fetch(names_queue, data_queue, sentinel, fetch_from_dataset):
+    """
+    Fill the data_queue.
+
+    Whenever there are names in the names queue, it will read them,
+    fetch the corresponding data and fill the data_queue.
+
+    Note that in case of errors, it will put the exception object in the
+    data_queue.
+    """
+    while True:
+        try:
+            # Grabs names from queue
+            batch_to_load = names_queue.get()
+
+            if batch_to_load is sentinel:
+                names_queue.task_done()
+                break
+
+            # Load the data
+            minibatch_data = fetch_from_dataset(batch_to_load)
+
+            # Place it in data_queue
+            data_queue.put(minibatch_data)
+
+            # Signal to the names queue that the job is done
+            names_queue.task_done()
+        except:
+            # If any uncaught exception, pass it along and move on
+            data_queue.put(sys.exc_info())
+            names_queue.task_done()
