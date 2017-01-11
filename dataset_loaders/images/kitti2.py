@@ -191,5 +191,9 @@ def test():
     print("Training time: %s" % str(time.time() - start_training))
 
 
-if __name__ == '__main__':
+def run_tests():
     test()
+
+
+if __name__ == '__main__':
+    run_tests()

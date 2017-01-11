@@ -302,6 +302,11 @@ def test2():
     print("Mean times: %s (threaded) %s (unthreaded)" %
           (str(mean_time[True]), str(mean_time[False])))
 
-if __name__ == '__main__':
+
+def run_tests():
     test()
     test2()
+
+
+if __name__ == '__main__':
+    run_tests()

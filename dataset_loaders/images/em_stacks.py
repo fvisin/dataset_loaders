@@ -229,5 +229,9 @@ def test():
             print("Minibatch %s time: %s (%s)" % (str(mb), part, tot))
 
 
-if __name__ == '__main__':
+def run_tests():
     test()
+
+
+if __name__ == '__main__':
+    run_tests()

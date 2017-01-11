@@ -243,7 +243,7 @@ class ChangeDetectionDataset(ThreadedDataset):
         return ret
 
 
-if __name__ == '__main__':
+def test():
     train = ChangeDetectionDataset(
         which_set='train',
         batch_size=1,
@@ -277,7 +277,6 @@ if __name__ == '__main__':
                                                      valid_nsamples,
                                                      test_nsamples))
 
-    start = time.time()
     for split in ['train', 'valid', 'test']:
         nbatches = data[split].nbatches
         for i, mb in enumerate(range(nbatches)):
@@ -309,3 +308,11 @@ if __name__ == '__main__':
                 print('Sample {}/{} of {}'.format(i, data[split].nsamples,
                                                   split))
         print('Split {} done!'.format(split))
+
+
+def run_tests():
+    test()
+
+
+if __name__ == '__main__':
+    run_tests()

@@ -206,5 +206,9 @@ def test():
                                                 epoch_start))
 
 
-if __name__ == '__main__':
+def run_tests():
     test()
+
+
+if __name__ == '__main__':
+    run_tests()
