@@ -13,12 +13,12 @@ floatX = 'float32'
 class GatechDataset(ThreadedDataset):
     name = 'gatech'
     non_void_nclasses = 8
+    path = os.path.join(dataset_loaders.__path__[0], 'datasets', 'GATECH')
+    sharedpath = '/data/lisatmp4/dejoieti/data/GATECH/'
     _void_labels = [0]
-    debug_shape = (360, 640, 3)
 
     mean = [0.484375, 0.4987793, 0.46508789]
     std = [0.07699376, 0.06672145, 0.09592211]
-
     # wtf, sky, ground, solid (buildings, etc), porous, cars, humans,
     # vert mix, main mix
     _cmap = {
@@ -68,10 +68,6 @@ class GatechDataset(ThreadedDataset):
 
         self.which_set = which_set
         self.threshold_masks = threshold_masks
-
-        self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                                 'GATECH')
-        self.sharedpath = '/data/lisatmp4/dejoieti/data/GATECH/'
 
         # Prepare data paths
         if 'train' in self.which_set or 'val' in self.which_set:
@@ -146,33 +142,33 @@ def test():
     trainiter = GatechDataset(
         which_set='train',
         batch_size=20,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
         split=.75,
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=True)
     validiter = GatechDataset(
         which_set='valid',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         split=.75,
-        get_one_hot=False,
-        get_01c=True,
+        return_one_hot=False,
+        return_01c=True,
         return_list=True,
         use_threads=True)
     testiter = GatechDataset(
         which_set='test',
         batch_size=1,
-        seq_per_video=10,
+        seq_per_subset=10,
         seq_length=10,
         split=1.,
-        get_one_hot=False,
-        get_01c=False,
+        return_one_hot=False,
+        return_01c=False,
         return_list=True,
         use_threads=True)
 
@@ -250,14 +246,14 @@ def test2():
         trainiter = GatechDataset(
             which_set='train',
             batch_size=50,
-            seq_per_video=0,  # all of them
+            seq_per_subset=0,  # all of them
             seq_length=7,
             overlap=6,
             data_augm_kwargs={
                 'crop_size': (224, 224)},
             split=.75,
-            get_one_hot=True,
-            get_01c=True,
+            return_one_hot=True,
+            return_01c=True,
             use_threads=use_threads,
             return_list=True,
             nthreads=5)

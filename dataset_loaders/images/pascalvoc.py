@@ -14,14 +14,15 @@ floatX = 'float32'
 class VOCdataset(ThreadedDataset):
     name = 'pascal_voc'
     non_void_nclasses = 21
-    debug_shape = (375, 500, 3)
+    path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC', 'VOCdevkit')
+    sharedpath = '/data/lisa/data/PASCAL-VOC/VOCdevkit'
+    _void_labels = [255]
 
     data_shape = (None, None, 3)
     mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
         'float32')
     GTclasses = range(21) + [255]
-    _void_labels = [255]
-
     _cmap = {
         0: (0, 0, 0),           # background
         1: (255, 0, 0),         # aeroplane
@@ -99,10 +100,6 @@ class VOCdataset(ThreadedDataset):
             self.has_GT = False
 
         self.year = year
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC',
-            'VOCdevkit')
-        self.sharedpath = '/data/lisa/data/PASCAL-VOC/VOCdevkit'
         self.path_extra = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC_Extra')
         self.sharedpath_extra = ('/data/lisa/exp/vazquezd/datasets/'
@@ -186,12 +183,12 @@ def test():
     trainiter = VOCdataset(
         which_set='train',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (71, 71)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False,
         nthreads=5)
@@ -235,48 +232,48 @@ def test2():
     trainiter = VOCdataset(
         which_set='train',
         batch_size=100,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (71, 71)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 
     trainiter_extra = VOCdataset(
         which_set='train_extra',
         batch_size=100,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (71, 71)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 
     validiter = VOCdataset(
         which_set='valid',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (71, 71)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 
     testiter = VOCdataset(
         which_set='test',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (71, 71)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 

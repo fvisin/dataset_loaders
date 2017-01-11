@@ -13,7 +13,6 @@ class TestDataset(ThreadedDataset):
     name = 'Test'
     non_void_nclasses = []
     data_shape = (1, 1, 1, 1)
-    debug_shape = (1, 1, 1, 1)
     _void_labels = []
     path = os.path.join(dataset_loaders.__path__[0], 'datasets', 'camvid',
                         'segnet')

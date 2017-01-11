@@ -12,14 +12,16 @@ floatX = 'float32'
 class CamvidDataset(ThreadedDataset):
     name = 'camvid'
     non_void_nclasses = 11
-    debug_shape = (360, 480, 3)
+    path = os.path.join(
+        dataset_loaders.__path__[0], 'datasets', 'camvid', 'segnet')
+    sharedpath = '/data/lisatmp4/camvid/segnet/'
+    _void_labels = [11]
 
     # optional arguments
     data_shape = (360, 480, 3)
     mean = [0.39068785, 0.40521392, 0.41434407]
     std = [0.29652068, 0.30514979, 0.30080369]
 
-    _void_labels = [11]
     _cmap = {
         0: (128, 128, 128),    # sky
         1: (128, 0, 0),        # building
@@ -66,10 +68,6 @@ class CamvidDataset(ThreadedDataset):
     def __init__(self, which_set='train', *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'camvid', 'segnet')
-        self.sharedpath = '/data/lisatmp4/camvid/segnet/'
-
         if self.which_set == "train":
             self.image_path = os.path.join(self.path, "train")
             self.mask_path = os.path.join(self.path, "trainannot")
@@ -137,7 +135,7 @@ def test1():
     d = CamvidDataset(
         which_set='train',
         batch_size=5,
-        seq_per_video=4,
+        seq_per_subset=4,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)})
@@ -163,12 +161,12 @@ def test2():
     trainiter = CamvidDataset(
         which_set='train',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=10,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=True,
         nthreads=5)
@@ -212,12 +210,12 @@ def test3():
     trainiter = CamvidDataset(
         which_set='train',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=True,
         nthreads=5)

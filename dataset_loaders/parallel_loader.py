@@ -17,6 +17,7 @@ from utils_parallel_loader import classproperty, grouper, overlap_grouper
 
 
 class ThreadedDataset(object):
+    _wait_time = 0.05
     """
     Threaded dataset.
 
@@ -26,45 +27,88 @@ class ThreadedDataset(object):
     loaded and define how to load the data from the dataset,
     respectively.
 
-    Mandatory attributes
-        * debug_shape: any reasonable shape that can be used for debug purposes
-        * name: the name of the dataset
-        * non_void_nclasses: the number of *non-void* classes
-        * path: a local path for the dataset
-        * sharedpath: the network path where the dataset can be copied from
-        * _void_labels: a list of void labels. Empty if none
+    Parameters
+    ----------
+    seq_per_subset: int
+        The *maximum* number of sequences per each subset (a.k.a. prefix
+        or video). If 0, all sequences will be used. If greater than 0
+        and `shuffle_at_each_epoch` is True, at each epoch a new
+        selection of sequences per subset will be randomly picked. Default: 0.
+    seq_length: int
+        The number of frames per sequence. If 0, 4D arrays will be
+        returned (not a sequence), else 5D arrays will be returned.
+        Default: 0.
+    overlap: int
+        The number of frames of overlap between the first frame of one
+        sample and the first frame of the next. Note that a negative
+        overlap will instead specify the number of frames that are
+        *skipped* between the last frame of one sample and the first
+        frame of the next. None is equivalent to seq_length - 1.
+        Default: None.
+    batch_size: int
+        The size of the batch.
+    queues_size: int
+        The size of the buffers used in the threaded case. Default: 50.
+    return_one_hot: bool
+        If True the labels will be returned in one-hot format, i.e. as
+        an array of `nclasses` elements all set to 0 except from the id
+        of the correct class which is set to 1. Default: False.
+    return_01c: bool
+        If True the last axis will be the channel axis (01c format),
+        else the channel axis will be the third to last (c01 format).
+        Default: False.
+    return_extended_sequences:bool
+        If True the first and last sequence of a batch will be extended so that
+        the first frame is repeated `seq_length/2` times. This is useful
+        to perform middle frame prediction, i.e., where the current
+        frame has to be the middle one and the previous and next ones
+        are used as context. Default:False.
+    use_threads: bool
+        If True threads will be used to fetch the data from the dataset.
+        Default: False.
+    nthreads: int
+        The number of threads to use when `use_threads` is True. Default: 1.
+    shuffle_at_each_epoch: bool
+        If True, at the end of each epoch a new set of batches will be
+        prepared and shuffled. Default: True.
+    infinite_iterator: bool
+        If False a `StopIteration` exception will be raised at the end of an
+        epoch. If True no exception will be raised and the dataset will
+        behave as an infinite iterator. Default: True.
+    return_list: bool
+        If True, each call to `next()` will return a list of two numpy arrays
+        containing the data and the labels respectively. If False, the
+        dataset will instead return a dictionary with the following
+        keys:
+            * `data`: the augmented/cropped sequence/image
+            * `labels`: the corresponding potentially cropped labels
+            * `filenames`: the filenames of the frames/images
+            * `subset`: the name of the subset the sequence/image belongs to
+            * `raw_data`: the original unprocessed sequence/image
+        Depending on the dataset, additional keys might be available.
+        Default: False.
+    data_augm_kwargs: dict
+        A dictionary of arguments to be passed to the data augmentation
+        function. Default: no data augmentation.
+    remove_mean: bool
+        If True, the statistics computed dataset-wise will be used to
+        remove the dataset mean from the data. Default: False.
+    divide_by_std: bool
+        If True, the statistics computed dataset-wise will be used to
+        divide the data by the dataset standard deviation. Default: False.
+    remove_per_img_mean: bool
+        If True, each image will be processed to have zero-mean.
+        Default: False.
+    divide_by_per_img_std=False
+        If True, each image will be processed to have unit variance.
+        Default: False.
+    rng: :class:`numpy.random.RandomState` instance
+        The random number generator to use. If None, one will be created.
+        Default: None.
 
-    Optional attributes
-        * data_shape: the shape of the data, when constant. Else (3, None,
-            None)
-        * has_GT: False if no mask is provided
-        * GTclasses: a list of classes labels. To be provided when the
-            classes labels (including the void ones) are not consecutive
-        * _void_labels: a *list* of labels that are void classes.
-        * _cmap: a *dictionary* of the form `class_id: (R, G, B)`. `class_id`
-            is the class id in the original data.
-        * _mask_labels: a *dictionary* of form `class_id: label`. `class_id`
-            is the class id in the original data.
-
-
-    Optional arguments
-        * seq_per_video: the *maximum* number of sequences per each
-            video (a.k.a. prefix). If 0, all sequences will be used.
-            Default: 0.
-        * seq_length: the number of frames per sequence. If 0, 4D arrays
-            will be returned (not a sequence), else 5D arrays will be
-            returned. Default: 0.
-        * overlap: the number of frames of overlap between the first
-            frame of one sample and the first frame of the next. Note
-            that a negative overlap will instead specify the number of
-            frames that are *skipped* between the last frame of one
-            sample and the first frame of the next.
-        * split: percentage of the training set to be used for training.
-            The remainder will be used for validation
-        * val_test_split: percentage of the validation set to be used
-            for validation. The remainder will be used for test
-
-    Parallel loader will automatically map all non-void classes to be
+    Notes
+    -----
+    The parallel loader will automatically map all non-void classes to be
     sequential starting from 0 and then map all void classes to the
     next class. E.g., suppose non_void_nclasses = 4 and _void_classes = [3, 5]
     the non-void classes will be mapped to 0, 1, 2, 3 and the void
@@ -91,13 +135,14 @@ class ThreadedDataset(object):
         99 --> 5
     """
     def __init__(self,
-                 seq_per_video=0,   # if 0 all sequences (or frames, if 4D)
+                 seq_per_subset=0,   # if 0 all sequences (or frames, if 4D)
                  seq_length=0,      # if 0, return 4D
                  overlap=None,
                  batch_size=1,
                  queues_size=50,
-                 get_one_hot=False,
-                 get_01c=False,
+                 return_one_hot=False,
+                 return_01c=False,
+                 return_extended_sequences=False,
                  use_threads=False,
                  nthreads=1,
                  shuffle_at_each_epoch=True,
@@ -109,11 +154,10 @@ class ThreadedDataset(object):
                  remove_per_img_mean=False,  # img stats
                  divide_by_per_img_std=False,  # img stats
                  rng=None,
-                 wait_time=0.05,
                  **kwargs):
 
         if len(kwargs):
-            print('Ignored arguments: {}'.format(kwargs.keys()))
+            print('Unknown arguments: {}'.format(kwargs.keys()))
 
         # Set default values for the data augmentation params if not specified
         default_data_augm_kwargs = {
@@ -159,8 +203,8 @@ class ThreadedDataset(object):
                                       'preserving')
 
         # Check that the implementing class has all the mandatory attributes
-        mandatory_attrs = ['name', 'non_void_nclasses', 'debug_shape',
-                           '_void_labels', 'path', 'sharedpath']
+        mandatory_attrs = ['name', 'non_void_nclasses', '_void_labels', 'path',
+                           'sharedpath']
         missing_attrs = [attr for attr in mandatory_attrs if not
                          hasattr(self, attr)]
         if missing_attrs != []:
@@ -197,14 +241,15 @@ class ThreadedDataset(object):
             print('Done.')
 
         # Save parameters in object
-        self.seq_per_video = seq_per_video
+        self.seq_per_subset = seq_per_subset
         self.return_sequence = seq_length != 0
         self.seq_length = seq_length if seq_length else 1
         self.overlap = overlap if overlap is not None else self.seq_length - 1
         self.batch_size = batch_size
         self.queues_size = queues_size
-        self.get_one_hot = get_one_hot
-        self.get_01c = get_01c
+        self.return_one_hot = return_one_hot
+        self.return_01c = return_01c
+        self.return_extended_sequences = return_extended_sequences
         self.use_threads = use_threads
         self.nthreads = nthreads
         self.shuffle_at_each_epoch = shuffle_at_each_epoch
@@ -215,16 +260,17 @@ class ThreadedDataset(object):
         self.remove_per_img_mean = remove_per_img_mean
         self.divide_by_per_img_std = divide_by_per_img_std
         self.rng = rng if rng is not None else RandomState(0xbeef)
-        self.wait_time = wait_time
 
         self.has_GT = getattr(self, 'has_GT', True)
+        self.mean = getattr(self, 'mean', [])
+        self.std = getattr(self, 'std', [])
 
         # ...01c
         data_shape = list(getattr(self.__class__, 'data_shape',
                                   (None, None, 3)))
         if self.data_augm_kwargs['crop_size']:
             data_shape[-3:-1] = self.data_augm_kwargs['crop_size']  # change 01
-        if self.get_01c:
+        if self.return_01c:
             self.data_shape = data_shape
         else:
             self.data_shape = [data_shape[i] for i in
@@ -291,13 +337,14 @@ class ThreadedDataset(object):
             # Repeat the first and last elements so that the first and last
             # sequences are filled with repeated elements up/from the
             # middle element.
-            extended_names = ([names[0]] * (seq_length // 2) + names +
-                              [names[-1]] * (seq_length // 2))
+            if self.return_extended_sequences:
+                names = ([names[0]] * (seq_length // 2) + names +
+                         [names[-1]] * (seq_length // 2))
             # Fill sequences with multiple el with form
             # [(prefix, name1), (prefix, name2), ...]. The names here
             # have overlap = (seq_length - 1), i.e., "stride" = 1
             sequences = [el for el in overlap_grouper(
-                extended_names, seq_length, prefix=prefix)]
+                names, seq_length, prefix=prefix)]
             # Sequences of frames with the requested overlap
             sequences = sequences[::self.seq_length - self.overlap]
 
@@ -315,10 +362,10 @@ class ThreadedDataset(object):
         for prefix, sequences in self.names_sequences.items():
 
             # Pick only a subset of sequences per each video
-            if self.seq_per_video:
-                # Pick `seq_per_video` random indices
+            if self.seq_per_subset:
+                # Pick `seq_per_subset` random indices
                 idx = np.random.permutation(range(len(sequences)))[
-                    :self.seq_per_video]
+                    :self.seq_per_subset]
                 # Select only those sequences
                 sequences = np.array(sequences)[idx]
 
@@ -495,9 +542,9 @@ class ThreadedDataset(object):
                     # none of the original classes was self.non_void_nclasses
                     pass
 
-            # Transform targets seq_y to one hot code if get_one_hot
+            # Transform targets seq_y to one hot code if return_one_hot
             # is True
-            if self.has_GT and self.get_one_hot:
+            if self.has_GT and self.return_one_hot:
                 nc = (self.non_void_nclasses if self._void_labels == [] else
                       self.non_void_nclasses + 1)
                 sh = seq_y.shape
@@ -509,11 +556,11 @@ class ThreadedDataset(object):
                 seq_y_hot = seq_y_hot.reshape(sh + (nc,))
                 seq_y = seq_y_hot
 
-            # Dimshuffle if get_01c is False
-            if not self.get_01c:
+            # Dimshuffle if return_01c is False
+            if not self.return_01c:
                 # s,0,1,c --> s,c,0,1
                 seq_x = seq_x.transpose([0, 3, 1, 2])
-                if self.has_GT and self.get_one_hot:
+                if self.has_GT and self.return_one_hot:
                     seq_y = seq_y.transpose([0, 3, 1, 2])
                 raw_data = raw_data.transpose([0, 3, 1, 2])
 
@@ -577,7 +624,7 @@ class ThreadedDataset(object):
                         done = True
             # Wait for the fetchers to be done
             while not self.names_queue.unfinished_tasks:
-                sleep(self.wait_time)
+                sleep(self._wait_time)
             # Empty the data_queue
             self.data_queue.queue.clear()
             self.data_queue.all_tasks_done.notify_all()
@@ -597,16 +644,10 @@ class ThreadedDataset(object):
         for _ in self.data_fetchers:
             self.names_queue.put(self.sentinel)
         while any([df.isAlive() for df in self.data_fetchers]):
-            sleep(self.wait_time)
+            sleep(self._wait_time)
         # Kill threads
         for data_fetcher in self.data_fetchers:
             data_fetcher.join()
-
-    def get_mean(self):
-        return getattr(self, 'mean', [])
-
-    def get_std(self):
-        return getattr(self, 'std', [])
 
     @classproperty
     def nclasses(self):
@@ -614,8 +655,8 @@ class ThreadedDataset(object):
         return (self.non_void_nclasses + 1 if hasattr(self, '_void_labels') and
                 self._void_labels != [] else self.non_void_nclasses)
 
-    @classmethod
-    def get_void_labels(self):
+    @classproperty
+    def void_labels(self):
         '''Returns the void label(s)
 
         If the dataset has void labels, returns self.non_void_nclasses,
@@ -623,10 +664,6 @@ class ThreadedDataset(object):
         returns an empty list.'''
         return ([self.non_void_nclasses] if hasattr(self, '_void_labels') and
                 self._void_labels != [] else [])
-
-    @classproperty
-    def void_labels(self):
-        return self.get_void_labels()
 
     @classmethod
     def _get_mapping(self):

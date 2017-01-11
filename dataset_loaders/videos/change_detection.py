@@ -20,11 +20,13 @@ class ChangeDetectionDataset(ThreadedDataset):
     '''
     name = 'changeD'
     non_void_nclasses = 4
+    path = os.path.join(dataset_loaders.__path__[0], 'datasets',
+                        'change_detection')
+    sharedpath = '/u/visin/exp/_datasets/change_detection'
     _void_labels = [85]
+
     mean = [0.45483398, 0.4387207, 0.40405273]
     std = [0.04758175, 0.04148954, 0.05489637]
-
-    debug_shape = (120, 230, 3)
     GTclasses = [0, 50, 85, 170, 255]
     categories = ['badWeather', 'baseline', 'cameraJitter',
                   'dynamicBackground', 'intermittentObjectMotion',
@@ -182,11 +184,6 @@ class ChangeDetectionDataset(ThreadedDataset):
         self.which_category = which_category
         self.which_video = which_video
 
-        # Prepare data paths
-        self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                                 'change_detection')
-        self.sharedpath = '/u/visin/exp/_datasets/change_detection'
-
         if self.which_set == 'test':
             self.has_GT = False
             print('No mask for the test set!!')
@@ -250,7 +247,7 @@ if __name__ == '__main__':
     train = ChangeDetectionDataset(
         which_set='train',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
@@ -258,7 +255,7 @@ if __name__ == '__main__':
     valid = ChangeDetectionDataset(
         which_set='valid',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,
@@ -266,7 +263,7 @@ if __name__ == '__main__':
     test = ChangeDetectionDataset(
         which_set='test',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         shuffle_at_each_epoch=False,
         infinite_iterator=False,

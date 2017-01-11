@@ -13,16 +13,16 @@ floatX = 'float32'
 class KITTIdataset(ThreadedDataset):
     name = 'kitti'
     non_void_nclasses = 11
-    debug_shape = (375, 500, 3)
+    path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'KITTI_SEMANTIC')
+    sharedpath = '/data/lisatmp4/romerosa/datasets/kitti/'
+    _void_labels = [11]
 
     # optional arguments
     # mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
     #    'float32')
     mean = [0.35675976, 0.37380189, 0.3764753]
     std = [0.32064945, 0.32098866, 0.32325324]
-    _void_labels = [11]
-    GTclasses = range(12)
-
     _cmap = {
         0: (128, 128, 128),    # Sky
         1: (128, 0, 0),        # Building
@@ -37,7 +37,6 @@ class KITTIdataset(ThreadedDataset):
         10: (0, 128, 192),     # Cyclist
         11: (0, 0, 0)          # Void
     }
-
     _mask_labels = {0: 'Sky', 1: 'Building', 2: 'Road', 3: 'Sidewalk',
                     4: 'Fence', 5: 'Vegetation', 6: 'Pole', 7: 'Car',
                     8: 'Sign', 9: 'Pedestrian', 10: 'Cyclist', 11: 'void'}
@@ -71,10 +70,6 @@ class KITTIdataset(ThreadedDataset):
                  *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'KITTI_SEMANTIC')
-        self.sharedpath = '/data/lisatmp4/romerosa/datasets/kitti/'
-
         if self.which_set not in ("train", "val", 'test', 'trainval'):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
@@ -142,24 +137,24 @@ def test():
     trainiter = KITTIdataset(
         which_set='train',
         batch_size=10,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=True)
 
     validiter = KITTIdataset(
         which_set='valid',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 

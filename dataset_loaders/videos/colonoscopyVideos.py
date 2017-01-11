@@ -14,7 +14,9 @@ class PolypVideoDataset(ThreadedDataset):
     name = 'colonoscopyVideos'
     non_void_nclasses = 2
     _void_labels = []
-    debug_shape = (288, 384, 3)
+    path = os.path.join(dataset_loaders.__path__[0], 'datasets',
+                        'polyp_videos')
+    sharedpath = ('/data/lisatmp4/dejoieti/data/data_colo/')
 
     _cmap = {
         0: (255, 255, 255),     # polyp
@@ -55,10 +57,6 @@ class PolypVideoDataset(ThreadedDataset):
         self.which_set = "val" if which_set == "valid" else which_set
         self.threshold_masks = threshold_masks
 
-        # Prepare data paths
-        self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                                 'polyp_videos')
-        self.sharedpath = ('/data/lisatmp4/dejoieti/data/data_colo/')
         if self.which_set == "train" or self.which_set == "val":
             self.image_path = os.path.join(self.path,
                                            'polyp_video_frames',
@@ -129,53 +127,53 @@ def test():
     trainiter = PolypVideoDataset(
         which_set='train',
         batch_size=20,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
         split=.75,
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=use_threads)
     validiter = PolypVideoDataset(
         which_set='valid',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         split=.75,
-        get_one_hot=False,
-        get_01c=True,
+        return_one_hot=False,
+        return_01c=True,
         return_list=True,
         use_threads=use_threads)
     validiter2 = PolypVideoDataset(
         which_set='valid',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=10,
         split=.75,
-        get_one_hot=False,
-        get_01c=True,
+        return_one_hot=False,
+        return_01c=True,
         return_list=True,
         use_threads=use_threads)
     testiter = PolypVideoDataset(
         which_set='test',
         batch_size=1,
-        seq_per_video=10,
+        seq_per_subset=10,
         seq_length=10,
         split=1.,
-        get_one_hot=False,
-        get_01c=False,
+        return_one_hot=False,
+        return_01c=False,
         return_list=True,
         use_threads=use_threads)
     testiter2 = PolypVideoDataset(
         which_set='test',
         batch_size=1,
-        seq_per_video=10,
+        seq_per_subset=10,
         seq_length=0,
         split=1.,
-        get_one_hot=True,
-        get_01c=False,
+        return_one_hot=True,
+        return_01c=False,
         return_list=True,
         use_threads=use_threads)
 
@@ -272,13 +270,13 @@ def test2():
     trainiter = PolypVideoDataset(
         which_set='train',
         batch_size=10,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
         split=.75,
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         use_threads=True,
         return_list=True,
         nthreads=5)

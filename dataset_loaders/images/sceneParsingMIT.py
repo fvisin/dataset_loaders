@@ -30,9 +30,11 @@ def load_class_names(file_name):
 class sceneParsingMITDataset(ThreadedDataset):
     name = 'scene_parsing_MIT'
     non_void_nclasses = 150
-    debug_shape = (375, 500, 3)
-
+    path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'SceneParsingMIT')
+    sharedpath = '/data/lisa/exp/vazquezd/datasets/SceneParsingMIT/'
     _void_labels = [-1]   # TODO: Check
+
     GTclasses = range(non_void_nclasses) + _void_labels
 
     _filenames = None
@@ -62,11 +64,6 @@ class sceneParsingMITDataset(ThreadedDataset):
         return self._filenames
 
     def __init__(self, which_set="train", *args, **kwargs):
-
-        # Get dataset path
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'SceneParsingMIT')
-        self.sharedpath = '/data/lisa/exp/vazquezd/datasets/SceneParsingMIT/'
 
         # Put which_set in canonical form:training, validation, testing
         if which_set in ("train", "training"):
@@ -138,36 +135,36 @@ def test():
     trainiter = sceneParsingMITDataset(
         which_set='train',
         batch_size=100,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 
     validiter = sceneParsingMITDataset(
         which_set='valid',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 
     testiter = sceneParsingMITDataset(
         which_set='test',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 

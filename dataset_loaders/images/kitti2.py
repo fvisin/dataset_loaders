@@ -14,10 +14,10 @@ floatX = 'float32'
 class KITTIdataset2(ThreadedDataset):
     name = 'kitti'
     non_void_nclasses = 11
-    debug_shape = (375, 500, 3)
-
+    path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'kitti2')
+    sharedpath = '/data/lisatmp4/romerosa/datasets/kitti2'
     _void_labels = [11]
-    GTclasses = range(12)
 
     _cmap = {
         0: (128, 128, 128),    # Sky
@@ -33,7 +33,6 @@ class KITTIdataset2(ThreadedDataset):
         10: (0, 128, 192),     # Cyclist
         11: (255, 255, 255)    # void
     }
-
     _mask_labels = {0: 'Sky', 1: 'Building', 2: 'Pole', 3: 'Road',
                     4: 'Sidewalk', 5: 'Vegetation', 6: 'Sign', 7: 'Fence',
                     8: 'Car', 9: 'Pedestrian', 10: 'Cyclist', 11: 'Void'}
@@ -67,10 +66,6 @@ class KITTIdataset2(ThreadedDataset):
     def __init__(self, which_set="train", *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'kitti2')
-        self.sharedpath = '/data/lisatmp4/romerosa/datasets/kitti2'
-
         if self.which_set not in ("train", "val", "test"):
             raise ValueError("Unknown argument to which_set %s" %
                              self.which_set)
@@ -155,23 +150,23 @@ def test():
     trainiter = KITTIdataset2(
         which_set='train',
         batch_size=10,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         use_threads=False)
 
     validiter = KITTIdataset2(
         which_set='valid',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         use_threads=False)
 
     train_nsamples = trainiter.nsamples

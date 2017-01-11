@@ -58,11 +58,13 @@ def batch_elastic_def(im_batch, disp_x, disp_y, grid_size=(3, 3),
 class IsbiEmStacksDataset(ThreadedDataset):
     name = 'isbi_em_stacks'
     non_void_nclasses = 2
-    debug_shape = (512, 512, 1)
+    path = os.path.join(
+        dataset_loaders.__path__[0], 'datasets', 'em_stacks')
+    sharedpath = '/data/lisa/data/isbi_challenge_em_stacks/'
+    _void_labels = []
 
     # optional arguments
     data_shape = (512, 512, 1)
-    _void_labels = []
     _cmap = {
         0: (0, 0, 0),  # Non-membranes
         1: (255, 255, 255)}  # Membranes
@@ -83,10 +85,6 @@ class IsbiEmStacksDataset(ThreadedDataset):
         self.h_flipping = h_flipping
         self.v_flipping = v_flipping
         self.shearing_range = shearing_range
-
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'em_stacks')
-        self.sharedpath = '/data/lisa/data/isbi_challenge_em_stacks/'
 
         if self.which_set == "train":
             self.image_path = os.path.join(self.path, "train-volume.tif")
@@ -188,11 +186,11 @@ def test():
     trainiter = IsbiEmStacksDataset(
         which_set='train',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         overlap=9,
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         data_augm_kwargs={
             'crop_size': (224, 224)},
         return_list=True,

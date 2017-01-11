@@ -41,15 +41,16 @@ References
 class CityscapesDataset(ThreadedDataset):
     name = 'cityscapes'
     non_void_nclasses = 19
-    debug_shape = (32, 32, 3)
+    path = os.path.join(
+        dataset_loaders.__path__[0], 'datasets', 'cityscapes')
+    sharedpath = '/data/lisatmp4/visin/_datasets/cityscapes/'
+    _void_labels = [255]
 
     # optional arguments
     data_shape = (2048, 1024, 3)
 
     GTclasses = range(non_void_nclasses)
     GTclasses = GTclasses + [255]
-
-    _void_labels = [255]
 
     _cmap = {
         # 255 , (0, 0, 0),      # unlabeled
@@ -158,11 +159,6 @@ class CityscapesDataset(ThreadedDataset):
     def __init__(self, which_set='train', *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
-
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'cityscapes')
-        self.sharedpath = '/data/lisatmp4/visin/_datasets/cityscapes/'
-
         if self.which_set not in ['train', 'val', 'test']:
             raise NotImplementedError('Unknown set: ' + which_set)
         if self.which_set == 'test':
@@ -229,7 +225,7 @@ def test1():
     d = CityscapesDataset(
         which_set='train',
         batch_size=5,
-        seq_per_video=4,
+        seq_per_subset=4,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)})
@@ -256,10 +252,10 @@ def test2():
     d = CityscapesDataset(
         which_set='train',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=10,
         overlap=9,
-        get_one_hot=True,
+        return_one_hot=True,
         return_list=True,
         data_augm_kwargs={
             'crop_size': (224, 224)},
@@ -288,12 +284,12 @@ def test3():
     trainiter = CityscapesDataset(
         which_set='val',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
-        get_one_hot=False,
-        get_01c=True,
+        return_one_hot=False,
+        return_01c=True,
         use_threads=True,
         return_list=True,
         nthreads=8)
@@ -324,7 +320,7 @@ def test3():
                 assert train_group[1].shape[1] == 224
                 assert train_group[1].shape[2] == 224
 
-                if trainiter.get_one_hot:
+                if trainiter.return_one_hot:
                     assert train_group[1].ndim == 4
                     assert train_group[1].shape[3] == nclasses
                 else:

@@ -12,12 +12,13 @@ floatX = 'float32'
 class Polyps912Dataset(ThreadedDataset):
     name = 'Polyps912'
     non_void_nclasses = 2
-    debug_shape = (384, 288, 3)
+    path = os.path.join(
+            dataset_loaders.__path__[0], 'datasets', 'polyps912')
+    sharedpath = '/data/lisa/exp/vazquezd/datasets/polyps_split7/'
+    _void_labels = [2]
 
     # optional arguments
     data_shape = (384, 288, 3)
-
-    _void_labels = [2]
     _cmap = {
         0: (128, 128, 0),       # Background
         1: (128, 0, 0),         # Polyp
@@ -52,11 +53,6 @@ class Polyps912Dataset(ThreadedDataset):
         return self._filenames
 
     def __init__(self, which_set='train', *args, **kwargs):
-
-        # Get dataset path
-        self.path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'polyps912')
-        self.sharedpath = '/data/lisa/exp/vazquezd/datasets/polyps_split7/'
 
         # Put which_set in canonical form: training, validation or testing
         if which_set in ("train", "training"):
@@ -116,32 +112,32 @@ def test():
     trainiter = Polyps912Dataset(
         which_set='train',
         batch_size=10,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (288, 384)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 
     validiter = Polyps912Dataset(
         which_set='valid',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 
     testiter = Polyps912Dataset(
         which_set='test',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False)
 

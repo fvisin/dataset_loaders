@@ -17,7 +17,9 @@ floatX = 'float32'
 class CocoDataset(ThreadedDataset):
     name = 'mscoco'
     non_void_nclasses = 80
-    debug_shape = (3, 255, 255)
+    path = os.path.join(dataset_loaders.__path__[0], 'datasets', 'COCO')
+    sharedpath = '/data/lisa/data/COCO'
+    _void_labels = [0, 12, 26, 29, 30, 45, 66, 68, 69, 71, 83]
 
     # optional arguments
     # GT_classes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18,
@@ -26,7 +28,6 @@ class CocoDataset(ThreadedDataset):
     #               53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 70,
     #               72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87,
     #               88, 89, 90]
-    _void_labels = [0, 12, 26, 29, 30, 45, 66, 68, 69, 71, 83]
 
     _filenames = None
     _image_path = None
@@ -77,9 +78,6 @@ class CocoDataset(ThreadedDataset):
             os.path.abspath(__file__)), 'coco', 'PythonAPI'))
         self.which_set = 'val' if which_set == 'valid' else which_set
         self.warn_grayscale = warn_grayscale
-        self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                                 'COCO')
-        self.sharedpath = '/data/lisa/data/COCO'
 
         # constructing the ThreadedDataset
         # it also creates/copies the dataset in self.path if not already there
@@ -87,12 +85,12 @@ class CocoDataset(ThreadedDataset):
 
         self.has_GT = self.which_set != 'test'
 
-        if self.seq_length != 1 or self.seq_per_video != 0:
+        if self.seq_length != 1 or self.seq_per_subset != 0:
             raise NotImplementedError('Images in COCO are not sequential. '
                                       'It does not make sense to request a '
                                       'sequence. seq_length {} '
-                                      'seq_per_video {}'.format(
-                                          self.seq_length, self.seq_per_video))
+                                      'seq_per_subset {}'.format(
+                                          self.seq_length, self.seq_per_subset))
 
     def get_names(self):
         """Return a dict of names, per prefix/subset."""
@@ -189,12 +187,12 @@ def test():
     trainiter = CocoDataset(
         which_set='train',
         batch_size=5,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         data_augm_kwargs={
             'crop_size': (72, 59)},
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         return_list=True,
         use_threads=False,
         nthreads=5)

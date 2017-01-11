@@ -13,13 +13,14 @@ floatX = 'float32'
 class DavisDataset(ThreadedDataset):
     name = 'davis'
     non_void_nclasses = 2
+    path = os.path.join(dataset_loaders.__path__[0], 'datasets', 'Davis',
+                        'davis')
+    sharedpath = '/data/lisatmp4/romerosa/datasets/davis/'
     _void_labels = []
-    debug_shape = (360, 640, 3)
 
     # NOTE: we only load the 480p
     # 1080p images are either (1920, 1080) or (1600, 900)
     data_shape = (854, 480, 3)
-
     _cmap = {
         0: (255, 255, 255),        # background
         1: (0, 0, 0)}              # foreground
@@ -63,10 +64,6 @@ class DavisDataset(ThreadedDataset):
 
         self.which_set = which_set
         self.threshold_masks = threshold_masks
-
-        self.path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                                 'Davis', 'davis')
-        self.sharedpath = '/data/lisatmp4/romerosa/datasets/davis/'
 
         # Prepare data paths
         if 'train' in self.which_set or 'val' in self.which_set:
@@ -142,36 +139,36 @@ def test():
     trainiter = DavisDataset(
         which_set='train',
         batch_size=20,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         overlap=0,
         data_augm_kwargs={
             'crop_size': (224, 224)},
         split=0.75,
-        get_one_hot=True,
-        get_01c=True,
+        return_one_hot=True,
+        return_01c=True,
         use_threads=True,
         shuffle_at_each_epoch=False)
     validiter = DavisDataset(
         which_set='valid',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         overlap=0,
         split=.75,
-        get_one_hot=False,
-        get_01c=True,
+        return_one_hot=False,
+        return_01c=True,
         use_threads=True,
         shuffle_at_each_epoch=False)
     testiter = DavisDataset(
         which_set='test',
         batch_size=1,
-        seq_per_video=0,
+        seq_per_subset=0,
         seq_length=0,
         overlap=0,
         split=1.,
-        get_one_hot=False,
-        get_01c=False,
+        return_one_hot=False,
+        return_01c=False,
         use_threads=True)
 
     train_nsamples = trainiter.nsamples

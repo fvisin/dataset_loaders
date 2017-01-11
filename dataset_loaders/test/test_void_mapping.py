@@ -11,12 +11,10 @@ floatX = 'float32'
 class TestDataset(ThreadedDataset):
     name = 'test'
     non_void_nclasses = 10
-    debug_shape = (360, 480, 3)
+    _void_labels = []
 
     # optional arguments
     data_shape = (360, 480, 3)
-
-    _void_labels = []
 
     _filenames = None
 
