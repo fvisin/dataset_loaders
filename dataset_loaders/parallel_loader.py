@@ -27,6 +27,9 @@ class ThreadedDataset(object):
     loaded and define how to load the data from the dataset,
     respectively.
 
+    See `example_dataset.py` for an example on how to implement a
+    specific instance of a dataset.
+
     Parameters
     ----------
     seq_per_subset: int
