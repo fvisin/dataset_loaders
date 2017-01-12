@@ -108,18 +108,20 @@ def apply_transform(x, transform_matrix, fill_mode='nearest', cval=0.,
     return x
 
 
-def random_channel_shift(x_in, intensity, channel_index=0):
-    x_out = np.zeros(x_in.shape, dtype=x_in.dtype)
-    for i, x in enumerate(x_in):
-        x = np.rollaxis(x, channel_index, 0)
-        min_x, max_x = np.min(x), np.max(x)
-        channel_images = [np.clip(x_channel + np.random.uniform(-intensity,
-                                                                intensity),
-                                  min_x, max_x)
-                          for x_channel in x]
-        x = np.stack(channel_images, axis=0)
-        x_out[i] = np.rollaxis(x, 0, channel_index+1)
-    return x_out
+def random_channel_shift(x, intensity, channel_index=0):
+    pattern = [el for el in range(x.ndim) if el != channel_index]
+    pattern += [channel_index]
+    inv_pattern = [pattern.index(el) for el in range(x.ndim)]
+    x = x.transpose(pattern)
+    x_shape = list(x.shape)
+    x = x.reshape((x_shape[0], -1))  # squash everything on last axis
+    min_x, max_x = np.min(x), np.max(x)
+    for i in range(x.shape[0]):
+        x[i] = np.clip(x[i] + np.random.uniform(-intensity, intensity),
+                       min_x, max_x)
+    x = x.reshape(x_shape)  # unsquash
+    x = x.transpose(inv_pattern)
+    return x
 
 
 def flip_axis(x_in, axis):
