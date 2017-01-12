@@ -283,6 +283,7 @@ def random_transform(x, y=None,
     x_shape = list(x.shape)
     x = x.reshape([-1] + x_shape[-2:])  # squash everything on channels
     if y is not None and len(y) > 0:
+        y = y[..., None]  # Add extra dim to simplify computation
         y = y.transpose(pattern)
         y_shape = list(y.shape)
         y = y.reshape([-1] + y_shape[-2:])  # squash everything on channels
@@ -431,4 +432,5 @@ def random_transform(x, y=None,
         y_shape[-1] = y.shape[cols_idx]
         y = y.reshape(y_shape)  # unsquash
         y = y.transpose(inv_pattern)
+        y = y[..., 0]  # Undo extra dim
     return x, y

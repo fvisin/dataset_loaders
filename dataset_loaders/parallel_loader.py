@@ -526,13 +526,11 @@ class ThreadedDataset(object):
                 assert seq_y.ndim == 3
 
             # Perform data augmentation, if needed
-            seq_y = seq_y[..., None]  # Add extra dim to simplify computation
             seq_x, seq_y = random_transform(
                 seq_x, seq_y,
                 nclasses=self.nclasses,
                 void_label=self.void_labels,
                 **self.data_augm_kwargs)
-            seq_y = seq_y[..., 0]#.astype('int32')  # Undo extra dim
 
             if self.has_GT and self._void_labels != []:
                 # Map all void classes to non_void_nclasses and shift the other
