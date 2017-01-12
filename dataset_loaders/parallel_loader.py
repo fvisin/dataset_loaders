@@ -105,6 +105,9 @@ class ThreadedDataset(object):
     divide_by_per_img_std=False
         If True, each image will be processed to have unit variance.
         Default: False.
+    raise_IOErrors: bool
+        If False in case of an IOError a message will be printed on
+        screen but no Exception will be raised. Default: False.
     rng: :class:`numpy.random.RandomState` instance
         The random number generator to use. If None, one will be created.
         Default: None.
@@ -156,6 +159,7 @@ class ThreadedDataset(object):
                  divide_by_std=False,  # dataset stats
                  remove_per_img_mean=False,  # img stats
                  divide_by_per_img_std=False,  # img stats
+                 raise_IOErrors=False,
                  rng=None,
                  **kwargs):
 
@@ -262,6 +266,7 @@ class ThreadedDataset(object):
         self.divide_by_std = divide_by_std
         self.remove_per_img_mean = remove_per_img_mean
         self.divide_by_per_img_std = divide_by_per_img_std
+        self.raise_IOErrors = raise_IOErrors
         self.rng = rng if rng is not None else RandomState(0xbeef)
 
         self.has_GT = getattr(self, 'has_GT', True)
@@ -425,11 +430,13 @@ class ThreadedDataset(object):
                     self.data_queue.task_done()
                     # Exception handling
                     if len(data_batch) == 3:
-                        if isinstance(data_batch[1], IOError):
+                        if (isinstance(data_batch[1], IOError) and not
+                                self.raise_IOErrors):
                             print('WARNING: Image corrupted or missing!')
                             print(data_batch[1])
                             continue  # fetch the next element
-                        elif isinstance(data_batch[1], Exception):
+                        if (isinstance(data_batch[1], type(BaseException)) or
+                                isinstance(data_batch[1], BaseException)):
                             raise data_batch[0], data_batch[1], data_batch[2]
                     done = True
                     # Refill the names queue, if we still have batches
@@ -461,8 +468,11 @@ class ThreadedDataset(object):
                         raise
                     # else, loop to the next image
                 except IOError as e:
-                    print('WARNING: Image corrupted or missing!')
-                    print(e)
+                    if self.raise_IOErrors:
+                        raise
+                    else:
+                        print('WARNING: Image corrupted or missing!')
+                        print(e)
 
         assert(data_batch is not None)
         return data_batch

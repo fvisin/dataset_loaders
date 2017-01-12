@@ -56,7 +56,8 @@ class TestException(unittest.TestCase):
                 except:
                     self.fail("testIOError failed!")
                 if verbose:
-                    print("Minibatch {}: {}".format(i, aa))
+                    print("TestIO: Thread {} Minibatch {}: {}".format(
+                        threads, i, aa))
 
     def testRuntimeError(self, verbose=False):
         for threads in [False, True]:
@@ -69,7 +70,8 @@ class TestException(unittest.TestCase):
                 else:
                     aa = dd.next()['data'][:, 0, 0, 0]
                     if verbose:
-                        print("Minibatch {}: {}".format(i, aa))
+                        print("TestRuntime: Thread {} Minibatch {}: {}".format(
+                            threads, i, aa))
 
 
 if __name__ == '__main__':
