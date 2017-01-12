@@ -217,6 +217,8 @@ class ThreadedDataset(object):
         if missing_attrs != []:
             raise NameError('Mandatory argument(s) missing: {}'.format(
                 missing_attrs))
+        if hasattr(self, 'GT_classes'):
+            raise NameError('GTclasses mispelled as GT_classes')
 
         # If variable sized dataset --> either batch_size 1 or crop
         if (not hasattr(self, 'data_shape') and batch_size > 1 and
@@ -498,6 +500,11 @@ class ThreadedDataset(object):
 
             # Load sequence, format is (s, 0, 1, c)
             ret = self.load_sequence(el)
+            assert all(el in ret.keys()
+                       for el in ('data', 'labels', 'filenames', 'subset')), (
+                    'Keys: {}'.format(ret.keys()))
+            assert all(isinstance(el, np.ndarray)
+                       for el in (ret['data'], ret['labels']))
             raw_data = ret['data'].copy()
             seq_x, seq_y = ret['data'], ret['labels']
 
