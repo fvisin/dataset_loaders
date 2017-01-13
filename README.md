@@ -10,7 +10,7 @@ This repository contains some loaders for commonly used datasets.
 2. Add the path you cloned it into to the PYTHONPATH, e.g.:
 
    ```
-   echo 'export PYTHONPATH=$PYTHONPATH:$HOME/dataset_loaders`' >> ~/.bashrc
+   echo 'export PYTHONPATH=$PYTHONPATH:$HOME/dataset_loaders' >> ~/.bashrc
    ```
    
    (change `$HOME/dataset_loaders` to whatever path you cloned it into)
