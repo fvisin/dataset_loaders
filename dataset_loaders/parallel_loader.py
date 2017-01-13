@@ -19,6 +19,7 @@ from utils_parallel_loader import classproperty, grouper, overlap_grouper
 
 class ThreadedDataset(object):
     _wait_time = 0.05
+    __version__ = '1'
     """
     Threaded dataset.
 
@@ -248,6 +249,19 @@ class ThreadedDataset(object):
                   'dataset...'.format(self.path))
             shutil.copytree(self.shared_path, self.path)
             print('Done.')
+        else:
+            try:
+                with open(os.path.join(self.path, '__version__'))  as f:
+                    if f.read() != self.__version__:
+                        raise IOError
+            except IOError:
+                print('The local path {} exist, but is outdated. Copying '
+                      'dataset again...'.format(self.path))
+                shutil.rmtree(self.path)
+                shutil.copytree(self.shared_path, self.path)
+                with open(os.path.join(self.path, '__version__'), 'w')  as f:
+                    f.write(self.__version__)
+                print('Done.')
 
         # Save parameters in object
         self.seq_per_subset = seq_per_subset
