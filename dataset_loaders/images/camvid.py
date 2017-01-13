@@ -1,8 +1,6 @@
 import numpy as np
 import os
-import time
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 
@@ -12,9 +10,6 @@ floatX = 'float32'
 class CamvidDataset(ThreadedDataset):
     name = 'camvid'
     non_void_nclasses = 11
-    path = os.path.join(
-        dataset_loaders.__path__[0], 'datasets', 'camvid', 'segnet')
-    sharedpath = '/data/lisatmp4/camvid/segnet/'
     _void_labels = [11]
 
     # optional arguments

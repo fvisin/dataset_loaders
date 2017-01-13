@@ -3,7 +3,6 @@ import time
 
 import numpy as np
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 from dataset_loaders.utils_parallel_loader import natural_keys
 
@@ -13,8 +12,6 @@ floatX = 'float32'
 class GatechDataset(ThreadedDataset):
     name = 'gatech'
     non_void_nclasses = 8
-    path = os.path.join(dataset_loaders.__path__[0], 'datasets', 'GATECH')
-    sharedpath = '/data/lisatmp4/dejoieti/data/GATECH/'
     _void_labels = [0]
 
     mean = [0.484375, 0.4987793, 0.46508789]

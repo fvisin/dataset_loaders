@@ -4,7 +4,6 @@ import time
 
 from scipy import interpolate
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 
@@ -58,9 +57,6 @@ def batch_elastic_def(im_batch, disp_x, disp_y, grid_size=(3, 3),
 class IsbiEmStacksDataset(ThreadedDataset):
     name = 'isbi_em_stacks'
     non_void_nclasses = 2
-    path = os.path.join(
-        dataset_loaders.__path__[0], 'datasets', 'em_stacks')
-    sharedpath = '/data/lisa/data/isbi_challenge_em_stacks/'
     _void_labels = []
 
     # optional arguments

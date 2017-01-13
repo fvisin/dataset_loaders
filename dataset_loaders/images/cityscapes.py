@@ -2,7 +2,6 @@ import numpy as np
 import os
 import time
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 from dataset_loaders.utils_parallel_loader import natural_keys
 
@@ -41,9 +40,6 @@ References
 class CityscapesDataset(ThreadedDataset):
     name = 'cityscapes'
     non_void_nclasses = 19
-    path = os.path.join(
-        dataset_loaders.__path__[0], 'datasets', 'cityscapes')
-    sharedpath = '/data/lisatmp4/visin/_datasets/cityscapes/'
     _void_labels = [255]
 
     # optional arguments

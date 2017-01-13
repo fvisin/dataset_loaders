@@ -3,7 +3,6 @@ import time
 
 import numpy as np
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 from dataset_loaders.utils_parallel_loader import natural_keys
 
@@ -14,9 +13,6 @@ class PolypVideoDataset(ThreadedDataset):
     name = 'polyp_videos'
     non_void_nclasses = 2
     _void_labels = []
-    path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                        'polyp_videos')
-    sharedpath = ('/data/lisatmp4/dejoieti/data/data_colo/')
 
     _cmap = {
         0: (255, 255, 255),     # polyp

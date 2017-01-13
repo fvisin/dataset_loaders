@@ -1,10 +1,8 @@
-import time
 import os
 
 import numpy as np
 from PIL import Image
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 floatX = 'float32'
@@ -20,9 +18,6 @@ class ChangeDetectionDataset(ThreadedDataset):
     '''
     name = 'change_detection'
     non_void_nclasses = 4
-    path = os.path.join(dataset_loaders.__path__[0], 'datasets',
-                        'change_detection')
-    sharedpath = '/u/visin/exp/_datasets/change_detection'
     _void_labels = [85]
 
     mean = [0.45483398, 0.4387207, 0.40405273]

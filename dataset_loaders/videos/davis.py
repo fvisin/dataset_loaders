@@ -3,7 +3,6 @@ import time
 
 import numpy as np
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 from dataset_loaders.utils_parallel_loader import natural_keys
 
@@ -13,9 +12,6 @@ floatX = 'float32'
 class DavisDataset(ThreadedDataset):
     name = 'davis'
     non_void_nclasses = 2
-    path = os.path.join(dataset_loaders.__path__[0], 'datasets', 'Davis',
-                        'davis')
-    sharedpath = '/data/lisatmp4/romerosa/datasets/davis/'
     _void_labels = []
 
     # NOTE: we only load the 480p

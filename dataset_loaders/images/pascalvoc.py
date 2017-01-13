@@ -14,9 +14,6 @@ floatX = 'float32'
 class PascalVOCdataset(ThreadedDataset):
     name = 'pascal_voc'
     non_void_nclasses = 21
-    path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'PASCAL-VOC', 'VOCdevkit')
-    sharedpath = '/data/lisa/data/PASCAL-VOC/VOCdevkit'
     _void_labels = [255]
 
     data_shape = (None, None, 3)

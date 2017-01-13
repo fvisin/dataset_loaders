@@ -4,7 +4,6 @@ import time
 import numpy as np
 from PIL import Image
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 
@@ -14,9 +13,6 @@ floatX = 'float32'
 class KITTI2dataset(ThreadedDataset):
     name = 'kitti2'
     non_void_nclasses = 11
-    path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'kitti2')
-    sharedpath = '/data/lisatmp4/romerosa/datasets/kitti2'
     _void_labels = [11]
 
     _cmap = {

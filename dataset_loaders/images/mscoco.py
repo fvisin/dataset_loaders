@@ -7,7 +7,6 @@ from matplotlib.path import Path
 import numpy as np
 from PIL import Image
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 
@@ -17,8 +16,6 @@ floatX = 'float32'
 class MSCocoDataset(ThreadedDataset):
     name = 'mscoco'
     non_void_nclasses = 80
-    path = os.path.join(dataset_loaders.__path__[0], 'datasets', 'COCO')
-    sharedpath = '/data/lisa/data/COCO'
     _void_labels = [0, 12, 26, 29, 30, 45, 66, 68, 69, 71, 83]
 
     # optional arguments

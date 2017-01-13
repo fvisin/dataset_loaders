@@ -3,7 +3,6 @@ import time
 
 import numpy as np
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 floatX = 'float32'
@@ -12,9 +11,6 @@ floatX = 'float32'
 class Polyps912Dataset(ThreadedDataset):
     name = 'polyps912'
     non_void_nclasses = 2
-    path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'polyps912')
-    sharedpath = '/data/lisa/exp/vazquezd/datasets/polyps_split7/'
     _void_labels = [2]
 
     # optional arguments

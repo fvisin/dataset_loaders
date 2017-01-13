@@ -4,7 +4,6 @@ import time
 import numpy as np
 from PIL import Image
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 floatX = 'float32'
@@ -13,9 +12,6 @@ floatX = 'float32'
 class KITTI3dataset(ThreadedDataset):
     name = 'kitti3'
     non_void_nclasses = 11
-    path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'kitti3')
-    sharedpath = '/data/lisatmp4/romerosa/datasets/kitti3/'
     _void_labels = [11]
 
     # mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(

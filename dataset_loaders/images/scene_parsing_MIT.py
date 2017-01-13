@@ -4,7 +4,6 @@ import time
 import numpy as np
 from PIL import Image
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 floatX = 'float32'
 
@@ -30,9 +29,6 @@ def load_class_names(file_name):
 class SceneParsingMITDataset(ThreadedDataset):
     name = 'scene_parsing_MIT'
     non_void_nclasses = 150
-    path = os.path.join(
-            dataset_loaders.__path__[0], 'datasets', 'SceneParsingMIT')
-    sharedpath = '/data/lisa/exp/vazquezd/datasets/SceneParsingMIT/'
     _void_labels = [-1]   # TODO: Check
 
     GTclasses = range(non_void_nclasses) + _void_labels

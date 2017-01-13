@@ -1,8 +1,9 @@
+import ConfigParser
+import os
 try:
     import Queue
 except ImportError:
     import queue as Queue
-import os
 import shutil
 import sys
 from threading import Thread
@@ -210,8 +211,7 @@ class ThreadedDataset(object):
                                       'preserving')
 
         # Check that the implementing class has all the mandatory attributes
-        mandatory_attrs = ['name', 'non_void_nclasses', '_void_labels', 'path',
-                           'sharedpath']
+        mandatory_attrs = ['name', 'non_void_nclasses', '_void_labels']
         missing_attrs = [attr for attr in mandatory_attrs if not
                          hasattr(self, attr)]
         if missing_attrs != []:
@@ -246,7 +246,7 @@ class ThreadedDataset(object):
         if not os.path.exists(self.path):
             print('The local path {} does not exist. Copying '
                   'dataset...'.format(self.path))
-            shutil.copytree(self.sharedpath, self.path)
+            shutil.copytree(self.shared_path, self.path)
             print('Done.')
 
         # Save parameters in object
@@ -666,6 +666,18 @@ class ThreadedDataset(object):
         # Kill threads
         for data_fetcher in self.data_fetchers:
             data_fetcher.join()
+
+    @classproperty
+    def path(self):
+        return os.path.join(dataset_loaders.__path__[0], 'datasets',
+                            getattr(self, 'path_name', self.name))
+
+    @classproperty
+    def shared_path(self):
+        config_parser = ConfigParser.ConfigParser()
+        config_parser.read(os.path.join(dataset_loaders.__path__[0],
+                                        'config.ini'))
+        return config_parser.get(self.name, 'shared_path')
 
     @classproperty
     def nclasses(self):
