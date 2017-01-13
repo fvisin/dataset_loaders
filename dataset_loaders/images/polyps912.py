@@ -10,7 +10,7 @@ floatX = 'float32'
 
 
 class Polyps912Dataset(ThreadedDataset):
-    name = 'Polyps912'
+    name = 'polyps912'
     non_void_nclasses = 2
     path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'polyps912')

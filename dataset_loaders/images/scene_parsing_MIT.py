@@ -27,7 +27,7 @@ def load_class_names(file_name):
     return mask_labels
 
 
-class sceneParsingMITDataset(ThreadedDataset):
+class SceneParsingMITDataset(ThreadedDataset):
     name = 'scene_parsing_MIT'
     non_void_nclasses = 150
     path = os.path.join(
@@ -84,7 +84,7 @@ class sceneParsingMITDataset(ThreadedDataset):
         # Load info from the classes
         # _mask_labels = load_class_names(self.txt_path)
 
-        super(sceneParsingMITDataset, self).__init__(*args, **kwargs)
+        super(SceneParsingMITDataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         """Return a dict of names, per prefix/subset."""
@@ -132,7 +132,7 @@ class sceneParsingMITDataset(ThreadedDataset):
 
 
 def test():
-    trainiter = sceneParsingMITDataset(
+    trainiter = SceneParsingMITDataset(
         which_set='train',
         batch_size=100,
         seq_per_subset=0,
@@ -144,7 +144,7 @@ def test():
         return_list=True,
         use_threads=False)
 
-    validiter = sceneParsingMITDataset(
+    validiter = SceneParsingMITDataset(
         which_set='valid',
         batch_size=5,
         seq_per_subset=0,
@@ -156,7 +156,7 @@ def test():
         return_list=True,
         use_threads=False)
 
-    testiter = sceneParsingMITDataset(
+    testiter = SceneParsingMITDataset(
         which_set='test',
         batch_size=5,
         seq_per_subset=0,

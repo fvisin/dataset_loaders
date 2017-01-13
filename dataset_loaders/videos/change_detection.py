@@ -18,7 +18,7 @@ class ChangeDetectionDataset(ThreadedDataset):
     determines which frames are to be used for training and test. The
     ROI defines the area of the frame that we are interested in.
     '''
-    name = 'changeD'
+    name = 'change_detection'
     non_void_nclasses = 4
     path = os.path.join(dataset_loaders.__path__[0], 'datasets',
                         'change_detection')

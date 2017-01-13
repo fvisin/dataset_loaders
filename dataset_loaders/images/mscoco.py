@@ -14,7 +14,7 @@ from dataset_loaders.parallel_loader import ThreadedDataset
 floatX = 'float32'
 
 
-class CocoDataset(ThreadedDataset):
+class MSCocoDataset(ThreadedDataset):
     name = 'mscoco'
     non_void_nclasses = 80
     path = os.path.join(dataset_loaders.__path__[0], 'datasets', 'COCO')
@@ -81,7 +81,7 @@ class CocoDataset(ThreadedDataset):
 
         # constructing the ThreadedDataset
         # it also creates/copies the dataset in self.path if not already there
-        super(CocoDataset, self).__init__(*args, **kwargs)
+        super(MSCocoDataset, self).__init__(*args, **kwargs)
 
         self.has_GT = self.which_set != 'test'
 
@@ -90,7 +90,8 @@ class CocoDataset(ThreadedDataset):
                                       'It does not make sense to request a '
                                       'sequence. seq_length {} '
                                       'seq_per_subset {}'.format(
-                                          self.seq_length, self.seq_per_subset))
+                                          self.seq_length,
+                                          self.seq_per_subset))
 
     def get_names(self):
         """Return a dict of names, per prefix/subset."""
@@ -184,7 +185,7 @@ class CocoDataset(ThreadedDataset):
 
 
 def test():
-    trainiter = CocoDataset(
+    trainiter = MSCocoDataset(
         which_set='train',
         batch_size=5,
         seq_per_subset=0,

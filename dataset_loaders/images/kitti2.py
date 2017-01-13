@@ -11,8 +11,8 @@ from dataset_loaders.parallel_loader import ThreadedDataset
 floatX = 'float32'
 
 
-class KITTIdataset2(ThreadedDataset):
-    name = 'kitti'
+class KITTI2dataset(ThreadedDataset):
+    name = 'kitti2'
     non_void_nclasses = 11
     path = os.path.join(
             dataset_loaders.__path__[0], 'datasets', 'kitti2')
@@ -88,7 +88,7 @@ class KITTIdataset2(ThreadedDataset):
         self.mu_kitti = [0.35675976, 0.37380189, 0.3764753]
         self.sigma_kitti = [0.32064945, 0.32098866, 0.32325324]
 
-        super(KITTIdataset2, self).__init__(*args, **kwargs)
+        super(KITTI2dataset, self).__init__(*args, **kwargs)
         # set specific flags for this dataset
         self.remove_both_means = True if self.remove_mean else False
         self.divide_by_both_stds = True if self.divide_by_std else False
@@ -147,7 +147,7 @@ class KITTIdataset2(ThreadedDataset):
 
 
 def test():
-    trainiter = KITTIdataset2(
+    trainiter = KITTI2dataset(
         which_set='train',
         batch_size=10,
         seq_per_subset=0,
@@ -158,7 +158,7 @@ def test():
         return_01c=True,
         use_threads=False)
 
-    validiter = KITTIdataset2(
+    validiter = KITTI2dataset(
         which_set='valid',
         batch_size=5,
         seq_per_subset=0,

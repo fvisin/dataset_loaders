@@ -11,7 +11,7 @@ floatX = 'float32'
 
 
 class PolypVideoDataset(ThreadedDataset):
-    name = 'colonoscopyVideos'
+    name = 'polyp_videos'
     non_void_nclasses = 2
     _void_labels = []
     path = os.path.join(dataset_loaders.__path__[0], 'datasets',

@@ -10,7 +10,7 @@ from dataset_loaders.parallel_loader import ThreadedDataset
 floatX = 'float32'
 
 
-class KITTIdataset3(ThreadedDataset):
+class KITTI3dataset(ThreadedDataset):
     name = 'kitti3'
     non_void_nclasses = 11
     path = os.path.join(
@@ -87,7 +87,7 @@ class KITTIdataset3(ThreadedDataset):
         self.image_path = os.path.join(self.path, set_folder, "RGB")
         self.mask_path = os.path.join(self.path, set_folder, "GT_ind")
 
-        super(KITTIdataset3, self).__init__(*args, **kwargs)
+        super(KITTI3dataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         """Return a dict of names, per prefix/subset."""
@@ -146,7 +146,7 @@ class KITTIdataset3(ThreadedDataset):
 
 
 def test():
-    trainiter = KITTIdataset3(
+    trainiter = KITTI3dataset(
         which_set='train',
         batch_size=10,
         seq_per_subset=0,
@@ -157,7 +157,7 @@ def test():
         return_01c=True,
         use_threads=True)
 
-    validiter = KITTIdataset3(
+    validiter = KITTI3dataset(
         which_set='valid',
         batch_size=5,
         seq_per_subset=0,

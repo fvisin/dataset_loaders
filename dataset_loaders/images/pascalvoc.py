@@ -11,7 +11,7 @@ from dataset_loaders.parallel_loader import ThreadedDataset
 floatX = 'float32'
 
 
-class VOCdataset(ThreadedDataset):
+class PascalVOCdataset(ThreadedDataset):
     name = 'pascal_voc'
     non_void_nclasses = 21
     path = os.path.join(
@@ -124,7 +124,7 @@ class VOCdataset(ThreadedDataset):
             shutil.copytree(self.sharedpath_extra, self.path_extra)
             print('Done.')
 
-        super(VOCdataset, self).__init__(*args, **kwargs)
+        super(PascalVOCdataset, self).__init__(*args, **kwargs)
 
     def get_names(self):
         """Return a dict of names, per prefix/subset."""
@@ -180,7 +180,7 @@ class VOCdataset(ThreadedDataset):
 
 
 def test():
-    trainiter = VOCdataset(
+    trainiter = PascalVOCdataset(
         which_set='train',
         batch_size=5,
         seq_per_subset=0,
@@ -229,7 +229,7 @@ def test():
 
 
 def test2():
-    trainiter = VOCdataset(
+    trainiter = PascalVOCdataset(
         which_set='train',
         batch_size=100,
         seq_per_subset=0,
@@ -241,7 +241,7 @@ def test2():
         return_list=True,
         use_threads=False)
 
-    trainiter_extra = VOCdataset(
+    trainiter_extra = PascalVOCdataset(
         which_set='train_extra',
         batch_size=100,
         seq_per_subset=0,
@@ -253,7 +253,7 @@ def test2():
         return_list=True,
         use_threads=False)
 
-    validiter = VOCdataset(
+    validiter = PascalVOCdataset(
         which_set='valid',
         batch_size=5,
         seq_per_subset=0,
@@ -265,7 +265,7 @@ def test2():
         return_list=True,
         use_threads=False)
 
-    testiter = VOCdataset(
+    testiter = PascalVOCdataset(
         which_set='test',
         batch_size=5,
         seq_per_subset=0,
