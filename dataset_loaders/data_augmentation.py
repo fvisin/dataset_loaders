@@ -209,7 +209,7 @@ def pad_image(x, pad_amount, mode='reflect', constant=0.):
 
 def apply_warp(x, warp_field, fill_mode='reflect',
                interpolator=sitk.sitkLinear,
-               fill_constant=0):
+               fill_constant=0, rows_idx=1, cols_idx=2):
     # Expand deformation field (and later the image), padding for the largest
     # deformation
     warp_field_arr = sitk.GetArrayFromImage(warp_field)
@@ -221,21 +221,25 @@ def apply_warp(x, warp_field, fill_mode='reflect',
                                                isVector=True)
 
     # Warp x, one filter slice at a time
-    x_warped = np.zeros(x.shape, dtype=np.float32)
+    pattern = [el for el in range(0, x.ndim) if el not in [rows_idx, cols_idx]]
+    pattern += [rows_idx, cols_idx]
+    inv_pattern = [pattern.index(el) for el in range(x.ndim)]
+    x = x.transpose(pattern)  # batch, channel, ...
+    x_shape = list(x.shape)
+    x = x.reshape([-1] + x_shape[2:])  # *, r, c
     warp_filter = sitk.WarpImageFilter()
     warp_filter.SetInterpolator(interpolator)
     warp_filter.SetEdgePaddingValue(np.min(x).astype(np.double))
-    for i, image in enumerate(x):
-        x_tmp = np.zeros(image.shape, dtype=image.dtype)
-        for j, channel in enumerate(image):
-            image_padded = pad_image(channel, pad_amount=pad, mode=fill_mode,
-                                     constant=fill_constant).T
-            image_f = sitk.GetImageFromArray(image_padded)
-            image_f_warped = warp_filter.Execute(image_f, warp_field_padded)
-            image_warped = sitk.GetArrayFromImage(image_f_warped)
-            x_tmp[j] = image_warped[pad:-pad, pad:-pad].T
-        x_warped[i] = x_tmp
-    return x_warped
+    for i in range(x.shape[0]):
+        bc_pad = pad_image(x[i], pad_amount=pad, mode=fill_mode,
+                           constant=fill_constant).T
+        bc_f = sitk.GetImageFromArray(bc_pad)
+        bc_f_warped = warp_filter.Execute(bc_f, warp_field_padded)
+        bc_warped = sitk.GetArrayFromImage(bc_f_warped)
+        x[i] = bc_warped[pad:-pad, pad:-pad].T
+    x = x.reshape(x_shape)  # unsquash
+    x = x.transpose(inv_pattern)
+    return x
 
 
 def random_transform(x, y=None,
@@ -373,18 +377,21 @@ def random_transform(x, y=None,
 
     # Spline warp
     if spline_warp:
-        warp_field = gen_warp_field(shape=x.shape[-2:],
+        warp_field = gen_warp_field(shape=(x.shape[rows_idx],
+                                           x.shape[cols_idx]),
                                     sigma=warp_sigma,
                                     grid_size=warp_grid_size)
         x = apply_warp(x, warp_field,
                        interpolator=sitk.sitkLinear,
                        fill_mode=fill_mode,
-                       fill_constant=cval)
+                       fill_constant=cval,
+                       rows_idx=rows_idx, cols_idx=cols_idx)
         if y is not None and len(y) > 0:
             y = np.round(apply_warp(y, warp_field,
                                     interpolator=sitk.sitkNearestNeighbor,
                                     fill_mode=fill_mode,
-                                    fill_constant=cvalMask))
+                                    fill_constant=cvalMask,
+                                    rows_idx=rows_idx, cols_idx=cols_idx))
 
     # Crop
     # Expects axes with shape (..., 0, 1)
