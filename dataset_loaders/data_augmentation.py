@@ -31,14 +31,26 @@ def my_label2rgboverlay(labels, colors, image, bglabel=None,
 
 
 # Save 2 images (Image and mask)
-def save_img2(img, mask, fname, color_map, void_label):
-    img = img.transpose((1, 2, 0))
-    label_mask = my_label2rgboverlay(mask,
+def save_img2(x, y, fname, color_map, void_label, rows_idx, cols_idx,
+              chan_idx):
+    pattern = [el for el in range(x.ndim) if el not in [rows_idx, cols_idx,
+                                                        chan_idx]]
+    pattern += [rows_idx, cols_idx, chan_idx]
+    x_copy = x.transpose(pattern)
+    if y is not None and len(y) > 0:
+        y_copy = y.transpose(pattern)
+
+    # Take the first batch and drop extra dim on y
+    x_copy = x_copy[0]
+    if y is not None and len(y) > 0:
+        y_copy = y_copy[0, ..., 0]
+
+    label_mask = my_label2rgboverlay(y,
                                      colors=color_map,
-                                     image=img,
+                                     image=x,
                                      bglabel=void_label,
                                      alpha=0.2)
-    combined_image = np.concatenate((img, label_mask),
+    combined_image = np.concatenate((x, label_mask),
                                     axis=1)
     scipy.misc.toimage(combined_image).save(fname)
 
@@ -447,8 +459,8 @@ def random_transform(x, y=None,
         fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
         print ('Save to dir'.format(fname))
         color_map = sns.hls_palette(nclasses)
-        save_img2(x[0], y[0, 0, :, :], os.path.join(save_to_dir, fname),
-                  color_map, void_label)
+        save_img2(x, y, os.path.join(save_to_dir, fname),
+                  color_map, void_label, rows_idx, cols_idx, chan_idx)
 
     # Undo extra dim
     if y is not None and len(y) > 0:
