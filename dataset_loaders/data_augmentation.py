@@ -97,14 +97,25 @@ def transform_matrix_offset_center(matrix, x, y):
 
 
 def apply_transform(x, transform_matrix, fill_mode='nearest', cval=0.,
-                    order=0):
+                    order=0, rows_idx=1, cols_idx=2):
     final_affine_matrix = transform_matrix[:2, :2]
     final_offset = transform_matrix[:2, 2]
-    # Apply the transformation on each channel (sequence, batch, ..)
+
+    # Reshape to (*, 0, 1)
+    pattern = [el for el in range(x.ndim) if el != rows_idx and el != cols_idx]
+    pattern += [rows_idx, cols_idx]
+    inv_pattern = [pattern.index(el) for el in range(x.ndim)]
+    x = x.transpose(pattern)
+    x_shape = list(x.shape)
+    x = x.reshape([-1] + x_shape[-2:])  # squash everything on the first axis
+
+    # Apply the transformation on each channel, sequence, batch, ..
     for i in range(x.shape[0]):
         x[i] = ndi.interpolation.affine_transform(x[i], final_affine_matrix,
                                                   final_offset, order=order,
                                                   mode=fill_mode, cval=cval)
+    x = x.reshape(x_shape)  # unsquash
+    x = x.transpose(inv_pattern)
     return x
 
 
@@ -270,6 +281,10 @@ def random_transform(x, y=None,
     # Set this to a dir, if you want to save augmented images samples
     save_to_dir = None
 
+    # Add extra dim to y to simplify computation
+    if y is not None and len(y) > 0:
+        y = y[..., None]
+
     # listify zoom range
     if np.isscalar(zoom_range):
         zoom_range = [1 - zoom_range, 1 + zoom_range]
@@ -285,22 +300,6 @@ def random_transform(x, y=None,
         x = random_channel_shift(x, channel_shift_range, rows_idx, cols_idx,
                                  chan_idx)
 
-    # Reshape to (anything_else, 0, 1)
-    pattern = [el for el in range(x.ndim) if el != rows_idx and el != cols_idx]
-    pattern += [rows_idx, cols_idx]
-    inv_pattern = [pattern.index(el) for el in range(x.ndim)]
-    x = x.transpose(pattern)
-    x_shape = list(x.shape)
-    x = x.reshape([-1] + x_shape[-2:])  # squash everything on channels
-    if y is not None and len(y) > 0:
-        y = y[..., None]  # Add extra dim to simplify computation
-        y = y.transpose(pattern)
-        y_shape = list(y.shape)
-        y = y.reshape([-1] + y_shape[-2:])  # squash everything on channels
-    chan_idx = None
-    rows_idx = 1
-    cols_idx = 2
-
     # Gamma correction
     if gamma > 0:
         scale = float(1)
@@ -309,6 +308,7 @@ def random_transform(x, y=None,
     # Affine transformations (zoom, rotation, shift, ..)
     if (rotation_range or height_shift_range or width_shift_range or
             shear_range or zoom_range != [1, 1]):
+
         # --> Rotation
         if rotation_range:
             theta = np.pi / 180 * np.random.uniform(-rotation_range,
@@ -358,10 +358,12 @@ def random_transform(x, y=None,
                                                           h, w)
         # Apply all the transformations together
         x = apply_transform(x, transform_matrix, fill_mode=fill_mode,
-                            cval=cval, order=1)
+                            cval=cval, order=1, rows_idx=rows_idx,
+                            cols_idx=cols_idx)
         if y is not None and len(y) > 0:
             y = apply_transform(y, transform_matrix, fill_mode=fill_mode,
-                                cval=cvalMask, order=0)
+                                cval=cvalMask, order=0, rows_idx=rows_idx,
+                                cols_idx=cols_idx)
 
     # Horizontal flip
     if np.random.random() < horizontal_flip:  # 0 = disabled
@@ -395,10 +397,17 @@ def random_transform(x, y=None,
 
     # Crop
     # Expects axes with shape (..., 0, 1)
+    # TODO: Add center crop
     if crop_size:
+        # Reshape to (..., 0, 1)
+        pattern = [el for el in range(x.ndim) if el != rows_idx and
+                   el != cols_idx] + [rows_idx, cols_idx]
+        inv_pattern = [pattern.index(el) for el in range(x.ndim)]
+        x = x.transpose(pattern)
+
         crop = list(crop_size)
         pad = [0, 0]
-        h, w = x.shape[rows_idx], x.shape[cols_idx]
+        h, w = x.shape[-2:]
 
         # Compute amounts
         if crop[0] < h:
@@ -419,6 +428,7 @@ def random_transform(x, y=None,
         # Cropping
         x = x[..., top:top+crop[0], left:left+crop[1]]
         if y is not None and len(y) > 0:
+            y = y.transpose(pattern)
             y = y[..., top:top+crop[0], left:left+crop[1]]
         # Padding
         if pad != [0, 0]:
@@ -428,6 +438,10 @@ def random_transform(x, y=None,
             x = np.pad(x, pad_pattern, 'constant')
             y = np.pad(y, pad_pattern, 'constant', constant_values=void_label)
 
+        x = x.transpose(inv_pattern)
+        if y is not None and len(y) > 0:
+            y = y.transpose(inv_pattern)
+
     # Save augmented images
     if save_to_dir:
         fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
@@ -436,14 +450,8 @@ def random_transform(x, y=None,
         save_img2(x[0], y[0, 0, :, :], os.path.join(save_to_dir, fname),
                   color_map, void_label)
 
-    x_shape[-2] = x.shape[rows_idx]
-    x_shape[-1] = x.shape[cols_idx]
-    x = x.reshape(x_shape)  # unsquash
-    x = x.transpose(inv_pattern)
+    # Undo extra dim
     if y is not None and len(y) > 0:
-        y_shape[-2] = y.shape[rows_idx]
-        y_shape[-1] = y.shape[cols_idx]
-        y = y.reshape(y_shape)  # unsquash
-        y = y.transpose(inv_pattern)
-        y = y[..., 0]  # Undo extra dim
+        y = y[..., 0]
+
     return x, y
