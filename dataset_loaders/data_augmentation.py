@@ -298,13 +298,13 @@ def random_transform(x, y=None,
     cols_idx = 2
 
     # Gamma correction
-    if (gamma > 0 or rotation_range or height_shift_range or
-            width_shift_range or shear_range or zoom_range != [1, 1]):
-        if gamma > 0:
-            scale = float(1)
-            x = ((x / scale) ** gamma) * scale * gain
+    if gamma > 0:
+        scale = float(1)
+        x = ((x / scale) ** gamma) * scale * gain
 
-        # Affine transformations (zoom, rotation, shift, ..)
+    # Affine transformations (zoom, rotation, shift, ..)
+    if (rotation_range or height_shift_range or width_shift_range or
+            shear_range or zoom_range != [1, 1]):
         # --> Rotation
         if rotation_range:
             theta = np.pi / 180 * np.random.uniform(-rotation_range,
