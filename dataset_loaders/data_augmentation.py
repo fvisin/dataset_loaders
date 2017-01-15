@@ -304,9 +304,15 @@ def random_transform(x, y=None,
 
     # listify zoom range
     if np.isscalar(zoom_range):
-        zoom_range = [1 - zoom_range, 1 + zoom_range]
+        if zoom_range > 1.:
+            raise RuntimeError('Zoom range should be between 0 and 1. '
+                               'Received: ', zoom_range)
+        zoom_range = [1 - zoom_range, 1 - zoom_range]
     elif len(zoom_range) == 2:
-        zoom_range = list(zoom_range)
+        if any(el > 1. for el in zoom_range):
+            raise RuntimeError('Zoom range should be between 0 and 1. '
+                               'Received: ', zoom_range)
+        zoom_range = [1-el for el in zoom_range]
     else:
         raise Exception('zoom_range should be a float or '
                         'a tuple or list of two floats. '
