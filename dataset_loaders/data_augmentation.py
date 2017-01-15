@@ -108,15 +108,19 @@ def apply_transform(x, transform_matrix, fill_mode='nearest', cval=0.,
     return x
 
 
-def random_channel_shift(x, intensity, channel_index=0):
-    pattern = [el for el in range(x.ndim) if el != channel_index]
-    pattern += [channel_index]
+def random_channel_shift(x, intensity, rows_idx, cols_idx, chan_idx):
+    pattern = [chan_idx]
+    pattern += [el for el in range(x.ndim) if el not in [rows_idx, cols_idx,
+                                                         chan_idx]]
+    pattern += [rows_idx, cols_idx]
     inv_pattern = [pattern.index(el) for el in range(x.ndim)]
-    x = x.transpose(pattern)
+    x = x.transpose(pattern)  # channel first
     x_shape = list(x.shape)
-    x = x.reshape((x_shape[0], -1))  # squash everything on last axis
-    min_x, max_x = np.min(x), np.max(x)
+    # squash rows and cols together and everything else on the 1st
+    x = x.reshape((-1, x_shape[-2] * x_shape[-1]))
+    # Loop on the channels/batches/etc
     for i in range(x.shape[0]):
+        min_x, max_x = np.min(x), np.max(x)
         x[i] = np.clip(x[i] + np.random.uniform(-intensity, intensity),
                        min_x, max_x)
     x = x.reshape(x_shape)  # unsquash
@@ -273,7 +277,8 @@ def random_transform(x, y=None,
 
     # Channel shift
     if channel_shift_range != 0:
-        x = random_channel_shift(x, channel_shift_range, chan_idx)
+        x = random_channel_shift(x, channel_shift_range, rows_idx, cols_idx,
+                                 chan_idx)
 
     # Reshape to (anything_else, 0, 1)
     pattern = [el for el in range(x.ndim) if el != rows_idx and el != cols_idx]
