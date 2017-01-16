@@ -92,7 +92,8 @@ class ChangeDetectionDataset(ThreadedDataset):
                             ff = ff[s:s+d]
 
                     if kind == 'input':
-                        print('Loading {}..'.format(root[len(self.path):-6]))
+                        if self.verbose:
+                            print('Loading {}..'.format(root[len(self.path):-6]))
 
                         self._filenames.setdefault(video, {}).update(
                             {'category': category,
@@ -171,6 +172,7 @@ class ChangeDetectionDataset(ThreadedDataset):
                      # turbulence
                      'turbulence0', 'turbulence1', 'turbulence2',
                      'turbulence3'),
+                 verbose=False,
                  *args, **kwargs):
 
         self.which_set = 'valid' if which_set == 'val' else which_set
@@ -178,10 +180,10 @@ class ChangeDetectionDataset(ThreadedDataset):
         self.split = split
         self.which_category = which_category
         self.which_video = which_video
-
         if self.which_set == 'test':
             self.has_GT = False
             print('No mask for the test set!!')
+        self.verbose = verbose
 
         super(ChangeDetectionDataset, self).__init__(*args, **kwargs)
 
