@@ -1,5 +1,6 @@
 import ConfigParser
 import os
+from os.path import realpath
 try:
     import Queue
 except ImportError:
@@ -258,7 +259,7 @@ class ThreadedDataset(object):
                 print('The local path {} exist, but is outdated. I will '
                       'replace the old files with the new ones...'.format(
                           self.path))
-                if self.path != self.shared_path:
+                if realpath(self.path) != realpath(self.shared_path):
                     shutil.rmtree(self.path)
                     shutil.copytree(self.shared_path, self.path)
                 with open(os.path.join(self.path, '__version__'), 'w') as f:
