@@ -246,20 +246,22 @@ class ThreadedDataset(object):
         # Copy the data to the local path if not existing
         if not os.path.exists(self.path):
             print('The local path {} does not exist. Copying '
-                  'dataset...'.format(self.path))
+                  'the dataset...'.format(self.path))
             shutil.copytree(self.shared_path, self.path)
             print('Done.')
         else:
             try:
-                with open(os.path.join(self.path, '__version__'))  as f:
+                with open(os.path.join(self.path, '__version__')) as f:
                     if f.read() != self.__version__:
                         raise IOError
             except IOError:
-                print('The local path {} exist, but is outdated. Copying '
-                      'dataset again...'.format(self.path))
-                shutil.rmtree(self.path)
-                shutil.copytree(self.shared_path, self.path)
-                with open(os.path.join(self.path, '__version__'), 'w')  as f:
+                print('The local path {} exist, but is outdated. I will '
+                      'replace the old files with the new ones...'.format(
+                          self.path))
+                if self.path != self.shared_path:
+                    shutil.rmtree(self.path)
+                    shutil.copytree(self.shared_path, self.path)
+                with open(os.path.join(self.path, '__version__'), 'w') as f:
                     f.write(self.__version__)
                 print('Done.')
 
