@@ -694,20 +694,27 @@ class ThreadedDataset(object):
                 data_fetcher().join()
 
     @classproperty
+    def __config_parser__(self):
+        config_parser = ConfigParser.ConfigParser()
+        config_path = os.path.join(dataset_loaders.__path__[0], 'config.ini')
+        if not os.path.isfile(config_path):
+            raise RuntimeError('The config.ini is missing. Make sure to '
+                               'create one in %s according to the '
+                               'config.ini.example in the same '
+                               'path.' % config_path)
+        config_parser.read(config_path)
+        return config_parser
+
+    @classproperty
     def path(self):
-        return os.path.join(dataset_loaders.__path__[0], 'datasets',
-                            getattr(self, 'path_name', self.name))
+        config_parser = self.__config_parser__
+        return os.path.join(
+            config_parser.get('general', 'datasets_local_path'),
+            getattr(self, 'path_name', self.name))
 
     @classproperty
     def shared_path(self):
-        config_parser = ConfigParser.ConfigParser()
-        path = os.path.join(dataset_loaders.__path__[0], 'config.ini')
-        if not os.path.isfile(path):
-            raise RuntimeError('The config.ini with the shared paths is '
-                               'missing. Make sure to create one in %s '
-                               'following the config.ini.example in the same '
-                               'path.' % path)
-        config_parser.read(path)
+        config_parser = self.__config_parser__
         return config_parser.get(self.name, 'shared_path')
 
     @classproperty
