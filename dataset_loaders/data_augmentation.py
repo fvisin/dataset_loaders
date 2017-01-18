@@ -1,7 +1,6 @@
 import numpy as np
 from scipy import interpolate
 import scipy.ndimage as ndi
-import SimpleITK as sitk
 from skimage.color import rgb2gray, gray2rgb
 from skimage import img_as_float
 import seaborn as sns
@@ -231,8 +230,11 @@ def pad_image(x, pad_amount, mode='reflect', constant=0.):
 
 
 def apply_warp(x, warp_field, fill_mode='reflect',
-               interpolator=sitk.sitkLinear,
+               interpolator=None,
                fill_constant=0, rows_idx=1, cols_idx=2):
+    import SimpleITK as sitk
+    if interpolator is None:
+        interpolator = sitk.sitkLinear
     # Expand deformation field (and later the image), padding for the largest
     # deformation
     warp_field_arr = sitk.GetArrayFromImage(warp_field)
@@ -402,6 +404,7 @@ def random_transform(x, y=None,
 
     # Spline warp
     if spline_warp:
+        import SimpleITK as sitk
         warp_field = gen_warp_field(shape=(x.shape[rows_idx],
                                            x.shape[cols_idx]),
                                     sigma=warp_sigma,
