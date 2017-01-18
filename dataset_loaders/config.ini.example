@@ -38,4 +38,4 @@ shared_path = /data/lisatmp4/romerosa/datasets/davis/
 shared_path = /data/lisatmp4/dejoieti/data/GATECH/
 
 [polyp_videos]
-shared_path = (/data/lisatmp4/dejoieti/data/data_colo/)
+shared_path = /data/lisatmp4/dejoieti/data/data_colo/

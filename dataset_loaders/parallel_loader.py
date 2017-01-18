@@ -701,8 +701,13 @@ class ThreadedDataset(object):
     @classproperty
     def shared_path(self):
         config_parser = ConfigParser.ConfigParser()
-        config_parser.read(os.path.join(dataset_loaders.__path__[0],
-                                        'config.ini'))
+        path = os.path.join(dataset_loaders.__path__[0], 'config.ini')
+        if not os.path.isfile(path):
+            raise RuntimeError('The config.ini with the shared paths is '
+                               'missing. Make sure to create one in %s '
+                               'following the config.ini.example in the same '
+                               'path.' % path)
+        config_parser.read(path)
         return config_parser.get(self.name, 'shared_path')
 
     @classproperty
