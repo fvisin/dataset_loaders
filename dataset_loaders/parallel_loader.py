@@ -260,6 +260,11 @@ class ThreadedDataset(object):
                 print('The local path {} exist, but is outdated. I will '
                       'replace the old files with the new ones...'.format(
                           self.path))
+                if not os.path.exists(self.shared_path):
+                    print('The shared_path {} for {} does not exist. Please '
+                          'edit the config.ini file with a valid path, as '
+                          'specified in the README.'.format(self.shared_path,
+                                                            self.name))
                 if realpath(self.path) != realpath(self.shared_path):
                     shutil.rmtree(self.path)
                     shutil.copytree(self.shared_path, self.path)
