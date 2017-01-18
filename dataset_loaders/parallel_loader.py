@@ -9,6 +9,7 @@ import shutil
 import sys
 from threading import Thread
 from time import sleep
+import weakref
 
 import numpy as np
 from numpy.random import RandomState
@@ -324,10 +325,10 @@ class ThreadedDataset(object):
             for _ in range(self.nthreads):
                 data_fetcher = Thread(
                     target=threaded_fetch,
-                    args=(self.names_queue, self.data_queue, self.sentinel,
-                          self.fetch_from_dataset))
+                    args=(weakref.ref(self),))
                 data_fetcher.setDaemon(True)  # Die when main dies
                 data_fetcher.start()
+                data_fetcher = weakref.ref(data_fetcher)
                 self.data_fetchers.append(data_fetcher)
             # Give time to the data fetcher to die, in case of errors
             # sleep(1)
@@ -439,7 +440,8 @@ class ThreadedDataset(object):
             if self.use_threads:
                 # THREADS
                 # Kill main process if fetcher died
-                if all([not df.isAlive() for df in self.data_fetchers]):
+                if all([df() is None or not df().isAlive()
+                        for df in self.data_fetchers]):
                     import sys
                     print('All fetchers threads died. I will suicide!')
                     sys.exit(0)
@@ -678,11 +680,13 @@ class ThreadedDataset(object):
         # Stop fetchers
         for _ in self.data_fetchers:
             self.names_queue.put(self.sentinel)
-        while any([df.isAlive() for df in self.data_fetchers]):
+        while any([df() is not None and df().isAlive()
+                   for df in self.data_fetchers]):
             sleep(self._wait_time)
         # Kill threads
         for data_fetcher in self.data_fetchers:
-            data_fetcher.join()
+            if data_fetcher() is not None:
+                data_fetcher().join()
 
     @classproperty
     def path(self):
@@ -763,7 +767,7 @@ class ThreadedDataset(object):
         return self._cmap.values()
 
 
-def threaded_fetch(names_queue, data_queue, sentinel, fetch_from_dataset):
+def threaded_fetch(weakself):
     """
     Fill the data_queue.
 
@@ -774,23 +778,33 @@ def threaded_fetch(names_queue, data_queue, sentinel, fetch_from_dataset):
     data_queue.
     """
     while True:
+        sleep(0.1)  # Allow the gc to delete the main object if needed
+        self = weakself()
+        if self is None:
+            break
         try:
             # Grabs names from queue
-            batch_to_load = names_queue.get()
+            batch_to_load = self.names_queue.get(False)
 
-            if batch_to_load is sentinel:
-                names_queue.task_done()
+            if batch_to_load is self.sentinel:
+                self.names_queue.task_done()
+                del(self)
                 break
 
             # Load the data
-            minibatch_data = fetch_from_dataset(batch_to_load)
+            minibatch_data = self.fetch_from_dataset(batch_to_load)
 
             # Place it in data_queue
-            data_queue.put(minibatch_data)
+            self.data_queue.put(minibatch_data)
 
             # Signal to the names queue that the job is done
-            names_queue.task_done()
+            self.names_queue.task_done()
+        except Queue.Empty:
+            # names_queue is empty --> loop again
+            pass
         except:
             # If any uncaught exception, pass it along and move on
-            data_queue.put(sys.exc_info())
-            names_queue.task_done()
+            self.data_queue.put(sys.exc_info())
+            self.names_queue.task_done()
+        finally:
+            del(self)
