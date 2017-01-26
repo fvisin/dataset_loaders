@@ -16,6 +16,8 @@ class GatechDataset(ThreadedDataset):
 
     mean = [0.484375, 0.4987793, 0.46508789]
     std = [0.07699376, 0.06672145, 0.09592211]
+    class_freqs = [0.32278032, 0.26515765, 0.21226492, 0.13986998, 0.01805662,
+                   0.01745872, 0.01791921, 0.0041982,  0.00229439]
     # wtf, sky, ground, solid (buildings, etc), porous, cars, humans,
     # vert mix, main mix
     _cmap = {
