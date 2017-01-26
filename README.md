@@ -2,6 +2,11 @@ This repository contains some loaders for commonly used datasets. The loaders
 can perform some on-the-fly preprocessing/data augmentation, as well as
 run on multiple threads (if enabled) to speed up the I/O operations.
 
+If you use this code, please cite:
+* \[1\] Francesco Visin, Adriana Romero - Dataset loaders: a python library to
+    load and preprocess datasets ([BibTeX](
+        https://gist.github.com/fvisin/7104500ae8b33c3b65798d5d2707ce6c#file-dataset_loaders-bib))
+
 ### How to install it:
 1. Clone the repository with `--recursive` in some path, e.g. to your `$HOME`:
 
@@ -20,15 +25,15 @@ run on multiple threads (if enabled) to speed up the I/O operations.
    accessible by everyone, and should be copied locally on the machines that
    run the experiments. The framework automatically takes care for you to copy
    the datasets from the *shared paths* to a *local path*. 
-   
+
    Create a configuration file with these paths in 
    `/dataset_loaders/dataset_loaders/config.ini` (see the 
    [config.ini.example](dataset_loaders/config.ini.example) in the same 
    directory for guidance).
-   
+
    Note: if you want to disable the copy mechanism, just specify the same path 
    for the local and the shared path:
-   
+
    ```ini
    [general]
    datasets_local_path = /a/local/path
@@ -48,7 +53,7 @@ run on multiple threads (if enabled) to speed up the I/O operations.
    ```
 4. You will need to install SimpleITK if you intend to use the *warp_spline*
    data augmentation:
-   
+
    ```sh
     pip install SimpleITK --user  
    ```
