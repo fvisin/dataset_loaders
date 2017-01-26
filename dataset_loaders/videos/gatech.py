@@ -10,6 +10,29 @@ floatX = 'float32'
 
 
 class GatechDataset(ThreadedDataset):
+    '''The Geometric Context from Video
+
+    The Gatech dataset [1]_ consists of over 100 ground-truth annotated
+    outdoor videos with over 20,000 frames.
+
+    The dataset should be downloaded from [1]_ into the `shared_path`
+    (that should be specified in the config.ini according to the
+    instructions in ../README.md).
+
+    Parameters
+    ----------
+    which_set: string
+        A string in ['train', 'val', 'test'], corresponding to the set
+        to be returned.
+    split: float
+        The percentage of the training data to be used for validation.
+        The first `split`\% of the training set will be used for
+        training and the rest for validation. Default: 0.75.
+
+     References
+    ----------
+    .. [1] http://www.cc.gatech.edu/cpl/projects/videogeometriccontext/
+    '''
     name = 'gatech'
     non_void_nclasses = 8
     _void_labels = [0]
@@ -61,12 +84,10 @@ class GatechDataset(ThreadedDataset):
 
     def __init__(self,
                  which_set='train',
-                 threshold_masks=False,
                  split=.75,
                  *args, **kwargs):
 
         self.which_set = which_set
-        self.threshold_masks = threshold_masks
 
         # Prepare data paths
         if 'train' in self.which_set or 'val' in self.which_set:

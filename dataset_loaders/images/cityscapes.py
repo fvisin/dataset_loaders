@@ -8,36 +8,45 @@ from dataset_loaders.utils_parallel_loader import natural_keys
 
 floatX = 'float32'
 
-""" The cityscapes dataset [1]_
-
-To prepare the dataset with the correct class mapping, use the scripts
-provided by the authors: [2]_
-
-Notes
------
-To change the class mapping it suffices to edit
-`cityscapesscripts/helpers/labels.py`:
-    * id = -1  ignores the class when building the GT
-    * id = 255 considers the class as void/unlabeled when building the GT
-and run the script
-`cityscapesscripts/preparation/createTrainIdLabelImgs.py`
-in order to generate the new ground truth images. The `_cmap`,
-`_mask_labels`, `GTclasses`, `_void_labels` and `non_void_nclasses`
-attributes of the dataset class must be modified accordingly.
-
-Notes
------
-To submit the results to the evaluation server the classes have to be
-remapped to the original 0 to 33 range.
-
-References
-----------
-.. [1] https://www.cityscapes-dataset.com
-.. [2] https://github.com/mcordts/cityscapesScripts
-"""
-
 
 class CityscapesDataset(ThreadedDataset):
+    '''The cityscapes dataset
+
+    To prepare the dataset with the correct class mapping, use the scripts
+    provided by the authors: [2]_
+
+    Notes
+    -----
+    To change the class mapping it suffices to edit
+    `cityscapesscripts/helpers/labels.py`:
+        * id = -1  ignores the class when building the GT
+        * id = 255 considers the class as void/unlabeled when building the GT
+    and run the script
+    `cityscapesscripts/preparation/createTrainIdLabelImgs.py`
+    in order to generate the new ground truth images. The `_cmap`,
+    `_mask_labels`, `GTclasses`, `_void_labels` and `non_void_nclasses`
+    attributes of the dataset class must be modified accordingly.
+
+    The dataset should be downloaded from [1]_ into the `shared_path`
+    (that should be specified in the config.ini according to the
+    instructions in ../README.md).
+
+    Notes
+    -----
+    To submit the results to the evaluation server the classes have to be
+    remapped to the original 0 to 33 range.
+
+    Parameters
+    ----------
+    which_set: string
+        A string in ['train', 'val', 'valid', 'test'], corresponding to
+        the set to be returned.
+
+    References
+    ----------
+    .. [1] https://www.cityscapes-dataset.com
+    .. [2] https://github.com/mcordts/cityscapesScripts
+    '''
     name = 'cityscapes'
     non_void_nclasses = 19
     _void_labels = [255]

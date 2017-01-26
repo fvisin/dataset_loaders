@@ -9,12 +9,51 @@ floatX = 'float32'
 
 
 class ChangeDetectionDataset(ThreadedDataset):
-    '''The change detection 2014 dataset
+    '''The Change Detection 2014 dataset
 
-    Multiple categories are given, each with multiple videos.
+    The Change Detection dataset 2014 [1]_ consists of 11 video
+    categories with 4 to 6 video sequences in each category where the
+    goal is to identify changing or moving areas in the field of view of
+    a camera.
+
+    The videos are divided into different categories according to the
+    main difficulty of each video, e.g., sudden illumination changes,
+    environmental conditions (night, rain, snow, air turbulence),
+    background/camera motion, shadows, and camouflage effects
+    (photometric similarity of object and background). The categories
+    are provided in `self.categories`. Specific subsets of categories
+    and videos can be loaded specifying the `which_category` and
+    `which_video` arguments.
+
     Each video has associated a temporalROI and a ROI. The temporalROI
     determines which frames are to be used for training and test. The
-    ROI defines the area of the frame that we are interested in.
+    ROI defines the area of the frame that we are interested in. This
+    loader processes the temporalROI to split the data transparently.
+
+    The dataset should be downloaded from [1]_ into the `shared_path`
+    (that should be specified in the config.ini according to the
+    instructions in ../README.md).
+
+    Parameters
+    ----------
+    which_set: string
+        A string in ['train', 'val', 'test'], corresponding to the set
+        to be returned.
+    which_category: list of strings
+        A list of the categories to be loaded.
+    which_video: list of strings
+        A list of the videos to be loaded.
+    split: float
+        The percentage of the training data to be used for validation.
+        The first `split`\% of the training set will be used for
+        training and the rest for validation. Default: 0.75.
+    verbose: bool
+        If True debug information will be printed when the dataset is
+        loaded.
+
+     References
+    ----------
+    .. [1] http://changedetection.net/
     '''
     name = 'change_detection'
     non_void_nclasses = 4

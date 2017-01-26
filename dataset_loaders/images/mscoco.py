@@ -14,17 +14,35 @@ floatX = 'float32'
 
 
 class MSCocoDataset(ThreadedDataset):
+    '''The Microsoft Common Object in Context (COCO) dataset
+
+    The MS COCO dataset [1]_ consists of more than 300,000 images and over
+    2 Million annotated instances.
+
+    This loader only loads the segmentation information, but the other
+    annotations could added as well with little effort (PR welcome!).
+
+    The dataset should be downloaded from [1]_ into the `shared_path`
+    (that should be specified in the config.ini according to the
+    instructions in ../README.md).
+
+    Parameters
+    ----------
+    which_set: string
+        A string in ['train', 'val', 'valid', 'test'], corresponding to the set
+        to be returned.
+    warn_grayscale: bool
+        Some of the images of the dataset are grayscale. If True, the
+        loader will raise a warning when a grayscale image is loaded,
+        providing the name of the image.
+
+     References
+    ----------
+    .. [1] http://mscoco.org/
+    '''
     name = 'mscoco'
     non_void_nclasses = 80
     _void_labels = [0, 12, 26, 29, 30, 45, 66, 68, 69, 71, 83]
-
-    # optional arguments
-    # GT_classes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18,
-    #               19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34, 35, 36,
-    #               37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52,
-    #               53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 70,
-    #               72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87,
-    #               88, 89, 90]
 
     _filenames = None
     _image_path = None
@@ -69,8 +87,11 @@ class MSCocoDataset(ThreadedDataset):
                                                'image_info_test2015.json'))
         return self._coco
 
-    def __init__(self, which_set='train', warn_grayscale=False,
-                 val_test_split=0.5, *args, **kwargs):
+    def __init__(self,
+                 which_set='train',
+                 warn_grayscale=False,
+                 *args,
+                 **kwargs):
         sys.path.append(os.path.join(os.path.dirname(
             os.path.abspath(__file__)), 'coco', 'PythonAPI'))
         self.which_set = 'val' if which_set == 'valid' else which_set
