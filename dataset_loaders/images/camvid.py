@@ -8,6 +8,32 @@ floatX = 'float32'
 
 
 class CamvidDataset(ThreadedDataset):
+    '''The CamVid motion based segmentation dataset
+
+    The Cambridge-driving Labeled Video Database (CamVid) [1]_ provides
+    high-quality videos acquired at 30 Hz with the corresponding
+    semantically labeled masks at 1 Hz and in part, 15 Hz. The ground
+    truth labels associate each pixel with one of 32 semantic classes.
+
+    This loader is intended for the SegNet version of the CamVid dataset,
+    that resizes the original data to 360 by 480 resolution and remaps
+    the ground truth to a subset of 12 labels.
+
+    The dataset should be downloaded from [2]_ into the `shared_path`
+    (that should be specified in the config.ini according to the
+    instructions in ../README.md).
+
+    Parameters
+    ----------
+    which_set: string
+        A string in ['train', 'val', 'valid', 'test'], corresponding to
+        the set to be returned.
+
+     References
+    ----------
+    .. [1] http://mi.eng.cam.ac.uk/research/projects/VideoRec/CamVid/
+    .. [2] https://github.com/alexgkendall/SegNet-Tutorial/tree/master/CamVid
+    '''
     name = 'camvid'
     non_void_nclasses = 11
     _void_labels = [11]
