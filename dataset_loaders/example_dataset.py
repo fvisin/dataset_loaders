@@ -48,9 +48,22 @@ class ExampleDataset(ThreadedDataset):
     GTclasses = range(non_void_nclasses) + _void_labels
 
     # The dataset-wide statistics (either channel-wise or pixel-wise).
-    # `running_stats` contains utilities to compute them.
+    # `extra/running_stats` contains utilities to compute them.
     mean = [0.1, 0.2, 0.3]
     std = [0.21, 0.22, 0.23]
+
+    # The frequency of the classes of the dataset. Note that this field
+    # should be a list of values for the *output* classes, i.e., the
+    # classes after the mapping. In other terms, the frequency of the
+    # void labels should be summed up together and provided as last
+    # value of the array.
+    # Note that:
+    #   * the total length of the class_freqs list should be equal to
+    #     `self.nclasses`;
+    #   * `sum(self.class_freqs)` should be close to 1.
+    class_freqs = [0.166666, 0.083333, 0.083333, 0.166666, 0.083333,
+                   0.083333, 0.083333, 0.083333, 0.041666, 0.041666,
+                   0.083333]
 
     # A *dictionary* of the form `class_id: (R, G, B)`. `class_id` is
     # the class id in the original data.
@@ -65,7 +78,7 @@ class ExampleDataset(ThreadedDataset):
         7: (64, 64, 128),      # Fence
         8: (64, 0, 128),       # Car
         9: (64, 64, 0),        # Pedestrian
-        128: (0, 128, 192),     # Void
+        128: (0, 128, 192),    # Void
         255: (0, 0, 0)}        # Void
 
     # A *dictionary* of form `class_id: label`. `class_id` is the class
