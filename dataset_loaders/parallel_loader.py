@@ -70,6 +70,9 @@ class ThreadedDataset(object):
         to perform middle frame prediction, i.e., where the current
         frame has to be the middle one and the previous and next ones
         are used as context. Default:False.
+    return_middle_frame_only:bool
+        If True only the middle frame of the ground truth will be returned.
+        Default:False.
     use_threads: bool
         If True threads will be used to fetch the data from the dataset.
         Default: False.
@@ -153,6 +156,7 @@ class ThreadedDataset(object):
                  return_one_hot=False,
                  return_01c=False,
                  return_extended_sequences=False,
+                 return_middle_frame_only=False,
                  use_threads=False,
                  nthreads=1,
                  shuffle_at_each_epoch=True,
@@ -282,6 +286,7 @@ class ThreadedDataset(object):
         self.return_one_hot = return_one_hot
         self.return_01c = return_01c
         self.return_extended_sequences = return_extended_sequences
+        self.return_middle_frame_only = return_middle_frame_only
         self.use_threads = use_threads
         self.nthreads = nthreads
         self.shuffle_at_each_epoch = shuffle_at_each_epoch
@@ -625,6 +630,8 @@ class ThreadedDataset(object):
             except ValueError:
                 # Variable shape: cannot wrap with a numpy array
                 pass
+        if self.seq_length > 0 and self.return_middle_frame_only:
+            batch_ret['labels'] = batch_ret['labels'][:, self.seq_length//2]
         if self.return_list:
             return [batch_ret['data'], batch_ret['labels']]
         else:
