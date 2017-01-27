@@ -745,9 +745,8 @@ class ThreadedDataset(object):
     @classmethod
     def _get_mapping(self):
         if hasattr(self, 'GTclasses'):
-            self.GTclasses.sort()
             mapping = {cl: i for i, cl in enumerate(
-                set(self.GTclasses) - set(self._void_labels))}
+                sorted(set(self.GTclasses) - set(self._void_labels)))}
             for l in self._void_labels:
                 mapping[l] = self.non_void_nclasses
         else:
