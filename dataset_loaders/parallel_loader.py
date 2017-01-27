@@ -578,13 +578,15 @@ class ThreadedDataset(object):
                 mapping = self._get_mapping()
 
                 # Apply the mapping
-                seq_y[seq_y == self.non_void_nclasses] = -1
+                tmp_class = (-1 if not hasattr(self, 'GTclasses') else
+                             max(self.GTclasses) + 1)
+                seq_y[seq_y == self.non_void_nclasses] = tmp_class
                 for i in sorted(mapping.keys()):
                     if i == self.non_void_nclasses:
                         continue
                     seq_y[seq_y == i] = mapping[i]
                 try:
-                    seq_y[seq_y == -1] = mapping[self.non_void_nclasses]
+                    seq_y[seq_y == tmp_class] = mapping[self.non_void_nclasses]
                 except KeyError:
                     # none of the original classes was self.non_void_nclasses
                     pass
