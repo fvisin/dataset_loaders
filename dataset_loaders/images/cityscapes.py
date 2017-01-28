@@ -49,90 +49,86 @@ class CityscapesDataset(ThreadedDataset):
     '''
     name = 'cityscapes'
     non_void_nclasses = 19
-    _void_labels = [255]
+    _void_labels = [0, 1, 2, 3, 4, 5, 6, 9, 10, 14, 15, 16, 18, 29, 30, -1]
+    GTclasses = range(34)
+    GTclasses = GTclasses + [-1]
 
     # optional arguments
     data_shape = (2048, 1024, 3)
-
-    GTclasses = range(non_void_nclasses)
-    GTclasses = GTclasses + [255]
-
     _cmap = {
-        # 255 , (0, 0, 0),      # unlabeled
-        # 255 , (0, 0, 0),      # ego vehicle
-        # 255 : (0, 0, 0),      # rectification border
-        # 255 : (0, 0, 0),      # out of roi
-        # 255 : (0, 0, 0),      # static
-        # 255 : (111, 74,  0),  # dynamic
-        # 255 : (81,  0, 81),   # ground
-        0: (128, 64, 128),      # road
-        1: (244, 35, 232),      # sidewalk
-        # 255: (250,170,160),   # parking
-        # 255: (230,150,140),   # rail track
-        2: (70, 70, 70),        # building
-        3: (102, 102, 156),     # wall
-        4: (190, 153, 153),     # fence
-        # 255: (180,165,180),   # guard rail
-        # 255: (150,100,100),   # bridge
-        # 255: (150,120, 90),   # tunnel
-        5: (153, 153, 153),     # pole
-        # 255: (153,153,153),   # polegroup
-        6: (250, 170, 30),      # traffic light
-        7: (220, 220,  0),      # traffic sign
-        8: (107, 142, 35),      # vegetation
-        9: (152, 251, 152),     # terrain
-        10: (0, 130, 180),      # sky
-        11: (220, 20, 60),      # person
-        12: (255, 0,  0),       # rider
-        13: (0, 0, 142),        # car
-        14: (0, 0, 70),         # truck
-        15: (0, 60, 100),       # bus
-        # 255: (0,  0, 90),     # caravan
-        # 255: (0,  0,110),     # trailer
-        16: (0, 80, 100),       # train
-        17: (0, 0, 230),        # motorcycle
-        18: (119, 11, 32),      # bicycle
-        255: (0, 0, 0),          # void
-        # -1: (0, 0, 142)       # license plate
+        0: (0, 0, 0),           # unlabeled
+        1: (0, 0, 0),           # ego vehicle
+        2: (0, 0, 0),           # rectification border
+        3: (0, 0, 0),           # out of roi
+        4: (0, 0, 0),           # static
+        5: (111, 74, 0),        # dynamic
+        6: (81,  0, 81),        # ground
+        7: (128, 64, 128),      # road
+        8: (244, 35, 232),      # sidewalk
+        9: (250, 170, 160),     # parking
+        10: (230, 150, 140),    # rail track
+        11: (70, 70, 70),       # building
+        12: (102, 102, 156),    # wall
+        13: (190, 153, 153),    # fence
+        14: (180, 165, 180),    # guard rail
+        15: (150, 100, 100),    # bridge
+        16: (150, 120, 90),     # tunnel
+        17: (153, 153, 153),    # pole
+        18: (153, 153, 153),    # polegroup
+        19: (250, 170, 30),     # traffic light
+        20: (220, 220,  0),     # traffic sign
+        21: (107, 142, 35),     # vegetation
+        22: (152, 251, 152),    # terrain
+        23: (0, 130, 180),      # sky
+        24: (220, 20, 60),      # person
+        25: (255, 0, 0),        # rider
+        26: (0, 0, 142),        # car
+        27: (0, 0, 70),         # truck
+        28: (0, 60, 100),       # bus
+        29: (0,  0, 90),        # caravan
+        30: (0,  0, 110),       # trailer
+        31: (0, 80, 100),       # train
+        32: (0, 0, 230),        # motorcycle
+        33: (119, 11, 32),      # bicycle
+        -1: (0, 0, 142)         # license plate
         }
 
     _mask_labels = {
-        # 0: 'unlabeled',
-        # 1: 'ego vehicle',
-        # 2: 'rectification border',
-        # 3: 'out of roi',
-        # 4: 'static',
-        # 5: 'dynamic',
-        # 6: 'ground',
-        0: 'road',
-        1: 'sidewalk',
-        # 9: 'parking',
-        # 10: 'rail track',
-        2: 'building',
-        3: 'wall',
-        4: 'fence',
-        # 14: 'guard rail',
-        # 15: 'bridge',
-        # 16: 'tunnel',
-        5: 'pole',
-        # 18: 'polegroup',
-        6: 'traffic light',
-        7: 'traffic sign',
-        8: 'vegetation',
-        9: 'terrain',
-        10: 'sky',
-        11: 'person',
-        12: 'rider',
-        13: 'car',
-        14: 'truck',
-        15: 'bus',
-        # 29: 'caravan',
-        # 30: 'trailer',
-        16: 'train',
-        17: 'motorcycle',
-        18: 'bicycle',
-        255: 'void'
-        # -1: 'license plate'
+        0: 'unlabeled',
+        1: 'ego vehicle',
+        2: 'rectification border',
+        3: 'out of roi',
+        4: 'static',
+        5: 'dynamic',
+        6: 'ground',
+        7: 'road',
+        8: 'sidewalk',
+        9: 'parking',
+        10: 'rail track',
+        11: 'building',
+        12: 'wall',
+        13: 'fence',
+        14: 'guard rail',
+        15: 'bridge',
+        16: 'tunnel',
+        17: 'pole',
+        18: 'polegroup',
+        19: 'traffic light',
+        20: 'traffic sign',
+        21: 'vegetation',
+        22: 'terrain',
+        23: 'sky',
+        24: 'person',
+        25: 'rider',
+        26: 'car',
+        27: 'truck',
+        28: 'bus',
+        29: 'caravan',
+        30: 'trailer',
+        31: 'train',
+        32: 'motorcycle',
+        33: 'bicycle',
+        -1: 'license plate'
     }
 
     _filenames = None
@@ -213,7 +209,7 @@ class CityscapesDataset(ThreadedDataset):
 
             if self.has_GT:
                 mask_filename = frame.replace("leftImg8bit",
-                                              "gtFine_labelTrainIds")
+                                              "gtFine_labelIds")
                 mask = io.imread(os.path.join(self.mask_path, mask_filename))
                 mask = mask.astype('int32')
                 Y.append(mask)
