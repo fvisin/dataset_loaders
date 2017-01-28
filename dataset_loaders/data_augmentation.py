@@ -3,7 +3,6 @@ from scipy import interpolate
 import scipy.ndimage as ndi
 from skimage.color import rgb2gray, gray2rgb
 from skimage import img_as_float
-import seaborn as sns
 import os
 import scipy.misc
 
@@ -470,6 +469,7 @@ def random_transform(x, y=None,
 
     # Save augmented images
     if save_to_dir:
+        import seaborn as sns
         fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
         print ('Save to dir'.format(fname))
         color_map = sns.hls_palette(nclasses)
