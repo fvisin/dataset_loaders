@@ -3,7 +3,6 @@ import sys
 import time
 import warnings
 
-from matplotlib.path import Path
 import numpy as np
 from PIL import Image
 
@@ -134,6 +133,7 @@ class MSCocoDataset(ThreadedDataset):
         filenames.
         """
         from pycocotools import mask as cocomask
+        from matplotlib.path import Path
         X = []
         Y = []
         F = []
