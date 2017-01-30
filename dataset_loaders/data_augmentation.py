@@ -7,7 +7,7 @@ import os
 import scipy.misc
 import SimpleITK as sitk
 
-
+# This script is based on https://github.com/fchollet/keras/blob/master/keras/preprocessing/image.py
 # Converts a label mask to RGB to be shown
 def my_label2rgb(labels, colors, bglabel=None, bg_color=(0., 0., 0.)):
     output = np.zeros(labels.shape + (3,), dtype=np.float64)
@@ -290,6 +290,57 @@ def random_transform(x, y=None,
                      rows_idx=1,  # No batch yet: (s, 0, 1, c)
                      cols_idx=2,  # No batch yet: (s, 0, 1, c)
                      void_label=None):
+    
+    """
+
+    Random Transform.
+    A function to perform data augmentation of images and masks during the training  (on-the-fly). 
+    The function is based on https://github.com/fchollet/keras/blob/master/keras/preprocessing/image.py
+
+
+    Parameters
+
+    ----------
+
+
+    x: array of floats
+    An image.
+
+    y: array of int
+    An array with labels.
+
+    rotation_range: degrees (0 to 180).
+    width_shift_range: fraction of total width.
+    height_shift_range: fraction of total height.
+    shear_range: shear intensity (shear angle in radians).
+    zoom_range: amout of zoom, if scalar z, zoom will be randomly picked 
+                in the range[1-z, 1+z].
+    channel_shift_range: shift range for each channels.
+    fill_mode: points outside the boundaries are filled according to the 
+               given mode (‘constant’, ‘nearest’, ‘reflect’ or ‘wrap’). 
+               Default is ‘nearest’.
+    cval: value used for points outside the boundaries when fill_mode is ‘constant’. 
+          Default is 0.
+    cvalMask: value used for points outside the boundaries when fill_mode is ‘constant’. 
+              Default is 0.
+    horizontal_flip: whether to randomly flip images horizontally.
+    vertical_flip: whether to randomly flip images vertically.
+    rescale: rescaling factor. If None or 0, no rescaling is applied,
+            otherwise we multiply the data by the value provided
+            (before applying any other transformation).
+    spline_warp: whether to apply spline warping.
+    warp_sigma: sigma in gaussians used in spline warping.
+    warp_grid_size: grid size in spline warping.
+    crop_size: tupple, representing the size of crop used during the training.
+    nclasses: number of classes in the dataset.
+    gamma: ??
+    gain: ??
+    chan_idx: ??
+    rows_idx: ??
+    cols_idx: ??
+    void_label:
+    """
+
 
     # Set this to a dir, if you want to save augmented images samples
     save_to_dir = None
