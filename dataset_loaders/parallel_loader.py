@@ -152,7 +152,7 @@ class ThreadedDataset(object):
                  seq_length=0,      # if 0, return 4D
                  overlap=None,
                  batch_size=1,
-                 queues_size=50,
+                 queues_size=20,
                  return_one_hot=False,
                  return_01c=False,
                  return_extended_sequences=False,
