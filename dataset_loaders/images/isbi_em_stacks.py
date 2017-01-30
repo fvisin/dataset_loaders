@@ -55,6 +55,36 @@ def batch_elastic_def(im_batch, disp_x, disp_y, grid_size=(3, 3),
 
 
 class IsbiEmStacksDataset(ThreadedDataset):
+    ''' Segmentation of neuronal structures in Electron Microscopy (EM)
+    stacks dataset
+
+    EM stacks dataset is the basis of 2D segmentation of neuronal processes
+    challenge [1]_. It provides a training set of 30 consecutive images
+    (512 x 512 pixels) from a serial section transmission EM of the Drosophila
+    first instar larva ventral nerve cord. The test set is a separate set of 30
+    images, for which segmentation labels are not provided. The ground truth
+    corresponds to a boundary map annotated by human experts, associating each
+    pixel with one of 2 classes (cell or cell membrane).
+
+    The dataset should be downloaded from [2]_ into the `shared_path`
+    (that should be specified in the config.ini according to the
+    instructions in ../README.md).
+
+    Parameters
+    ----------
+    which_set: string
+        A string in ['train', 'val', test'], corresponding to
+        the set to be returned.
+    split: float
+        A float indicating the dataset split between training and validation.
+        For example, if split=0.85, 85% of the images will be used for training,
+        whereas 15% will be used for validation.
+
+     References
+    ----------
+    .. [1] http://journal.frontiersin.org/article/10.3389/fnana.2015.00142/full
+    .. [2] http://brainiac2.mit.edu/isbi_challenge/home
+    '''
     name = 'isbi_em_stacks'
     non_void_nclasses = 2
     _void_labels = []
@@ -66,23 +96,22 @@ class IsbiEmStacksDataset(ThreadedDataset):
         1: (255, 255, 255)}  # Membranes
     _mask_labels = {0: 'Non-membranes', 1: 'Membranes'}
 
-    def __init__(self, which_set='train', start=0, end=30,
-                 elastic_deform=False, h_flipping=False, v_flipping=False,
-                 shearing_range=0.0, *args, **kwargs):
+    def __init__(self, which_set='train', split=0.85, *args, **kwargs):
 
-        assert which_set in ["train", "test"]
-        self.which_set = which_set
-
-        assert start >= 0 and end <= 30 and start < end
-        self.start = start
-        self.end = end
-
-        self.elastic_deform = elastic_deform
-        self.h_flipping = h_flipping
-        self.v_flipping = v_flipping
-        self.shearing_range = shearing_range
+        assert which_set in ["train", "valid", "val", "test"]
+        self.which_set = "val" if which_set == "valid" else which_set
 
         if self.which_set == "train":
+            self.start = 0
+            self.end = int(split*30)
+        elif self.which_set == "val":
+            self.start = int(split*30)
+            self.end = 30
+        elif self.which_set == "test":
+            self.start = 0
+            self.end = 30
+
+        if self.which_set in ["train", "val"]:
             self.image_path = os.path.join(self.path, "train-volume.tif")
             self.target_path = os.path.join(self.path, "train-labels.tif")
         elif self.which_set == "test":
@@ -123,50 +152,11 @@ class IsbiEmStacksDataset(ThreadedDataset):
                 targets = np.array(targets) / 255
 
             X.append(imgs)
-            Y.append(targets)
+            if self.which_set != "test":
+                Y.append(targets)
             F.append(idx)
         X = np.array(X)
         Y = np.array(Y)
-
-        # If needed, apply elastic deformation
-        if self.elastic_deform:
-            disp_x, disp_y = displacement_vecs(10, (3, 3))
-            X = batch_elastic_def(X[:, :, :, 0], disp_x, disp_y)[:, :, :, None]
-            Y = batch_elastic_def(Y, disp_x, disp_y)
-
-        # If needed, apply flipping
-        # X is in format B01C, Y is in format B01
-        for i in range(len(X)):
-            if self.h_flipping and np.random.random() < 0.5:
-                X[i] = X[i, :, ::-1]
-                Y[i] = Y[i, :, ::-1]
-            if self.v_flipping and np.random.random() < 0.5:
-                X[i] = X[i, ::-1, :]
-                Y[i] = Y[i, ::-1, :]
-
-        # If needed, apply shearing deformation
-        if self.shearing_range > 0.0:
-            from keras.preprocessing.image import (
-                apply_transform, transform_matrix_offset_center)
-
-            height = X.shape[2]
-            width = X.shape[3]
-
-            for i in range(len(X)):
-
-                shear = np.random.uniform(-self.shearing_range,
-                                          self.shearing_range)
-                shear_matrix = np.array([[1, -np.sin(shear), 0],
-                                         [0, np.cos(shear), 0],
-                                         [0, 0, 1]])
-
-                transform_matrix = transform_matrix_offset_center(shear_matrix,
-                                                                  height,
-                                                                  width)
-                X[i] = apply_transform(X[i], transform_matrix, 2,
-                                       'nearest', 0.)
-                Y[i] = apply_transform(Y[i, :, :, None], transform_matrix, 2,
-                                       'nearest', 0.)[:, :, 0]
 
         X = X.astype("float32") / 255
         ret = {}
@@ -181,30 +171,81 @@ class IsbiEmStacksDataset(ThreadedDataset):
 def test():
     trainiter = IsbiEmStacksDataset(
         which_set='train',
-        batch_size=5,
+        batch_size=1,
         seq_per_subset=0,
         seq_length=0,
-        overlap=9,
+        overlap=0,
         return_one_hot=True,
         return_01c=True,
         data_augm_kwargs={
-            'crop_size': (224, 224)},
+            'crop_size': (224, 224),
+            'fill_mode': 'nearest',
+            'horizontal_flip': True,
+            'vertical_flip': True,
+            'warp_sigma': 1,
+            'warp_grid_size': 10,
+            'spline_warp': True},
         return_list=True,
-        elastic_deform=True)
+        use_threads=False)
+    validiter = IsbiEmStacksDataset(
+        which_set='val',
+        batch_size=1,
+        seq_per_subset=0,
+        seq_length=0,
+        overlap=0,
+        return_one_hot=True,
+        return_01c=True,
+        data_augm_kwargs={},
+        return_list=True,
+        use_threads=False)
+    testiter = IsbiEmStacksDataset(
+        which_set='test',
+        batch_size=1,
+        seq_per_subset=0,
+        seq_length=0,
+        overlap=0,
+        return_one_hot=True,
+        return_01c=True,
+        data_augm_kwargs={},
+        return_list=True,
+        use_threads=False)
 
-    train_nsamples = trainiter.nsamples
+    # Get number of classes
     nclasses = trainiter.nclasses
-    nbatches = trainiter.nbatches
+    print ("N classes: " + str(nclasses))
+    void_labels = trainiter.void_labels
+    print ("Void label: " + str(void_labels))
+
+    # Training info
+    train_nsamples = trainiter.nsamples
     train_batch_size = trainiter.batch_size
-    print("Train %d" % (train_nsamples))
+    train_nbatches = trainiter.nbatches
+    print("Train n_images: {}, batch_size: {}, n_batches: {}".format(
+        train_nsamples, train_batch_size, train_nbatches))
+
+    # Validation info
+    valid_nsamples = validiter.nsamples
+    valid_batch_size = validiter.batch_size
+    valid_nbatches = validiter.nbatches
+    print("Validation n_images: {}, batch_size: {}, n_batches: {}".format(
+        valid_nsamples, valid_batch_size, valid_nbatches))
+
+    # Testing info
+    test_nsamples = testiter.nsamples
+    test_batch_size = testiter.batch_size
+    test_nbatches = testiter.nbatches
+    print("Test n_images: {}, batch_size: {}, n_batches: {}".format(
+        test_nsamples, test_batch_size, test_nbatches))
 
     start = time.time()
     tot = 0
     max_epochs = 2
 
     for epoch in range(max_epochs):
-        for mb in range(nbatches):
+        for mb in range(train_nbatches):
             train_group = trainiter.next()
+            valid_group = validiter.next()
+            # test_group = testiter.next()
 
             # train_group checks
             assert train_group[0].ndim == 4
@@ -215,6 +256,16 @@ def test():
             assert train_group[1].ndim == 4
             assert train_group[1].shape[0] <= train_batch_size
             assert train_group[1].shape[1:] == (224, 224, nclasses)
+
+            # valid_group checks
+            assert valid_group[0].ndim == 4
+            assert valid_group[0].shape[0] <= valid_batch_size
+            assert valid_group[0].shape[1:] == (512, 512, 1)
+            assert valid_group[0].min() >= 0
+            assert valid_group[0].max() <= 1
+            assert valid_group[1].ndim == 4
+            assert valid_group[1].shape[0] <= valid_batch_size
+            assert valid_group[1].shape[1:] == (512, 512, nclasses)
 
             # time.sleep approximates running some model
             time.sleep(1)

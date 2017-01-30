@@ -27,6 +27,29 @@ def load_class_names(file_name):
 
 
 class SceneParsingMITDataset(ThreadedDataset):
+    '''The MIT Scene Parsing benchmark (SceneParse150)
+
+    SceneParse150 [1]_ provides a standard training and evaluation platform for
+    scene parsing algorithms. The data for this benchmark comes from ADE20K
+    Dataset, which contains more than 20K scene-centric images exhaustively
+    annotated with objects and object parts. The dataset contains 20K annotated
+    images for training and 2K annotated images for validation. The test set is
+    a separate batch of images, for which segmentation labels are not provided.
+
+    The dataset should be downloaded from [1]_ into the `shared_path`
+    (that should be specified in the config.ini according to the
+    instructions in ../README.md).
+
+    Parameters
+    ----------
+    which_set: string
+        A string in ['train', 'val', 'valid', 'test'], corresponding to
+        the set to be returned.
+
+     References
+    ----------
+    .. [1] http://sceneparsing.csail.mit.edu/
+    '''
     name = 'scene_parsing_MIT'
     non_void_nclasses = 150
     _void_labels = [-1]   # TODO: Check

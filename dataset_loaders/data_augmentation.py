@@ -5,6 +5,7 @@ from skimage.color import rgb2gray, gray2rgb
 from skimage import img_as_float
 import os
 import scipy.misc
+import SimpleITK as sitk
 
 
 # Converts a label mask to RGB to be shown
@@ -231,7 +232,6 @@ def pad_image(x, pad_amount, mode='reflect', constant=0.):
 def apply_warp(x, warp_field, fill_mode='reflect',
                interpolator=None,
                fill_constant=0, rows_idx=1, cols_idx=2):
-    import SimpleITK as sitk
     if interpolator is None:
         interpolator = sitk.sitkLinear
     # Expand deformation field (and later the image), padding for the largest

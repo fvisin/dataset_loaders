@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import time
 
 from dataset_loaders.parallel_loader import ThreadedDataset
 
@@ -17,7 +18,7 @@ class CamvidDataset(ThreadedDataset):
 
     This loader is intended for the SegNet version of the CamVid dataset,
     that resizes the original data to 360 by 480 resolution and remaps
-    the ground truth to a subset of 12 labels.
+    the ground truth to a subset of 11 labels.
 
     The dataset should be downloaded from [2]_ into the `shared_path`
     (that should be specified in the config.ini according to the
@@ -150,3 +151,57 @@ class CamvidDataset(ThreadedDataset):
         ret['subset'] = prefix
         ret['filenames'] = np.array(F)
         return ret
+
+
+def test():
+    trainiter = CamvidDataset(
+        which_set='train',
+        batch_size=10,
+        seq_per_subset=0,
+        seq_length=0,
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
+        return_one_hot=True,
+        return_01c=True,
+        return_list=True,
+        use_threads=True)
+
+    validiter = CamvidDataset(
+        which_set='valid',
+        batch_size=5,
+        seq_per_subset=0,
+        seq_length=0,
+        data_augm_kwargs={
+            'crop_size': (224, 224)},
+        return_one_hot=True,
+        return_01c=True,
+        return_list=True,
+        use_threads=False)
+
+    train_nsamples = trainiter.nsamples
+    nbatches = trainiter.nbatches
+    print("Train %d" % (train_nsamples))
+
+    valid_nsamples = validiter.nsamples
+    print("Valid %d" % (valid_nsamples))
+
+    # Simulate training
+    max_epochs = 2
+    start_training = time.time()
+    for epoch in range(max_epochs):
+        start_epoch = time.time()
+        for mb in range(nbatches):
+            start_batch = time.time()
+            trainiter.next()
+            print("Minibatch {}: {} seg".format(mb, (time.time() -
+                                                     start_batch)))
+        print("Epoch time: %s" % str(time.time() - start_epoch))
+    print("Training time: %s" % str(time.time() - start_training))
+
+
+def run_tests():
+    test()
+
+
+if __name__ == '__main__':
+    run_tests()

@@ -9,18 +9,47 @@ floatX = 'float32'
 
 
 class Polyps912Dataset(ThreadedDataset):
+    '''The Endoluminal Scene Segmentation (EndoScene) of Colonoscopy Images
+    benchmark
+
+    The EndoScene dataset [1]_ consists of 912 frames extracted from 44
+    colonoscopy sequences of 36 patients. The dataset combines both CVC-ColonDB
+    and CVC-ClinicDB datasets of [2]_ and extends the dataset annotations to
+    account for 4 different semantic classes.
+
+    This loader is intended for the EndoScene dataset version containing 3
+    semantic classes, namely polyp, lumen and  background (where borders are
+    annotated as void class). However, it could be easily adapted to account
+    for 2 or 4 classes.
+
+    The dataset should be downloaded from [1]_ into the `shared_path`
+    (that should be specified in the config.ini according to the
+    instructions in ../README.md).
+
+    Parameters
+    ----------
+    which_set: string
+        A string in ['train', 'val', 'valid', 'test'], corresponding to
+        the set to be returned.
+
+     References
+    ----------
+    .. [1] http://adas.cvc.uab.es/endoscene/
+    .. [2] https://endovis.grand-challenge.org/
+    '''
     name = 'polyps912'
-    non_void_nclasses = 2
-    _void_labels = [2]
+    non_void_nclasses = 3
+    _void_labels = [3]
 
     # optional arguments
     data_shape = (384, 288, 3)
     _cmap = {
-        0: (128, 128, 0),       # Background
-        1: (128, 0, 0),         # Polyp
-        2: (0, 0, 128),         # Void
+        0: (0, 0, 0),       # Background
+        1: (255, 255, 255), # Polyp
+        2: (128, 0, 0),     # Lumen
+        3: (128, 128, 128), # Void
         }
-    _mask_labels = {0: 'Background', 1: 'Polyp', 2: 'Void'}
+    _mask_labels = {0: 'Background', 1: 'Polyp', 2: 'Lumen', 3: 'Void'}
 
     _filenames = None
 
@@ -154,7 +183,7 @@ def test():
     valid_nsamples = validiter.nsamples
     valid_batch_size = validiter.batch_size
     valid_nbatches = validiter.nbatches
-    print("Train n_images: {}, batch_size: {}, n_batches: {}".format(
+    print("Validation n_images: {}, batch_size: {}, n_batches: {}".format(
         valid_nsamples, valid_batch_size, valid_nbatches))
 
     # Testing info
@@ -166,7 +195,7 @@ def test():
 
     start = time.time()
     tot = 0
-    max_epochs = 2
+    max_epochs = 1
 
     for epoch in range(max_epochs):
         for mb in range(train_nbatches):
