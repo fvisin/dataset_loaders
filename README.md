@@ -7,6 +7,9 @@ If you use this code, please cite:
     load and preprocess datasets ([BibTeX](
         https://gist.github.com/fvisin/7104500ae8b33c3b65798d5d2707ce6c#file-dataset_loaders-bib))
 
+**Please understand that code is provided as is and we will be able to provide
+minimal-to-none support on it.**
+
 ### How to install it:
 1. Clone the repository with `--recursive` in some path, e.g. to your `$HOME`:
 
@@ -59,9 +62,16 @@ If you use this code, please cite:
    ```
 </br>
 
-**Note**: This framework is provided for research purposes only. The code
-might be unstable. Please carefully check that it loads what you expect
-them to load before using it!
+### Notes
+* This framework is provided for research purposes only. Although we tried our 
+  best to test it, the code might be bugged or unstable. Use it at your own
+  risk!
+* The framework currently supports image or video based datasets. It could be 
+  easily extended to support other kinds of data (e.g., text corpora), but
+  there is no plan on our side to work on that at the moment.
+* Feel free to contribute to the code with a PR if you find bugs, want to
+  improve the existing code or add support for other datasets.
+
  
 </br>
 </br>

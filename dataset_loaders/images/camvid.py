@@ -18,7 +18,8 @@ class CamvidDataset(ThreadedDataset):
 
     This loader is intended for the SegNet version of the CamVid dataset,
     that resizes the original data to 360 by 480 resolution and remaps
-    the ground truth to a subset of 11 labels.
+    the ground truth to a subset of 11 semantic classes, plus a void
+    class.
 
     The dataset should be downloaded from [2]_ into the `shared_path`
     (that should be specified in the config.ini according to the
