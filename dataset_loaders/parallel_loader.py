@@ -575,7 +575,7 @@ class ThreadedDataset(object):
                 # non_void_nclasses.
                 void_l = self._void_labels
                 void_l.sort(reverse=True)
-                mapping = self._get_mapping()
+                mapping = self._mapping
 
                 # Apply the mapping
                 tmp_class = (-1 if not hasattr(self, 'GTclasses') else
@@ -742,8 +742,8 @@ class ThreadedDataset(object):
         return ([self.non_void_nclasses] if hasattr(self, '_void_labels') and
                 self._void_labels != [] else [])
 
-    @classmethod
-    def _get_mapping(self):
+    @classproperty
+    def _mapping(self):
         if hasattr(self, 'GTclasses'):
             mapping = {cl: i for i, cl in enumerate(
                 sorted(set(self.GTclasses) - set(self._void_labels)))}
@@ -761,16 +761,16 @@ class ThreadedDataset(object):
                     mapping[i] = i - delta
         return mapping
 
-    @classmethod
-    def _get_inv_mapping(self):
-        mapping = self._get_mapping()
+    @classproperty
+    def _inv_mapping(self):
+        mapping = self._mapping
         return {v: k for k, v in mapping.items()}
 
-    @classmethod
-    def get_cmap(self):
+    @classproperty
+    def cmap(self):
         cmap = getattr(self, '_cmap', {})
         assert isinstance(cmap, dict)
-        inv_mapping = self._get_inv_mapping()
+        inv_mapping = self._inv_mapping
         cmap = np.array([cmap[inv_mapping[k]] for k in
                          sorted(inv_mapping.keys())])
         if cmap.max() > 1:
@@ -778,18 +778,15 @@ class ThreadedDataset(object):
             cmap = cmap / 255.  # not inplace or rounded to int
         return cmap
 
-    @classmethod
-    def get_mask_labels(self):
+    @classproperty
+    def mask_labels(self):
         mask_labels = getattr(self, '_mask_labels', {})
         assert isinstance(mask_labels, dict)
         if mask_labels == {}:
             return []
-        inv_mapping = self._get_inv_mapping()
+        inv_mapping = self._inv_mapping
         return np.array([mask_labels[inv_mapping[k]] for k in
                          sorted(inv_mapping.keys())])
-
-    def get_cmap_values(self):
-        return self._cmap.values()
 
 
 def threaded_fetch(weakself):

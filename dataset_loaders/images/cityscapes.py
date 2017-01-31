@@ -299,7 +299,7 @@ def test3():
     nbatches = 500
     train_batch_size = trainiter.batch_size
     print("Train %d" % (train_nsamples))
-    trainiter.get_cmap()
+    trainiter.cmap
     max_epochs = 5
 
     for epoch in range(max_epochs):
