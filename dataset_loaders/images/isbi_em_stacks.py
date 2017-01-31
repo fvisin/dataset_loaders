@@ -10,50 +10,6 @@ from dataset_loaders.parallel_loader import ThreadedDataset
 floatX = 'float32'
 
 
-def displacement_vecs(std, grid_size):
-    disp_x = np.reshape(
-        map(int, np.random.randn(np.prod(np.asarray(grid_size)))*std),
-        grid_size)
-    disp_y = np.reshape(
-        map(int, np.random.randn(np.prod(np.asarray(grid_size)))*std),
-        grid_size)
-    return disp_x, disp_y
-
-
-def _elastic_def(image, fx, fy):
-    imsize = image.shape[-2:]
-    x = np.arange(imsize[0]-1)
-    y = np.arange(imsize[1]-1)
-    xx, yy = np.meshgrid(x, y)
-    z_1 = fx(x, y).astype(int)
-    z_2 = fy(x, y).astype(int)
-    img = np.zeros(image.shape, dtype='uint8')
-    if image.ndim == 3:  # multi-channel
-        img[:, xx, yy] = image[:, np.clip(xx - z_1, 0, imsize[0]-1),
-                               np.clip(yy - z_2, 0, imsize[1]-1)]
-    if image.ndim == 2:  # one channel
-        img[xx, yy] = image[np.clip(xx - z_1, 0, imsize[0]-1),
-                            np.clip(yy - z_2, 0, imsize[1]-1)]
-    return img
-
-
-def batch_elastic_def(im_batch, disp_x, disp_y, grid_size=(3, 3),
-                      interpol_kind='linear'):
-    '''im_batch should have batch dimension
-       even if it contains a single image'''
-    imsize = im_batch.shape[-2:]
-    x = np.linspace(0, imsize[0]-1, grid_size[0]).astype(int)
-    y = np.linspace(0, imsize[1]-1, grid_size[1]).astype(int)
-    fx = interpolate.interp2d(x, y, disp_x, kind=interpol_kind)
-    fy = interpolate.interp2d(x, y, disp_y, kind=interpol_kind)
-    if im_batch.ndim == 3 or im_batch.ndim == 4:
-        im_elast_def = np.asarray([_elastic_def(im, fx, fy)
-                                   for im in im_batch])
-    if im_batch.ndim == 2:  # if no batch in im_batch
-        im_elast_def = _elastic_def(im_batch, fx, fy)
-    return im_elast_def
-
-
 class IsbiEmStacksDataset(ThreadedDataset):
     ''' Segmentation of neuronal structures in Electron Microscopy (EM)
     stacks dataset
@@ -77,8 +33,8 @@ class IsbiEmStacksDataset(ThreadedDataset):
         the set to be returned.
     split: float
         A float indicating the dataset split between training and validation.
-        For example, if split=0.85, 85% of the images will be used for training,
-        whereas 15% will be used for validation.
+        For example, if split=0.85, 85\% of the images will be used for training,
+        whereas 15\% will be used for validation.
 
      References
     ----------
@@ -117,6 +73,7 @@ class IsbiEmStacksDataset(ThreadedDataset):
         elif self.which_set == "test":
             self.image_path = os.path.join(self.path, "test-volume.tif")
             self.target_path = None
+            self.set_has_GT = False
 
         # constructing the ThreadedDataset
         # it also creates/copies the dataset in self.path if not already there
@@ -152,7 +109,7 @@ class IsbiEmStacksDataset(ThreadedDataset):
                 targets = np.array(targets) / 255
 
             X.append(imgs)
-            if self.which_set != "test":
+            if self.set_has_GT:
                 Y.append(targets)
             F.append(idx)
         X = np.array(X)
@@ -186,7 +143,7 @@ def test():
             'warp_grid_size': 10,
             'spline_warp': True},
         return_list=True,
-        use_threads=False)
+        use_threads=True)
     validiter = IsbiEmStacksDataset(
         which_set='val',
         batch_size=1,
@@ -197,7 +154,7 @@ def test():
         return_01c=True,
         data_augm_kwargs={},
         return_list=True,
-        use_threads=False)
+        use_threads=True)
     testiter = IsbiEmStacksDataset(
         which_set='test',
         batch_size=1,
@@ -208,7 +165,7 @@ def test():
         return_01c=True,
         data_augm_kwargs={},
         return_list=True,
-        use_threads=False)
+        use_threads=True)
 
     # Get number of classes
     nclasses = trainiter.nclasses
@@ -245,7 +202,7 @@ def test():
         for mb in range(train_nbatches):
             train_group = trainiter.next()
             valid_group = validiter.next()
-            # test_group = testiter.next()
+            test_group = testiter.next()
 
             # train_group checks
             assert train_group[0].ndim == 4
@@ -266,6 +223,13 @@ def test():
             assert valid_group[1].ndim == 4
             assert valid_group[1].shape[0] <= valid_batch_size
             assert valid_group[1].shape[1:] == (512, 512, nclasses)
+
+            # test_group checks
+            assert test_group[0].ndim == 4
+            assert test_group[0].shape[0] <= test_batch_size
+            assert test_group[0].shape[1:] == (512, 512, 1)
+            assert test_group[0].min() >= 0
+            assert test_group[0].max() <= 1
 
             # time.sleep approximates running some model
             time.sleep(1)

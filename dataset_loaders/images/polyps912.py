@@ -17,10 +17,10 @@ class Polyps912Dataset(ThreadedDataset):
     and CVC-ClinicDB datasets of [2]_ and extends the dataset annotations to
     account for 4 different semantic classes.
 
-    This loader is intended for the EndoScene dataset version containing 3
-    semantic classes, namely polyp, lumen and  background (where borders are
-    annotated as void class). However, it could be easily adapted to account
-    for 2 or 4 classes.
+    This loader is intended for the EndoScene dataset version containing 2
+    semantic classes, namely polyp and background, plus a void class annotating
+    the border of the images. However, it could be easily adapted to account
+    for 3 or 4 classes.
 
     The dataset should be downloaded from [1]_ into the `shared_path`
     (that should be specified in the config.ini according to the
@@ -38,18 +38,17 @@ class Polyps912Dataset(ThreadedDataset):
     .. [2] https://endovis.grand-challenge.org/
     '''
     name = 'polyps912'
-    non_void_nclasses = 3
-    _void_labels = [3]
+    non_void_nclasses = 2
+    _void_labels = [2]
 
     # optional arguments
     data_shape = (384, 288, 3)
     _cmap = {
         0: (0, 0, 0),       # Background
         1: (255, 255, 255), # Polyp
-        2: (128, 0, 0),     # Lumen
-        3: (128, 128, 128), # Void
+        2: (128, 128, 128), # Void
         }
-    _mask_labels = {0: 'Background', 1: 'Polyp', 2: 'Lumen', 3: 'Void'}
+    _mask_labels = {0: 'Background', 1: 'Polyp', 2: 'Void'}
 
     _filenames = None
 

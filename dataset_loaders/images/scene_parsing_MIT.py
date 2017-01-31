@@ -21,7 +21,7 @@ def load_class_names(file_name):
         mask_labels[int(line[0])] = line[4]
     # print(str(mask_labels))
 
-    # TODO: Other data can be taken from here like class frecuency
+    # TODO: Other data can be taken from here like class frequency
 
     return mask_labels
 
@@ -35,6 +35,8 @@ class SceneParsingMITDataset(ThreadedDataset):
     annotated with objects and object parts. The dataset contains 20K annotated
     images for training and 2K annotated images for validation. The test set is
     a separate batch of images, for which segmentation labels are not provided.
+    The ground truth labels associate each pixel with one of the 150 semantic
+    classes, plus one void class.
 
     The dataset should be downloaded from [1]_ into the `shared_path`
     (that should be specified in the config.ini according to the
@@ -52,7 +54,7 @@ class SceneParsingMITDataset(ThreadedDataset):
     '''
     name = 'scene_parsing_MIT'
     non_void_nclasses = 150
-    _void_labels = [-1]   # TODO: Check
+    _void_labels = [0]
 
     GTclasses = range(non_void_nclasses) + _void_labels
 

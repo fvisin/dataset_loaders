@@ -7,7 +7,6 @@ import numpy as np
 from scipy import interpolate
 import scipy.misc
 import scipy.ndimage as ndi
-import SimpleITK as sitk
 from skimage.color import rgb2gray, gray2rgb
 from skimage import img_as_float
 
@@ -215,6 +214,7 @@ def flip_axis(x, flipping_axis):
 
 # Define warp
 def gen_warp_field(shape, sigma=0.1, grid_size=3):
+    import SimpleITK as sitk
     # Initialize bspline transform
     args = shape+(sitk.sitkFloat32,)
     ref_image = sitk.Image(*args)
@@ -285,6 +285,7 @@ def pad_image(x, pad_amount, mode='reflect', constant=0.):
 def apply_warp(x, warp_field, fill_mode='reflect',
                interpolator=None,
                fill_constant=0, rows_idx=1, cols_idx=2):
+    import SimpleITK as sitk
     if interpolator is None:
         interpolator = sitk.sitkLinear
     # Expand deformation field (and later the image), padding for the largest

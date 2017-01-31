@@ -25,7 +25,7 @@ class KITTIdataset(ThreadedDataset):
     This loader is intended for the KITTI segmentation benchmark in [3]_, which
     consists in 146 images and annotations from the original KITTI visual
     odometry dataset. The ground truth labels associate each pixel with one of
-    11 semantic classes.
+    11 semantic classes, plus one void class.
 
     The dataset should be downloaded from [3]_ into the `shared_path`
     (that should be specified in the config.ini according to the
@@ -36,6 +36,10 @@ class KITTIdataset(ThreadedDataset):
     which_set: string
         A string in ['train', 'val', 'valid', 'test'], corresponding to
         the set to be returned.
+    split: float
+        A float indicating the dataset split between training and validation.
+        For example, if split=0.85, 85\% of the images will be used for training,
+        whereas 15\% will be used for validation.
 
      References
     ----------
@@ -90,12 +94,20 @@ class KITTIdataset(ThreadedDataset):
                 file_name, ext = os.path.splitext(file_name)
                 filenames.append(file_name)
 
+            nfiles = len(filenames)
+            if self.which_set == 'train':
+                filenames = filenames[:int(nfiles*self.split)]
+            elif self.which_set == 'val':
+                filenames = filenames[-(nfiles - int(nfiles*self.split)):]
+
             # Save the filenames list
             self._filenames = filenames
+
         return self._filenames
 
     def __init__(self,
                  which_set="train",
+                 split=0.85,
                  *args, **kwargs):
 
         self.which_set = "val" if which_set == "valid" else which_set
@@ -105,12 +117,13 @@ class KITTIdataset(ThreadedDataset):
 
         if self.which_set == 'train':
             set_folder = 'Training_00/'
+            self.split = split
         elif self.which_set == 'val':
-            set_folder = 'valid/'
+            set_folder = 'Training_00/'
+            self.split = split
         elif self.which_set == 'test':
             set_folder = 'Validation_07/'
-        elif self.which_set == 'trainval':
-            set_folder = 'trainval/'
+            self.split = 1.0
         else:
             raise ValueError
 
@@ -177,11 +190,21 @@ def test():
 
     validiter = KITTIdataset(
         which_set='valid',
-        batch_size=5,
+        batch_size=1,
         seq_per_subset=0,
         seq_length=0,
-        data_augm_kwargs={
-            'crop_size': (224, 224)},
+        data_augm_kwargs={},
+        return_one_hot=True,
+        return_01c=True,
+        return_list=True,
+        use_threads=False)
+
+    testiter = KITTIdataset(
+        which_set='test',
+        batch_size=1,
+        seq_per_subset=0,
+        seq_length=0,
+        data_augm_kwargs={},
         return_one_hot=True,
         return_01c=True,
         return_list=True,
@@ -193,6 +216,9 @@ def test():
 
     valid_nsamples = validiter.nsamples
     print("Valid %d" % (valid_nsamples))
+
+    test_nsamples = testiter.nsamples
+    print("Test %d" % (test_nsamples))
 
     # Simulate training
     max_epochs = 2
