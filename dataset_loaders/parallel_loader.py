@@ -239,16 +239,6 @@ class ThreadedDataset(object):
         if seq_length and overlap and overlap >= seq_length:
             raise ValueError('`overlap` should be smaller than `seq_length`')
 
-        # Create the `datasets` dir if missing
-        if not os.path.exists(os.path.join(dataset_loaders.__path__[0],
-                                           'datasets')):
-            print('The dataset path does not exist. Making a dir..')
-            the_path = os.path.join(dataset_loaders.__path__[0], 'datasets')
-            # Follow the symbolic link
-            if os.path.islink(the_path):
-                the_path = os.path.realpath(the_path)
-            os.makedirs(the_path)
-
         # Copy the data to the local path if not existing
         if not os.path.exists(self.path):
             print('The local path {} does not exist. Copying '
