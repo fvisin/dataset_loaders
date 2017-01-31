@@ -91,7 +91,7 @@ class SceneParsingMITDataset(ThreadedDataset):
             self.which_set = "validation"
         elif which_set in ("test", "testing"):
             self.which_set = "testing"
-            self.has_GT = False
+            self.set_has_GT = False
         else:
             raise ValueError("Unknown set requested: %s" % which_set)
 
@@ -130,7 +130,7 @@ class SceneParsingMITDataset(ThreadedDataset):
             img = img.astype(floatX) / 255.
 
             # Load mask
-            if self.has_GT:
+            if self.set_has_GT:
                 mask = np.array(Image.open(
                     os.path.join(self.mask_path, img_name + ".png")))
                 mask = mask.astype('int32')

@@ -100,7 +100,7 @@ class MSCocoDataset(ThreadedDataset):
         # it also creates/copies the dataset in self.path if not already there
         super(MSCocoDataset, self).__init__(*args, **kwargs)
 
-        self.has_GT = self.which_set != 'test'
+        self.set_has_GT = self.which_set != 'test'
 
         if self.seq_length != 1 or self.seq_per_subset != 0:
             raise NotImplementedError('Images in COCO are not sequential. '

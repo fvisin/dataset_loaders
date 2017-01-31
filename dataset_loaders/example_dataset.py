@@ -36,10 +36,10 @@ class ExampleDataset(ThreadedDataset):
     # in the dataset have different shapes.
     data_shape = (360, 480, 3)
 
-    # Set has_GT to False if the dataset has no ground truth. Else, set
+    # Set set_has_GT to False if the dataset has no ground truth. Else, set
     # it to False only for the sets that don't have GT. See `__init__`
     # for details.
-    # has_GT = False
+    # set_has_GT = False
 
     # A list of classes labels. To be provided when the classes labels
     # (including the void ones) are not consecutive. If not provided,
@@ -98,8 +98,9 @@ class ExampleDataset(ThreadedDataset):
             self.mask_path = os.path.join(self.path, 'val', 'GT')
         elif self.which_set == 'test':
             self.image_path = os.path.join(self.path, 'test', 'images')
-            # Set has_GT to false if some set does not have the ground truth
-            self.has_GT = False
+            # Set set_has_GT to false if some set does not have the ground
+            # truth
+            self.set_has_GT = False
         else:
             raise RuntimeError('Unknown set: {}'.format(which_set))
 

@@ -94,7 +94,7 @@ class PascalVOCdataset(ThreadedDataset):
         if self.which_set == "test" and year != "VOC2012":
             raise ValueError("No test set for other than 2012 year")
         if self.which_set == 'test':
-            self.has_GT = False
+            self.set_has_GT = False
 
         self.year = year
         self.path_extra = os.path.join(

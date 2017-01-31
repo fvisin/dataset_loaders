@@ -299,7 +299,7 @@ class ThreadedDataset(object):
         self.raise_IOErrors = raise_IOErrors
         self.rng = rng if rng is not None else RandomState(0xbeef)
 
-        self.has_GT = getattr(self, 'has_GT', True)
+        self.set_has_GT = getattr(self, 'set_has_GT', True)
         self.mean = getattr(self, 'mean', [])
         self.std = getattr(self, 'std', [])
 
@@ -556,7 +556,7 @@ class ThreadedDataset(object):
                 raw_data = raw_data[np.newaxis, ...]
             assert seq_x.ndim == 4
             # and labels in 3D
-            if self.has_GT:
+            if self.set_has_GT:
                 if seq_y.ndim == 2:
                     seq_y = seq_y[np.newaxis, ...]
                 assert seq_y.ndim == 3
@@ -568,7 +568,7 @@ class ThreadedDataset(object):
                 void_label=self.void_labels,
                 **self.data_augm_kwargs)
 
-            if self.has_GT and self._void_labels != []:
+            if self.set_has_GT and self._void_labels != []:
                 # Map all void classes to non_void_nclasses and shift the other
                 # values accordingly, so that the valid values are between 0
                 # and non_void_nclasses-1 and the void_classes are all equal to
@@ -593,7 +593,7 @@ class ThreadedDataset(object):
 
             # Transform targets seq_y to one hot code if return_one_hot
             # is True
-            if self.has_GT and self.return_one_hot:
+            if self.set_has_GT and self.return_one_hot:
                 nc = (self.non_void_nclasses if self._void_labels == [] else
                       self.non_void_nclasses + 1)
                 sh = seq_y.shape
@@ -609,14 +609,14 @@ class ThreadedDataset(object):
             if not self.return_01c:
                 # s,0,1,c --> s,c,0,1
                 seq_x = seq_x.transpose([0, 3, 1, 2])
-                if self.has_GT and self.return_one_hot:
+                if self.set_has_GT and self.return_one_hot:
                     seq_y = seq_y.transpose([0, 3, 1, 2])
                 raw_data = raw_data.transpose([0, 3, 1, 2])
 
             # Return 4D images
             if not self.return_sequence:
                 seq_x = seq_x[0, ...]
-                if self.has_GT:
+                if self.set_has_GT:
                     seq_y = seq_y[0, ...]
                 raw_data = raw_data[0, ...]
 

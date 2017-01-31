@@ -163,7 +163,7 @@ class CityscapesDataset(ThreadedDataset):
         if self.which_set not in ['train', 'val', 'test']:
             raise NotImplementedError('Unknown set: ' + which_set)
         if self.which_set == 'test':
-            self.has_GT = False
+            self.set_has_GT = False
 
         self.image_path = os.path.join(self.path,
                                        "leftImg8bit",
@@ -207,7 +207,7 @@ class CityscapesDataset(ThreadedDataset):
             X.append(img)
             F.append(frame)
 
-            if self.has_GT:
+            if self.set_has_GT:
                 mask_filename = frame.replace("leftImg8bit",
                                               "gtFine_labelIds")
                 mask = io.imread(os.path.join(self.mask_path, mask_filename))
@@ -316,7 +316,7 @@ def test3():
             assert train_group[0].min() >= 0
             assert train_group[0].max() <= 1
 
-            if trainiter.has_GT:
+            if trainiter.set_has_GT:
                 assert train_group[1].shape[0] <= train_batch_size
                 assert train_group[1].shape[1] == 224
                 assert train_group[1].shape[2] == 224

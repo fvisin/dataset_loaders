@@ -220,7 +220,7 @@ class ChangeDetectionDataset(ThreadedDataset):
         self.which_category = which_category
         self.which_video = which_video
         if self.which_set == 'test':
-            self.has_GT = False
+            self.set_has_GT = False
             print('No mask for the test set!!')
         self.verbose = verbose
 
