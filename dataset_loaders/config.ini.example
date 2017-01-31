@@ -13,12 +13,6 @@ shared_path = /data/lisa/data/isbi_challenge_em_stacks/
 [kitti]
 shared_path = /data/lisatmp4/romerosa/datasets/kitti/
 
-[kitti2]
-shared_path = /data/lisatmp4/romerosa/datasets/kitti2
-
-[kitti3]
-shared_path = /data/lisatmp4/romerosa/datasets/kitti3/
-
 [mscoco]
 shared_path = /data/lisa/data/COCO
 
@@ -39,6 +33,3 @@ shared_path = /data/lisatmp4/romerosa/datasets/davis/
 
 [gatech]
 shared_path = /data/lisatmp4/dejoieti/data/GATECH/
-
-[polyp_videos]
-shared_path = /data/lisatmp4/dejoieti/data/data_colo/
