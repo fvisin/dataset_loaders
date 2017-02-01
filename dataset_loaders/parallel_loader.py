@@ -73,6 +73,10 @@ class ThreadedDataset(object):
     return_middle_frame_only:bool
         If True only the middle frame of the ground truth will be returned.
         Default:False.
+    return_0_255: bool
+        If True the images will be returned in the range [0, 255] with
+        dtype `uint8`. Otherwise the images will be returned in the
+        range [0, 1] as dtype `float32`. Default: False.
     use_threads: bool
         If True threads will be used to fetch the data from the dataset.
         Default: False.
@@ -157,6 +161,7 @@ class ThreadedDataset(object):
                  return_01c=False,
                  return_extended_sequences=False,
                  return_middle_frame_only=False,
+                 return_0_255=False,
                  use_threads=False,
                  nthreads=1,
                  shuffle_at_each_epoch=True,
@@ -277,6 +282,7 @@ class ThreadedDataset(object):
         self.return_01c = return_01c
         self.return_extended_sequences = return_extended_sequences
         self.return_middle_frame_only = return_middle_frame_only
+        self.return_0_255 = return_0_255
         self.use_threads = use_threads
         self.nthreads = nthreads
         self.shuffle_at_each_epoch = shuffle_at_each_epoch
@@ -610,6 +616,8 @@ class ThreadedDataset(object):
                     seq_y = seq_y[0, ...]
                 raw_data = raw_data[0, ...]
 
+            if self.return_0_255:
+                seq_x = (seq_x * 255).astype('uint8')
             ret['data'], ret['labels'] = seq_x, seq_y
             ret['raw_data'] = raw_data
             # Append the data of this batch to the minibatch array
