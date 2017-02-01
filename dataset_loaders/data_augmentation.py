@@ -60,30 +60,37 @@ def optical_flow(seq, rows_idx, cols_idx, chan_idx):
     return flow_seq
 
 
-# Converts a label mask to RGB to be shown
-def my_label2rgb(labels, colors, bglabel=None, bg_color=(0., 0., 0.)):
+def my_label2rgb(labels, cmap, bglabel=None, bg_color=(0., 0., 0.)):
+    '''Convert a label mask to RGB applying a color map'''
     output = np.zeros(labels.shape + (3,), dtype=np.float64)
-    for i in range(len(colors)):
+    for i in range(len(cmap)):
         if i != bglabel:
-            output[(labels == i).nonzero()] = colors[i]
+            output[(labels == i).nonzero()] = cmap[i]
     if bglabel is not None:
         output[(labels == bglabel).nonzero()] = bg_color
     return output
 
 
-# Converts a label mask to RGB to be shown and overlaps over an image
-def my_label2rgboverlay(labels, colors, image, bglabel=None,
+def my_label2rgboverlay(labels, cmap, image, bglabel=None,
                         bg_color=(0., 0., 0.), alpha=0.2):
+    '''Superimpose a mask over an image
+
+    Convert a label mask to RGB applying a color map and superimposing it
+    over an image as a transparent overlay'''
     image_float = gray2rgb(img_as_float(rgb2gray(image)))
-    label_image = my_label2rgb(labels, colors, bglabel=bglabel,
+    label_image = my_label2rgb(labels, cmap, bglabel=bglabel,
                                bg_color=bg_color)
     output = image_float * alpha + label_image * (1 - alpha)
     return output
 
 
-# Save 2 images (Image and mask)
-def save_img2(x, y, fname, color_map, void_label, rows_idx, cols_idx,
+def save_img2(x, y, fname, cmap, void_label, rows_idx, cols_idx,
               chan_idx):
+    '''Save a mask and an image side to side
+
+    Convert a label mask to RGB applying a color map and superimposing it
+    over an image as a transparent overlay. Saves the original image and
+    the image with the mask overlay in a file'''
     pattern = [el for el in range(x.ndim) if el not in [rows_idx, cols_idx,
                                                         chan_idx]]
     pattern += [rows_idx, cols_idx, chan_idx]
@@ -97,7 +104,7 @@ def save_img2(x, y, fname, color_map, void_label, rows_idx, cols_idx,
         y_copy = y_copy[0, ..., 0]
 
     label_mask = my_label2rgboverlay(y,
-                                     colors=color_map,
+                                     colors=cmap,
                                      image=x,
                                      bglabel=void_label,
                                      alpha=0.2)
@@ -135,8 +142,7 @@ def _elastic_def(image, fx, fy):
 
 def batch_elastic_def(im_batch, disp_x, disp_y, grid_size=(3, 3),
                       interpol_kind='linear'):
-    '''im_batch should have batch dimension
-       even if it contains a single image'''
+    # im_batch should have batch dimension even if it contains a single image
     imsize = im_batch.shape[-2:]
     x = np.linspace(0, imsize[0]-1, grid_size[0]).astype(int)
     y = np.linspace(0, imsize[1]-1, grid_size[1]).astype(int)
@@ -151,6 +157,10 @@ def batch_elastic_def(im_batch, disp_x, disp_y, grid_size=(3, 3),
 
 
 def transform_matrix_offset_center(matrix, x, y):
+    '''Shift the transformation matrix to be in the center of the image
+
+    Apply an offset to the transformation matrix so that the origin of
+    the axis is in the center of the image.'''
     o_x = float(x) / 2 + 0.5
     o_y = float(y) / 2 + 0.5
     offset_matrix = np.array([[1, 0, o_x], [0, 1, o_y], [0, 0, 1]])
@@ -161,6 +171,7 @@ def transform_matrix_offset_center(matrix, x, y):
 
 def apply_transform(x, transform_matrix, fill_mode='nearest', cval=0.,
                     order=0, rows_idx=1, cols_idx=2):
+    '''Apply an affine transformation on each channel separately.'''
     final_affine_matrix = transform_matrix[:2, :2]
     final_offset = transform_matrix[:2, 2]
 
@@ -182,7 +193,11 @@ def apply_transform(x, transform_matrix, fill_mode='nearest', cval=0.,
     return x
 
 
-def random_channel_shift(x, intensity, rows_idx, cols_idx, chan_idx):
+def random_channel_shift(x, shift_range, rows_idx, cols_idx, chan_idx):
+    '''Shift the intensity values of each channel uniformly.
+
+    Channel by channel, shift all the intensity values by a random value in
+    [-shift_range, shift_range]'''
     pattern = [chan_idx]
     pattern += [el for el in range(x.ndim) if el not in [rows_idx, cols_idx,
                                                          chan_idx]]
@@ -195,7 +210,7 @@ def random_channel_shift(x, intensity, rows_idx, cols_idx, chan_idx):
     # Loop on the channels/batches/etc
     for i in range(x.shape[0]):
         min_x, max_x = np.min(x), np.max(x)
-        x[i] = np.clip(x[i] + np.random.uniform(-intensity, intensity),
+        x[i] = np.clip(x[i] + np.random.uniform(-shift_range, shift_range),
                        min_x, max_x)
     x = x.reshape(x_shape)  # unsquash
     x = x.transpose(inv_pattern)
@@ -203,6 +218,7 @@ def random_channel_shift(x, intensity, rows_idx, cols_idx, chan_idx):
 
 
 def flip_axis(x, flipping_axis):
+    '''Flip an axis by inverting the position of its elements'''
     pattern = [flipping_axis]
     pattern += [el for el in range(x.ndim) if el != flipping_axis]
     inv_pattern = [pattern.index(el) for el in range(x.ndim)]
@@ -212,37 +228,27 @@ def flip_axis(x, flipping_axis):
     return x
 
 
-# Define warp
-def gen_warp_field(shape, sigma=0.1, grid_size=3):
-    import SimpleITK as sitk
-    # Initialize bspline transform
-    args = shape+(sitk.sitkFloat32,)
-    ref_image = sitk.Image(*args)
-    tx = sitk.BSplineTransformInitializer(ref_image, [grid_size, grid_size])
-
-    # Initialize shift in control points:
-    # mesh size = number of control points - spline order
-    p = sigma * np.random.randn(grid_size+3, grid_size+3, 2)
-
-    # Anchor the edges of the image
-    p[:, 0, :] = 0
-    p[:, -1:, :] = 0
-    p[0, :, :] = 0
-    p[-1:, :, :] = 0
-
-    # Set bspline transform parameters to the above shifts
-    tx.SetParameters(p.flatten())
-
-    # Compute deformation field
-    displacement_filter = sitk.TransformToDisplacementFieldFilter()
-    displacement_filter.SetReferenceImage(ref_image)
-    displacement_field = displacement_filter.Execute(tx)
-
-    return displacement_field
-
-
-# Pad image
 def pad_image(x, pad_amount, mode='reflect', constant=0.):
+    '''Pad an image
+
+    Pad an image by pad_amount on each side.
+
+    Parameters
+    ----------
+    x: numpy ndarray
+        The array to be padded.
+    pad_amount: int
+        The number of pixels of the padding.
+    mode: string
+        The padding mode. If "constant" a constant value will be used to
+        fill the padding; if "reflect" the border pixels will be used in
+        inverse order to fill the padding; if "nearest" the border pixel
+        closer to the padded area will be used to fill the padding; if
+        "zero" the padding will be filled with zeros.
+    constant: int
+        The value used to fill the padding when "constant" mode is
+        selected.
+        '''
     e = pad_amount
     shape = list(x.shape)
     shape[:2] += 2*e
@@ -282,9 +288,39 @@ def pad_image(x, pad_amount, mode='reflect', constant=0.):
     return x_padded
 
 
+def gen_warp_field(shape, sigma=0.1, grid_size=3):
+    '''Generate an spline warp field'''
+    import SimpleITK as sitk
+    # Initialize bspline transform
+    args = shape+(sitk.sitkFloat32,)
+    ref_image = sitk.Image(*args)
+    tx = sitk.BSplineTransformInitializer(ref_image, [grid_size, grid_size])
+
+    # Initialize shift in control points:
+    # mesh size = number of control points - spline order
+    p = sigma * np.random.randn(grid_size+3, grid_size+3, 2)
+
+    # Anchor the edges of the image
+    p[:, 0, :] = 0
+    p[:, -1:, :] = 0
+    p[0, :, :] = 0
+    p[-1:, :, :] = 0
+
+    # Set bspline transform parameters to the above shifts
+    tx.SetParameters(p.flatten())
+
+    # Compute deformation field
+    displacement_filter = sitk.TransformToDisplacementFieldFilter()
+    displacement_filter.SetReferenceImage(ref_image)
+    displacement_field = displacement_filter.Execute(tx)
+
+    return displacement_field
+
+
 def apply_warp(x, warp_field, fill_mode='reflect',
                interpolator=None,
                fill_constant=0, rows_idx=1, cols_idx=2):
+    '''Apply an spling warp field on an image'''
     import SimpleITK as sitk
     if interpolator is None:
         interpolator = sitk.sitkLinear
@@ -345,7 +381,6 @@ def random_transform(x, y=None,
                      rows_idx=1,  # No batch yet: (s, 0, 1, c)
                      cols_idx=2,  # No batch yet: (s, 0, 1, c)
                      void_label=None):
-
     '''Random Transform.
 
     A function to perform data augmentation of images and masks during
@@ -609,9 +644,9 @@ def random_transform(x, y=None,
         import seaborn as sns
         fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
         print ('Save to dir'.format(fname))
-        color_map = sns.hls_palette(nclasses)
+        cmap = sns.hls_palette(nclasses)
         save_img2(x, y, os.path.join(save_to_dir, fname),
-                  color_map, void_label, rows_idx, cols_idx, chan_idx)
+                  cmap, void_label, rows_idx, cols_idx, chan_idx)
 
     # Undo extra dim
     if y is not None and len(y) > 0:
