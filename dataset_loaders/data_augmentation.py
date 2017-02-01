@@ -113,49 +113,6 @@ def save_img2(x, y, fname, cmap, void_label, rows_idx, cols_idx,
     scipy.misc.toimage(combined_image).save(fname)
 
 
-def displacement_vecs(std, grid_size):
-    disp_x = np.reshape(
-        map(int, np.random.randn(np.prod(np.asarray(grid_size)))*std),
-        grid_size)
-    disp_y = np.reshape(
-        map(int, np.random.randn(np.prod(np.asarray(grid_size)))*std),
-        grid_size)
-    return disp_x, disp_y
-
-
-def _elastic_def(image, fx, fy):
-    imsize = image.shape[-2:]
-    x = np.arange(imsize[0]-1)
-    y = np.arange(imsize[1]-1)
-    xx, yy = np.meshgrid(x, y)
-    z_1 = fx(x, y).astype(int)
-    z_2 = fy(x, y).astype(int)
-    img = np.zeros(image.shape, dtype='uint8')
-    if image.ndim == 3:  # multi-channel
-        img[:, xx, yy] = image[:, np.clip(xx - z_1, 0, imsize[0]-1),
-                               np.clip(yy - z_2, 0, imsize[1]-1)]
-    if image.ndim == 2:  # one channel
-        img[xx, yy] = image[np.clip(xx - z_1, 0, imsize[0]-1),
-                            np.clip(yy - z_2, 0, imsize[1]-1)]
-    return img
-
-
-def batch_elastic_def(im_batch, disp_x, disp_y, grid_size=(3, 3),
-                      interpol_kind='linear'):
-    # im_batch should have batch dimension even if it contains a single image
-    imsize = im_batch.shape[-2:]
-    x = np.linspace(0, imsize[0]-1, grid_size[0]).astype(int)
-    y = np.linspace(0, imsize[1]-1, grid_size[1]).astype(int)
-    fx = interpolate.interp2d(x, y, disp_x, kind=interpol_kind)
-    fy = interpolate.interp2d(x, y, disp_y, kind=interpol_kind)
-    if im_batch.ndim == 3 or im_batch.ndim == 4:
-        im_elast_def = np.asarray([_elastic_def(im, fx, fy)
-                                   for im in im_batch])
-    if im_batch.ndim == 2:  # if no batch in im_batch
-        im_elast_def = _elastic_def(im_batch, fx, fy)
-    return im_elast_def
-
-
 def transform_matrix_offset_center(matrix, x, y):
     '''Shift the transformation matrix to be in the center of the image
 
