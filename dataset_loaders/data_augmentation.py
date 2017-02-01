@@ -2,7 +2,6 @@
 # https://github.com/fchollet/keras/blob/master/keras/preprocessing/image.py
 import os
 
-import cv2
 import numpy as np
 from scipy import interpolate
 import scipy.misc
@@ -16,6 +15,7 @@ def optical_flow(seq, rows_idx, cols_idx, chan_idx):
 
     Takes a 4D array of sequences and returns a 4D array with
     an RGB optical flow image for each frame in the input'''
+    import cv2
     if seq.ndim != 4:
         raise RuntimeError('Optical flow expected 4 dimensions, got %d' %
                            seq.ndim)
