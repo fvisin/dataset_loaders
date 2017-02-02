@@ -400,9 +400,9 @@ def random_transform(x, y=None,
     nclasses: int
         The number of classes of the dataset.
     gamma: float
-        ??
+        Controls gamma in Gamma correction.
     gain: float
-        ??
+        Controls gain in Gamma correction.
     chan_idx: int
         The index of the channel axis.
     rows_idx: int
