@@ -1,14 +1,12 @@
-This repository contains some loaders for commonly used datasets. The loaders
-can perform some on-the-fly preprocessing/data augmentation, as well as
-run on multiple threads (if enabled) to speed up the I/O operations.
+This repository contains a framework to load the most commonly used datasets
+for image and video semantic segmentation. The framework can perform some
+on-the-fly preprocessing/data augmentation, as well as run on multiple threads
+(if enabled) to speed up the I/O operations.
 
 If you use this code, please cite:
 * \[1\] Francesco Visin, Adriana Romero - Dataset loaders: a python library to
     load and preprocess datasets ([BibTeX](
         https://gist.github.com/fvisin/7104500ae8b33c3b65798d5d2707ce6c#file-dataset_loaders-bib))
-
-**Please understand that code is provided as is and we will be able to provide
-minimal-to-none support on it.**
 
 ### How to install it:
 1. Clone the repository with `--recursive` in some path, e.g. to your `$HOME`:
@@ -63,6 +61,7 @@ minimal-to-none support on it.**
 </br>
 
 ### Notes
+* **The code is provided as is, please expect minimal-to-none support on it.**
 * This framework is provided for research purposes only. Although we tried our 
   best to test it, the code might be bugged or unstable. Use it at your own
   risk!
