@@ -58,7 +58,7 @@ def optical_flow(seq, rows_idx, cols_idx, chan_idx):
         frame1 = frame2
     flow_seq = flow_seq.reshape(shape)
     flow_seq = flow_seq.transpose(inv_pattern)
-    return flow_seq
+    return flow_seq / 255.  # return in [0, 1]
 
 
 def my_label2rgb(labels, cmap, bglabel=None, bg_color=(0., 0., 0.)):
