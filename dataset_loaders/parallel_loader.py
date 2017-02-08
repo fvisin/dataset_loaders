@@ -690,15 +690,19 @@ class ThreadedDataset(object):
 
     def finish(self):
         # Stop fetchers
-        for _ in self.data_fetchers:
-            self.names_queue.put(self.sentinel)
-        while any([df() is not None and df().isAlive()
-                   for df in self.data_fetchers]):
-            sleep(self._wait_time)
-        # Kill threads
-        for data_fetcher in self.data_fetchers:
-            if data_fetcher() is not None:
-                data_fetcher().join()
+        try:
+            for _ in self.data_fetchers:
+                self.names_queue.put(self.sentinel)
+            while any([df() is not None and df().isAlive()
+                       for df in self.data_fetchers]):
+                sleep(self._wait_time)
+            # Kill threads
+            for data_fetcher in self.data_fetchers:
+                if data_fetcher() is not None:
+                    data_fetcher().join()
+        except AttributeError:
+            # Not using threads
+            pass
 
     @classproperty
     def __config_parser__(self):
