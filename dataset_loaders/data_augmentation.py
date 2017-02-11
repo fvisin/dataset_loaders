@@ -10,7 +10,7 @@ from skimage.color import rgb2gray, gray2rgb
 from skimage import img_as_float
 
 
-def optical_flow(seq, rows_idx, cols_idx, chan_idx):
+def optical_flow(seq, rows_idx, cols_idx, chan_idx, return_rgb=False):
     '''Optical flow
 
     Takes a 4D array of sequences and returns a 4D array with
@@ -27,18 +27,20 @@ def optical_flow(seq, rows_idx, cols_idx, chan_idx):
     pattern += [rows_idx, cols_idx, chan_idx]
     inv_pattern = [pattern.index(el) for el in range(seq.ndim)]
     seq = seq.transpose(pattern)
-    shape = list(seq.shape)
-    if shape[0] == 1:
+    if seq.shape[0] == 1:
         raise RuntimeError('Optical flow needs a sequence longer than 1 '
                            'to work')
-    # merge b and seq on the first axis, if 5D
-    seq = seq.reshape([-1] + shape[-3:])
     seq = seq[..., ::-1]  # Go BGR for OpenCV
-    flow_seq = np.zeros_like(seq)
 
     frame1 = seq[0]
-    hsv = np.zeros_like(frame1)
-    hsv[..., 1] = 255
+    if return_rgb:
+        flow_seq = np.zeros_like(seq)
+        hsv = np.zeros_like(frame1)
+    else:
+        sh = list(seq.shape)
+        sh[-1] = 2
+        flow_seq = np.zeros(sh)
+
     frame1 = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)  # Go to gray
 
     flow = None
@@ -47,16 +49,19 @@ def optical_flow(seq, rows_idx, cols_idx, chan_idx):
         flow = cv2.calcOpticalFlowFarneback(
             frame1, frame2, 0.5, 3, 10, 3, 5, 1.1, 0, flow)
         mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-        hsv[..., 0] = ang * 180 / np.pi / 2
-        hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
-        bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-        rgb = bgr[:, :, ::-1]
-        flow_seq[i+1] = rgb
-        # Image.fromarray(rgb).show()
-        # cv2.imwrite('opticalfb.png', frame2)
-        # cv2.imwrite('opticalhsv.png', bgr)
+        if return_rgb:
+            hsv[..., 0] = ang * 180 / np.pi / 2
+            hsv[..., 1] = 255
+            hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+            bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+            rgb = bgr[:, :, ::-1]
+            flow_seq[i+1] = rgb
+            # Image.fromarray(rgb).show()
+            # cv2.imwrite('opticalfb.png', frame2)
+            # cv2.imwrite('opticalhsv.png', bgr)
+        else:
+            flow_seq[i+1] = np.stack((mag, ang), 2)
         frame1 = frame2
-    flow_seq = flow_seq.reshape(shape)
     flow_seq = flow_seq.transpose(inv_pattern)
     return flow_seq / 255.  # return in [0, 1]
 
@@ -396,8 +401,10 @@ def random_transform(x, y=None,
         The size of crop to be applied to images and masks (after any
         other transformation).
     return_optical_flow: bool
-        If True an RGB dense optical flow will be concatenated to the
-        channel axis of the image. Default: False.
+        If not False a dense optical flow will be concatenated to the
+        end of the channel axis of the image. If True, magnitude and
+        angle will be returned, if set to 'rbg' an RGB representation
+        will be returned instead. Default: False.
     nclasses: int
         The number of classes of the dataset.
     gamma: float
@@ -594,7 +601,8 @@ def random_transform(x, y=None,
             y = y.transpose(inv_pattern)
 
     if return_optical_flow:
-        flow = optical_flow(x, rows_idx, cols_idx, chan_idx)
+        flow = optical_flow(x, rows_idx, cols_idx, chan_idx,
+                            return_rgb=return_optical_flow=='rgb')
         x = np.concatenate((x, flow), axis=chan_idx)
 
     # Save augmented images
