@@ -103,7 +103,9 @@ class ThreadedDataset(object):
         Default: False.
     data_augm_kwargs: dict
         A dictionary of arguments to be passed to the data augmentation
-        function. Default: no data augmentation.
+        function. Default: no data augmentation. See
+        :func:`~data_augmentation.random_transform` for a complete list
+        of parameters.
     remove_mean: bool
         If True, the statistics computed dataset-wise will be used to
         remove the dataset mean from the data. Default: False.
