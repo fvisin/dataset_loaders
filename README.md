@@ -15,11 +15,10 @@ If you use this code, please cite:
    git clone --recursive https://github.com/fvisin/dataset_loaders.git "$HOME/dataset_loaders"
    ```
 
-2. Add that path to your `$PYTHONPATH` (replace `$HOME/dataset_loaders` with
-   the path you cloned into):
+2. Install the package:
 
    ```sh
-   echo 'export PYTHONPATH=$PYTHONPATH:$HOME/dataset_loaders' >> ~/.bashrc
+   pip install [--user] -e <dataset_loaders path>
    ```
 
 3. The framework assumes that the datasets are stored in some *shared paths*,
@@ -45,19 +44,17 @@ If you use this code, please cite:
    (and so on...)
    ```
 
-
 4. To use the MS COCO dataset, you also need to do the following:
 
    ```sh
    cd dataset_loaders/images/coco/PythonAPI
    make all
    ```
-4. You will need to install SimpleITK if you intend to use the *warp_spline*
-   data augmentation:
 
-   ```sh
-    pip install SimpleITK --user  
-   ```
+4. You will need to install
+   [SimpleITK](https://itk.org/Wiki/SimpleITK/GettingStarted#Generic_Distribution)
+   and [openCV](http://opencv.org/) if you intend to use the *warp_spline* or
+   the *optical flow* data augmentations respectively.
 </br>
 
 ### Notes

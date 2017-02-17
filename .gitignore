@@ -1,4 +1,5 @@
 *.pyc
+dataset_loaders.egg-info
 dataset_loaders/datasets
 .cache
 config.ini
