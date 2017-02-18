@@ -48,19 +48,21 @@ def optical_flow(seq, rows_idx, cols_idx, chan_idx, return_rgb=False):
         frame2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)  # Go to gray
         flow = cv2.calcOpticalFlowFarneback(
             frame1, frame2, 0.5, 3, 10, 3, 5, 1.1, 0, flow)
-        mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+        mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1],
+                                   angleInDegrees=True)
+        # normalize between 0 and 255
+        ang = ang / 360 * 255
         if return_rgb:
-            hsv[..., 0] = ang * 180 / np.pi / 2
+            hsv[..., 0] = ang
             hsv[..., 1] = 255
             hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
-            bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-            rgb = bgr[:, :, ::-1]
+            rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
             flow_seq[i+1] = rgb
             # Image.fromarray(rgb).show()
             # cv2.imwrite('opticalfb.png', frame2)
             # cv2.imwrite('opticalhsv.png', bgr)
         else:
-            flow_seq[i+1] = np.stack((mag, ang), 2)
+            flow_seq[i+1] = np.stack((ang, mag), 2)
         frame1 = frame2
     flow_seq = flow_seq.transpose(inv_pattern)
     return flow_seq / 255.  # return in [0, 1]
@@ -402,8 +404,8 @@ def random_transform(x, y=None,
         other transformation).
     return_optical_flow: bool
         If not False a dense optical flow will be concatenated to the
-        end of the channel axis of the image. If True, magnitude and
-        angle will be returned, if set to 'rbg' an RGB representation
+        end of the channel axis of the image. If True, angle and
+        magnitude will be returned, if set to 'rbg' an RGB representation
         will be returned instead. Default: False.
     nclasses: int
         The number of classes of the dataset.
