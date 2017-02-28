@@ -18,14 +18,6 @@ class ExampleDataset(ThreadedDataset):
     # The number of *non void* classes.
     non_void_nclasses = 10
 
-    # Where the dataset will be saved *locally*.
-    path = os.path.join(
-        dataset_loaders.__path__[0], 'datasets', 'example_dataset')
-
-    # The shared (typically on a network filesystem) path where the
-    # dataset can be found to copy it locally at the first run.
-    sharedpath = '/the/path/of/the/shared/location/of/the/data/'
-
     # A list of the ids of the void labels
     _void_labels = [128, 255]
 
@@ -86,6 +78,9 @@ class ExampleDataset(ThreadedDataset):
     _mask_labels = {0: 'sky', 1: 'building', 2: 'column_pole', 3: 'road',
                     4: 'sidewalk', 5: 'tree', 6: 'sign', 7: 'fence', 8: 'car',
                     9: 'pedestrian', 128: 'void', 255: 'void'}
+
+    # Finally, make sure to add the shared path (typically on a network
+    # filesystem) where the dataset files can be found to your config.ini
 
     def __init__(self, which_set='train', *args, **kwargs):
 
