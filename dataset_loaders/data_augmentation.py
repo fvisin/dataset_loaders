@@ -46,8 +46,16 @@ def optical_flow(seq, rows_idx, cols_idx, chan_idx, return_rgb=False):
     flow = None
     for i, frame2 in enumerate(seq[1:]):
         frame2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)  # Go to gray
-        flow = cv2.calcOpticalFlowFarneback(
-            frame1, frame2, 0.5, 3, 10, 3, 5, 1.1, 0, flow)
+        flow = cv2.calcOpticalFlowFarneback(prev=frame1,
+                                            next=frame2,
+                                            pyr_scale=0.5,
+                                            levels=3,
+                                            winsize=10,
+                                            iterations=3,
+                                            poly_n=5,
+                                            poly_sigma=1.1,
+                                            flags=0,
+                                            flow=flow)
         mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1],
                                    angleInDegrees=True)
         # normalize between 0 and 255
