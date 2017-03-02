@@ -817,7 +817,6 @@ def threaded_fetch(weakself):
 
             if batch_to_load is self.sentinel:
                 self.names_queue.task_done()
-                del(self)
                 break
 
             # Load the data
