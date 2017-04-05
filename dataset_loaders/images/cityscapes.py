@@ -61,20 +61,20 @@ class CityscapesDataset(ThreadedDataset):
         2: (0, 0, 0),           # rectification border
         3: (0, 0, 0),           # out of roi
         4: (0, 0, 0),           # static
-        5: (111, 74, 0),        # dynamic
-        6: (81,  0, 81),        # ground
+        5: (0, 0, 0),           # dynamic
+        6: (0, 0, 0),           # ground
         7: (128, 64, 128),      # road
         8: (244, 35, 232),      # sidewalk
-        9: (250, 170, 160),     # parking
-        10: (230, 150, 140),    # rail track
+        9: (0, 0, 0),           # parking
+        10: (0, 0, 0),          # rail track
         11: (70, 70, 70),       # building
         12: (102, 102, 156),    # wall
         13: (190, 153, 153),    # fence
-        14: (180, 165, 180),    # guard rail
-        15: (150, 100, 100),    # bridge
-        16: (150, 120, 90),     # tunnel
+        14: (0, 0, 0),          # guard rail
+        15: (0, 0, 0),          # bridge
+        16: (0, 0, 0),          # tunnel
         17: (153, 153, 153),    # pole
-        18: (153, 153, 153),    # polegroup
+        18: (0, 0, 0),          # polegroup
         19: (250, 170, 30),     # traffic light
         20: (220, 220,  0),     # traffic sign
         21: (107, 142, 35),     # vegetation
@@ -85,12 +85,22 @@ class CityscapesDataset(ThreadedDataset):
         26: (0, 0, 142),        # car
         27: (0, 0, 70),         # truck
         28: (0, 60, 100),       # bus
-        29: (0,  0, 90),        # caravan
-        30: (0,  0, 110),       # trailer
+        29: (0,  0, 0),         # caravan
+        30: (0,  0, 0),         # trailer
         31: (0, 80, 100),       # train
         32: (0, 0, 230),        # motorcycle
         33: (119, 11, 32),      # bicycle
-        -1: (0, 0, 142)         # license plate
+        -1: (0, 0, 0)         # license plate
+        # 5: (111, 74, 0),        # dynamic
+        # 6: (81,  0, 81),        # ground
+        # 9: (250, 170, 160),     # parking
+        # 10: (230, 150, 140),    # rail track
+        # 14: (180, 165, 180),    # guard rail
+        # 15: (150, 100, 100),    # bridge
+        # 16: (150, 120, 90),     # tunnel
+        # 18: (153, 153, 153),    # polegroup
+        # 29: (0,  0, 90),        # caravan
+        # 30: (0,  0, 110),       # trailer
         }
 
     _mask_labels = {
