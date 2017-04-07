@@ -42,7 +42,7 @@ class ThreadedDataset(object):
         and `shuffle_at_each_epoch` is True, at each epoch a new
         selection of sequences per subset will be randomly picked. Default: 0.
     seq_length: int
-        The number of frames per sequence. If 0, 4D arrays will be
+        The number of frames per sequence. If 0 or None, 4D arrays will be
         returned (not a sequence), else 5D arrays will be returned.
         Default: 0.
     overlap: int
@@ -278,9 +278,9 @@ class ThreadedDataset(object):
 
         # Save parameters in object
         self.seq_per_subset = seq_per_subset
-        self.return_sequence = seq_length != 0
-        self.seq_length = seq_length if seq_length else 1
-        self.overlap = overlap if overlap is not None else self.seq_length - 1
+        self.return_sequence = seq_length is not None and seq_length != 0
+        self.seq_length = seq_length
+        self.overlap = max(seq_length - 1, 0) if overlap is None else overlap
         self.batch_size = batch_size
         self.queues_size = queues_size
         self.return_one_hot = return_one_hot
@@ -371,7 +371,7 @@ class ThreadedDataset(object):
 
         # Cycle over prefix/subset/video/category/...
         for prefix, names in self.names_per_subset.items():
-            seq_length = self.seq_length
+            seq_length = max(self.seq_length, 1)
 
             # Repeat the first and last elements so that the first and last
             # sequences are filled with repeated elements up/from the
@@ -385,7 +385,7 @@ class ThreadedDataset(object):
             sequences = [el for el in overlap_grouper(
                 names, seq_length, prefix=prefix)]
             # Sequences of frames with the requested overlap
-            sequences = sequences[::self.seq_length - self.overlap]
+            sequences = sequences[::seq_length - self.overlap]
 
             names_sequences[prefix] = sequences
         self.names_sequences = names_sequences
