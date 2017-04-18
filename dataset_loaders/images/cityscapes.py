@@ -54,7 +54,7 @@ class CityscapesDataset(ThreadedDataset):
     GTclasses = GTclasses + [-1]
 
     # optional arguments
-    data_shape = (2048, 1024, 3)
+    data_shape = (1024, 2048, 3)
     _cmap = {
         0: (0, 0, 0),           # unlabeled
         1: (0, 0, 0),           # ego vehicle

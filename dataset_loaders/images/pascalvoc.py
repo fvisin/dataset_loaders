@@ -16,7 +16,6 @@ class PascalVOCdataset(ThreadedDataset):
     non_void_nclasses = 21
     _void_labels = [255]
 
-    data_shape = (None, None, 3)
     mean = np.asarray([122.67891434, 116.66876762, 104.00698793]).astype(
         'float32')
     GTclasses = range(21) + [255]

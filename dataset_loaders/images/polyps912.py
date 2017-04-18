@@ -42,7 +42,6 @@ class Polyps912Dataset(ThreadedDataset):
     _void_labels = [2]
 
     # optional arguments
-    data_shape = (384, 288, 3)
     _cmap = {
         0: (0, 0, 0),       # Background
         1: (255, 255, 255), # Polyp
