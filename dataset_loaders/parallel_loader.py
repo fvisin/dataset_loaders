@@ -101,6 +101,20 @@ class ThreadedDataset(object):
             * `raw_data`: the original unprocessed sequence/image
         Depending on the dataset, additional keys might be available.
         Default: False.
+    fill_last_batch: bool
+        If the number of samples of the set is not a multiple of the
+        batchsize, if `fill_last_batch` is set to False (default) the
+        last batch of an epoch will contain just the available samples,
+        hence the size of the last batch will potentially be less than
+        `batch_size`.  If `fill_last_batch` is set to True instead, when
+        there are not enough samples to fill the last batch completely
+        the last element will be repeated until `batch_size` is reached.
+        Example:
+            remaining_samples = [a, b]
+            batch_size = 5
+
+            last_batch = [a, b]           # `fill_last_batch` == False
+            last_batch = [a, b, b, b, b]  # `fill_last_batch` == True
     data_augm_kwargs: dict
         A dictionary of arguments to be passed to the data augmentation
         function. Default: no data augmentation. See
@@ -169,6 +183,7 @@ class ThreadedDataset(object):
                  shuffle_at_each_epoch=True,
                  infinite_iterator=True,
                  return_list=False,  # for keras, return X,Y only
+                 fill_last_batch=False,
                  data_augm_kwargs={},
                  remove_mean=False,  # dataset stats
                  divide_by_std=False,  # dataset stats
@@ -293,6 +308,7 @@ class ThreadedDataset(object):
         self.shuffle_at_each_epoch = shuffle_at_each_epoch
         self.infinite_iterator = infinite_iterator
         self.return_list = return_list
+        self.fill_last_batch = fill_last_batch
         self.remove_mean = remove_mean
         self.divide_by_std = divide_by_std
         self.remove_per_img_mean = remove_per_img_mean
@@ -525,7 +541,13 @@ class ThreadedDataset(object):
         # Create batches
         for el in batch_to_load:
 
-            if el is None:
+            # The first element cannot be None, or we wouldn't have this batch
+            # in the first place, so we can safely copy the last element
+            # of the batch for each filename that is None until we fill the
+            # batch.
+            if el is None and self.fill_last_batch:
+                for k in batch_ret.iterkeys():
+                    batch_ret[k].append(batch_ret[k][-1])
                 continue
 
             # Load sequence, format is (s, 0, 1, c)
