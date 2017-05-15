@@ -5,6 +5,7 @@ on-the-fly preprocessing/data augmentation, as well as run on multiple threads
 
 NEWS: You might be interested in checking out [Main loop TF](https://github.com/fvisin/main_loop_tf), a python main loop that integrates the *Dataset loaders* with Tensorflow!
 
+### Attribution
 If you use this code, please cite:
 * \[1\] Francesco Visin, Adriana Romero - Dataset loaders: a python library to
     load and preprocess datasets ([BibTeX](
