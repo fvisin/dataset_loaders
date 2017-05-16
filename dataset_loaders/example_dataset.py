@@ -1,7 +1,6 @@
 import numpy as np
 import os
 
-import dataset_loaders
 from dataset_loaders.parallel_loader import ThreadedDataset
 
 
@@ -120,7 +119,7 @@ class ExampleDataset(ThreadedDataset):
         the corresponding ground truth and their filenames.
         Returns a dict with the images in [0, 1], their corresponding
         labels, their subset (i.e. category, clip, prefix) and their
-        filenames.
+        filenames. The images are expected with channels in the last axis.
         """
         from skimage import io
         X = []
