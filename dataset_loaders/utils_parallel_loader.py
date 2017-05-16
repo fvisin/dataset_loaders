@@ -1,6 +1,19 @@
+import cPickle as pkl
 from itertools import izip, izip_longest
 import os
 import re
+
+
+def unpickle(filename):
+    """Unpickle the given file and return the data.
+    Note that the appropriate dir-name is prepended the filename.
+    """
+    with open(filename, 'rb') as f:
+        try:
+            data = pkl.load(f, encoding='bytes')
+        except TypeError:
+            data = pkl.load(f)
+    return data
 
 
 def get_video_size(path):

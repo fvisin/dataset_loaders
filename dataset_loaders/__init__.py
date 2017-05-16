@@ -1,6 +1,7 @@
 from subprocess import check_output
 
 from images.camvid import CamvidDataset  # noqa
+from images.cifar10 import Cifar10Dataset  # noqa
 from images.cityscapes import CityscapesDataset  # noqa
 from images.isbi_em_stacks import IsbiEmStacksDataset  # noqa
 from images.kitti import KITTIdataset  # noqa
