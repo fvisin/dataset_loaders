@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 from dataset_loaders.parallel_loader import ThreadedDataset
-from utils_parallel_loader import unpickle
+from dataset_loaders.utils_parallel_loader import unpickle
 
 
 floatX = 'float32'

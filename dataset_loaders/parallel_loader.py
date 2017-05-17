@@ -16,7 +16,8 @@ from numpy.random import RandomState
 from dataset_loaders.data_augmentation import random_transform
 
 import dataset_loaders
-from utils_parallel_loader import classproperty, grouper, overlap_grouper
+from dataset_loaders.utils_parallel_loader import (classproperty, grouper,
+                                                   overlap_grouper)
 
 
 class ThreadedDataset(object):
