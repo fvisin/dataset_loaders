@@ -542,13 +542,14 @@ class ThreadedDataset(object):
         # Create batches
         for el in batch_to_load:
 
-            # The first element cannot be None, or we wouldn't have this batch
-            # in the first place, so we can safely copy the last element
-            # of the batch for each filename that is None until we fill the
-            # batch.
-            if el is None and self.fill_last_batch:
-                for k in batch_ret.iterkeys():
-                    batch_ret[k].append(batch_ret[k][-1])
+            if el is None:
+                # The first element cannot be None, or we wouldn't have
+                # this batch in the first place, so we can safely copy
+                # the last element of the batch for each filename that
+                # is None until we fill the batch.
+                if self.fill_last_batch:
+                    for k in batch_ret.iterkeys():
+                        batch_ret[k].append(batch_ret[k][-1])
                 continue
 
             # Load sequence, format is (s, 0, 1, c)
