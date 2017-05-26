@@ -1,18 +1,35 @@
+import os
 from subprocess import check_output
 
-from images.camvid import CamvidDataset  # noqa
-from images.cifar10 import Cifar10Dataset  # noqa
-from images.cityscapes import CityscapesDataset  # noqa
-from images.isbi_em_stacks import IsbiEmStacksDataset  # noqa
-from images.kitti import KITTIdataset  # noqa
-from images.mscoco import MSCocoDataset  # noqa
-from images.pascalvoc import PascalVOCdataset  # noqa
-from images.polyps912 import Polyps912Dataset  # noqa
-from images.scene_parsing_MIT import SceneParsingMITDataset  # noqa
+from images.camvid import CamvidDataset
+from images.cifar10 import Cifar10Dataset
+from images.cityscapes import CityscapesDataset
+from images.isbi_em_stacks import IsbiEmStacksDataset
+from images.kitti import KITTIdataset
+from images.mscoco import MSCocoDataset
+from images.pascalvoc import PascalVOCdataset
+from images.polyps912 import Polyps912Dataset
+from images.scene_parsing_MIT import SceneParsingMITDataset
 
-from videos.change_detection import ChangeDetectionDataset  # noqa
-from videos.davis import DavisDataset  # noqa
-from videos.gatech import GatechDataset  # noqa
+from videos.change_detection import ChangeDetectionDataset
+from videos.davis import DavisDataset
+from videos.gatech import GatechDataset
 
-__version__ = check_output('git rev-parse HEAD',
+cwd = os.path.join(__path__[0], os.path.pardir)
+__version__ = check_output('git rev-parse HEAD', cwd=cwd,
                            shell=True).strip().decode('ascii')
+
+__all__ = [
+    "CamvidDataset",
+    "Cifar10Dataset",
+    "CityscapesDataset",
+    "IsbiEmStacksDataset",
+    "KITTIdataset",
+    "MSCocoDataset",
+    "PascalVOCdataset",
+    "Polyps912Dataset",
+    "SceneParsingMITDataset",
+    "ChangeDetectionDataset",
+    "DavisDataset",
+    "GatechDataset",
+    ]
