@@ -47,12 +47,15 @@ class ThreadedDataset(object):
         returned (not a sequence), else 5D arrays will be returned.
         Default: 0.
     overlap: int
-        The number of frames of overlap between the first frame of one
-        sample and the first frame of the next. Note that a negative
-        overlap will instead specify the number of frames that are
-        *skipped* between the last frame of one sample and the first
-        frame of the next. None is equivalent to seq_length - 1.
-        Default: None.
+        When `seq_length` > 0, specifies the number of frames of overlap
+        between the first frame of one sample and the first frame of the
+        next. Sequences are constrained to only contain frames that
+        belong to the same prefix (i.e., video); to satisfy this
+        constraint some of the frames of a video might be dropped. Note
+        that a negative overlap can be used to specify the number of
+        frames that should be *skipped* between the last frame of one
+        sample and the first frame of the next. `None` is equivalent to
+        `seq_length` - 1. Default: None.
     batch_size: int
         The size of the batch.
     queues_size: int
@@ -335,10 +338,13 @@ class ThreadedDataset(object):
         # Load a dict of names, per video/subset/prefix/...
         self.names_per_subset = self.get_names()
 
-        # Fill the sequences/batches lists and initialize everything
+        # Create the list of sequences with format
+        # [[(prefix, name1), (prefix, name2), ..], ..]
         self._fill_names_sequences()
         if len(self.names_sequences) == 0:
             raise RuntimeError('The name list cannot be empty')
+        # Potentially shuffle the `names_sequences` list and create the
+        # list of batches out of it
         self._fill_names_batches(shuffle_at_each_epoch)
 
         if self.use_threads:
@@ -384,12 +390,19 @@ class ThreadedDataset(object):
         raise NotImplementedError
 
     def _fill_names_sequences(self):
+        '''Fill list of sequences [[(prefix1, name), (prefix1, name1), ..], ..]
+
+        Fill `names_sequences` with lists of sequences, i.e., of lists
+        of (prefix, name) pair with the desired overlap and seq_length N:
+            [(prefix1, name1), (prefix1, name2), .., (prefix1, nameN)]
+            [(prefix1, name(N-overlap), (prefix1, name(N-overlap+1)), ..,
+             (prefix1, name(N-overlap+N)]
+        '''
         names_sequences = {}
+        seq_length = max(self.seq_length, 1)
 
         # Cycle over prefix/subset/video/category/...
         for prefix, names in self.names_per_subset.items():
-            seq_length = max(self.seq_length, 1)
-
             # Repeat the first and last elements so that the first and last
             # sequences are filled with repeated elements up/from the
             # middle element.
@@ -410,7 +423,7 @@ class ThreadedDataset(object):
     def _fill_names_batches(self, shuffle):
         '''Create the desired batches of sequences
 
-        * Select the desired sequences according to the parameters
+        * Select the desired sequences according to seq_per_subset
         * Set self.nsamples, self.nbatches and self.names_batches.
         * Set self.names_batches, an iterator over the batches of names.
         '''
