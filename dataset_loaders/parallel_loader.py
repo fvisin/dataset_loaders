@@ -208,7 +208,7 @@ class ThreadedDataset(object):
             'channel_shift_range': 0,
             'fill_mode': 'nearest',
             'cval': 0,
-            'cvalMask': 0,
+            'cval_mask': 0,
             'horizontal_flip': False,
             'vertical_flip': False,
             'rescale': None,

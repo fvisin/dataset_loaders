@@ -3,7 +3,6 @@
 import os
 
 import numpy as np
-from scipy import interpolate
 import scipy.misc
 import scipy.ndimage as ndi
 from skimage.color import rgb2gray, gray2rgb
@@ -338,7 +337,7 @@ def random_transform(x, y=None,
                      channel_shift_range=0.,
                      fill_mode='nearest',
                      cval=0.,
-                     cvalMask=0.,
+                     cval_mask=0.,
                      horizontal_flip=0.,  # probability
                      vertical_flip=0.,  # probability
                      rescale=None,
@@ -388,7 +387,7 @@ def random_transform(x, y=None,
     cval: int
         Value used to fill the points of the image outside the boundaries when
         fill_mode is `constant`. Default: 0.
-    cvalMask: int
+    cval_mask: int
         Value used to fill the points of the mask outside the boundaries when
         fill_mode is `constant`. Default: 0.
     horizontal_flip: float
@@ -529,7 +528,7 @@ def random_transform(x, y=None,
                             cols_idx=cols_idx)
         if y is not None and len(y) > 0:
             y = apply_transform(y, transform_matrix, fill_mode=fill_mode,
-                                cval=cvalMask, order=0, rows_idx=rows_idx,
+                                cval=cval_mask, order=0, rows_idx=rows_idx,
                                 cols_idx=cols_idx)
 
     # Horizontal flip
@@ -560,7 +559,7 @@ def random_transform(x, y=None,
             y = np.round(apply_warp(y, warp_field,
                                     interpolator=sitk.sitkNearestNeighbor,
                                     fill_mode=fill_mode,
-                                    fill_constant=cvalMask,
+                                    fill_constant=cval_mask,
                                     rows_idx=rows_idx, cols_idx=cols_idx))
 
     # Crop
@@ -612,7 +611,7 @@ def random_transform(x, y=None,
 
     if return_optical_flow:
         flow = optical_flow(x, rows_idx, cols_idx, chan_idx,
-                            return_rgb=return_optical_flow=='rgb')
+                            return_rgb=return_optical_flow == 'rgb')
         x = np.concatenate((x, flow), axis=chan_idx)
 
     # Save augmented images
