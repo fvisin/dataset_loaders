@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import ConfigParser
 import os
 from os.path import realpath
@@ -56,6 +57,14 @@ class ThreadedDataset(object):
         frames that should be *skipped* between the last frame of one
         sample and the first frame of the next. `None` is equivalent to
         `seq_length` - 1. Default: None.
+    one_subset_per_batch: bool
+        Has an impact only when seq_length > 0. If `False` the minibatches
+        will contain sequences the *might* belong to different subsets.
+        The last batch will be filled with `None` if there are not
+        enough sequences to fill it. If `one_subset_per_batch` is
+        `True`, the minibatches will contain sequences that belong to
+        the same subset (or `None` if there are not enough sequences of
+        the same subset). Default: False.
     batch_size: int
         The size of the batch.
     queues_size: int
@@ -175,6 +184,7 @@ class ThreadedDataset(object):
                  seq_per_subset=0,   # if 0 all sequences (or frames, if 4D)
                  seq_length=0,      # if 0, return 4D
                  overlap=None,
+                 one_subset_per_batch=False,
                  batch_size=1,
                  queues_size=20,
                  return_one_hot=False,
@@ -300,6 +310,7 @@ class ThreadedDataset(object):
         self.return_sequence = seq_length is not None and seq_length != 0
         self.seq_length = seq_length
         self.overlap = max(seq_length - 1, 0) if overlap is None else overlap
+        self.one_subset_per_batch = one_subset_per_batch
         self.batch_size = batch_size
         self.queues_size = queues_size
         self.return_one_hot = return_one_hot
@@ -427,7 +438,7 @@ class ThreadedDataset(object):
         * Set self.nsamples, self.nbatches and self.names_batches.
         * Set self.names_batches, an iterator over the batches of names.
         '''
-        names_sequences = []
+        names_sequences = OrderedDict()
         for prefix, sequences in self.names_sequences.items():
 
             # Pick only a subset of sequences per each video
@@ -438,15 +449,21 @@ class ThreadedDataset(object):
                 # Select only those sequences
                 sequences = np.array(sequences)[idx]
 
-            names_sequences.extend(sequences)
-
-        # Shuffle the sequences
-        if shuffle:
-            self.rng.shuffle(names_sequences)
+            names_sequences.setdefault(prefix, []).extend(sequences)
 
         # Group the sequences into minibatches
-        names_batches = [el for el in grouper(names_sequences,
-                                              self.batch_size)]
+        if self.one_subset_per_batch:
+            names_batches = [el for seq in names_sequences.itervalues()
+                             for el in grouper(seq, self.batch_size)]
+            if shuffle:
+                self.rng.shuffle(names_batches)  # shuffle the batches
+        else:
+            names_sequences = [el for outer_el in names_sequences.values()
+                               for el in outer_el]
+            if shuffle:
+                self.rng.shuffle(names_sequences)  # shuffle the sequences
+            names_batches = [el for el in grouper(names_sequences,
+                                                  self.batch_size)]
         self.nsamples = len(names_sequences)
         self.nbatches = len(names_batches)
         self.names_batches = iter(names_batches)
