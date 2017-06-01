@@ -217,6 +217,11 @@ class ThreadedDataset(object):
         # Set default values for the data augmentation params if not specified
         default_data_augm_kwargs = {
             'crop_size': None,
+            'crop_mode': 'random',
+            'smart_crop_threshold': 0.5,
+            'smart_crop_search_step': 10,
+            'smart_crop_random_h_shift_range': 0,
+            'smart_crop_random_v_shift_range': 0,
             'rotation_range': 0,
             'width_shift_range': 0,
             'height_shift_range': 0,
@@ -251,6 +256,9 @@ class ThreadedDataset(object):
             if cs == [0, 0]:
                 cs = None
             self.data_augm_kwargs['crop_size'] = cs
+            if self.data_augm_kwargs['crop_mode'] not in ['random', 'smart']:
+                raise NotImplementedError('`crop_mode` should be one of '
+                                          '{`random`, `smart`}')
 
         # Do not support multithread without shuffling
         if use_threads and nthreads > 1 and not shuffle_at_each_epoch:
