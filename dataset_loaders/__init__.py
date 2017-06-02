@@ -13,6 +13,7 @@ from images.scene_parsing_MIT import SceneParsingMITDataset
 
 from videos.change_detection import ChangeDetectionDataset
 from videos.davis import DavisDataset
+from videos.davis2017 import Davis2017Dataset
 from videos.gatech import GatechDataset
 
 try:
@@ -34,5 +35,6 @@ __all__ = [
     "SceneParsingMITDataset",
     "ChangeDetectionDataset",
     "DavisDataset",
+    "Davis2017Dataset",
     "GatechDataset",
     ]
