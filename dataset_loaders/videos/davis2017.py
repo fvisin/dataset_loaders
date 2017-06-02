@@ -81,16 +81,18 @@ class Davis2017Dataset(ThreadedDataset):
     def __init__(self,
                  which_set='train',
                  multiobject=True,
+                 dataset_version='2017',
                  threshold_masks=False,
                  split=.75,
                  *args, **kwargs):
 
         self.which_set = which_set
         self.threshold_masks = threshold_masks
-        if multiobject:
-            self._image_sets_path = os.path.join(self.path, 'ImageSets/2017')
-        else:
-            self._image_sets_path = os.path.join(self.path, 'ImageSets/2016')
+        self.multiobject = multiobject
+        if dataset_version not in ['2016', '2017']:
+            raise RuntimeError('Unknown dataset version')
+        self._image_sets_path = os.path.join(self.path, 'ImageSets',
+                                             dataset_version)
 
         self.image_path = os.path.join(self.path,
                                        'JPEGImages', '480p')
@@ -105,7 +107,7 @@ class Davis2017Dataset(ThreadedDataset):
         else:
             raise RuntimeError('Unknown set')
 
-        if 'test-dev' in self.which_set and not self.which_set:
+        if 'test-dev' in self.which_set and not self.multiobject:
             raise RuntimeError('Single object instance is not '
                                'available for test-dev in Davis2017')
 
@@ -157,7 +159,10 @@ class Davis2017Dataset(ThreadedDataset):
                 for rgb in sorted(rgbs[prefix]):
                     temp_mask[np.where(np.all(mask == rgb,
                                               -1).astype(int) == 1)] = _id
-                    _id += 1
+                    if self.multiobject:
+                        _id += 1
+                    else:
+                        _id = 1
 
                 Y.append(temp_mask)
 
@@ -173,8 +178,10 @@ class Davis2017Dataset(ThreadedDataset):
             for rgb in sorted(rgbs[prefix]):
                 temp_mask[np.where(np.all(mask == rgb,
                                           -1).astype(int) == 1)] = _id
-                _id += 1
-
+                if self.multiobject:
+                    _id += 1
+                else:
+                    _id = 1
             Y.append(temp_mask)
 
         ret = {}
@@ -192,6 +199,7 @@ def test():
         seq_per_subset=0,
         seq_length=1,
         overlap=0,
+        multiobject=False,
         data_augm_kwargs={
             'crop_size': (224, 224)},
         split=0.75,
