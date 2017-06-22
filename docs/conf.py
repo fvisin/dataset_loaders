@@ -25,7 +25,6 @@ import sys
 from recommonmark.parser import CommonMarkParser
 import sphinx_rtd_theme
 
-import dataset_loaders
 
 # Use read the docs theme locally
 html_theme = "sphinx_rtd_theme"
@@ -117,8 +116,13 @@ def linkcode_resolve(domain, info):
             obj = getattr(obj, part)
         import inspect
         fn = inspect.getsourcefile(obj)
-        fn = os.path.relpath(fn,
-                             start=os.path.dirname(dataset_loaders.__file__))
+        try:
+            import dataset_loaders
+            fn = os.path.relpath(fn,
+                                 start=os.path.dirname(dataset_loaders.__file__))
+        except ImportError:
+            fn = os.path.relpath(
+                fn, start='https://github.com/fvisin/dataset_loaders/')
         source, lineno = inspect.getsourcelines(obj)
         return fn, lineno, lineno + len(source) - 1
 
