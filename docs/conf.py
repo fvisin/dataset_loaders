@@ -25,6 +25,22 @@ import sys
 from recommonmark.parser import CommonMarkParser
 import sphinx_rtd_theme
 
+try:
+    from mock import Mock as MagicMock
+except ImportError:
+    from unittest.mock import MagicMock
+
+
+# Fix import of numpy in readthedocs
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+            return MagicMock()
+
+
+MOCK_MODULES = ['argparse', 'numpy', 'scikit-image']
+
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # Use read the docs theme locally
 html_theme = "sphinx_rtd_theme"
