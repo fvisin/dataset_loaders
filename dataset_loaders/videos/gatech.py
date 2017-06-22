@@ -12,12 +12,12 @@ floatX = 'float32'
 class GatechDataset(ThreadedDataset):
     '''The Geometric Context from Video
 
-    The Gatech dataset [1]_ consists of over 100 ground-truth annotated
-    outdoor videos with over 20,000 frames.
+    The Gatech dataset [Gatech1]_ consists of over 100 ground-truth
+    annotated outdoor videos with over 20,000 frames.
 
-    The dataset should be downloaded from [1]_ into the `shared_path`
-    (that should be specified in the config.ini according to the
-    instructions in ../README.md).
+    The dataset should be downloaded from [Gatech1]_ into the
+    `shared_path` (that should be specified in the config.ini according
+    to the instructions in ../README.md).
 
     Parameters
     ----------
@@ -29,9 +29,9 @@ class GatechDataset(ThreadedDataset):
         The first `split`\% of the training set will be used for
         training and the rest for validation. Default: 0.75.
 
-     References
+    References
     ----------
-    .. [1] http://www.cc.gatech.edu/cpl/projects/videogeometriccontext/
+    .. [Gatech1] http://www.cc.gatech.edu/cpl/projects/videogeometriccontext/
     '''
     name = 'gatech'
     non_void_nclasses = 8

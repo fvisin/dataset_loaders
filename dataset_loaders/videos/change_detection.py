@@ -11,10 +11,10 @@ floatX = 'float32'
 class ChangeDetectionDataset(ThreadedDataset):
     '''The Change Detection 2014 dataset
 
-    The Change Detection dataset 2014 [1]_ consists of 11 video
-    categories with 4 to 6 video sequences in each category where the
-    goal is to identify changing or moving areas in the field of view of
-    a camera.
+    The Change Detection dataset 2014 [ChangeDetection1]_ consists of 11
+    video categories with 4 to 6 video sequences in each category where
+    the goal is to identify changing or moving areas in the field of
+    view of a camera.
 
     The videos are divided into different categories according to the
     main difficulty of each video, e.g., sudden illumination changes,
@@ -30,9 +30,9 @@ class ChangeDetectionDataset(ThreadedDataset):
     ROI defines the area of the frame that we are interested in. This
     loader processes the temporalROI to split the data transparently.
 
-    The dataset should be downloaded from [1]_ into the `shared_path`
-    (that should be specified in the config.ini according to the
-    instructions in ../README.md).
+    The dataset should be downloaded from [ChangeDetection1]_ into the
+    `shared_path` (that should be specified in the config.ini according
+    to the instructions in ../README.md).
 
     Parameters
     ----------
@@ -51,9 +51,9 @@ class ChangeDetectionDataset(ThreadedDataset):
         If True debug information will be printed when the dataset is
         loaded.
 
-     References
+    References
     ----------
-    .. [1] http://changedetection.net/
+    .. [ChangeDetection1] http://changedetection.net/
     '''
     name = 'change_detection'
     non_void_nclasses = 4

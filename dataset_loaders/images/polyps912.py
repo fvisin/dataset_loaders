@@ -12,19 +12,19 @@ class Polyps912Dataset(ThreadedDataset):
     '''The Endoluminal Scene Segmentation (EndoScene) of Colonoscopy Images
     benchmark
 
-    The EndoScene dataset [1]_ consists of 912 frames extracted from 44
-    colonoscopy sequences of 36 patients. The dataset combines both CVC-ColonDB
-    and CVC-ClinicDB datasets of [2]_ and extends the dataset annotations to
-    account for 4 different semantic classes.
+    The EndoScene dataset [Polyps1]_ consists of 912 frames extracted
+    from 44 colonoscopy sequences of 36 patients. The dataset combines
+    both CVC-ColonDB and CVC-ClinicDB datasets of [Polyps2]_ and extends
+    the dataset annotations to account for 4 different semantic classes.
 
     This loader is intended for the EndoScene dataset version containing 2
     semantic classes, namely polyp and background, plus a void class annotating
     the border of the images. However, it could be easily adapted to account
     for 3 or 4 classes.
 
-    The dataset should be downloaded from [1]_ into the `shared_path`
-    (that should be specified in the config.ini according to the
-    instructions in ../README.md).
+    The dataset should be downloaded from [Polyps1]_ into the
+    `shared_path` (that should be specified in the config.ini according
+    to the instructions in ../README.md).
 
     Parameters
     ----------
@@ -32,10 +32,10 @@ class Polyps912Dataset(ThreadedDataset):
         A string in ['train', 'val', 'valid', 'test'], corresponding to
         the set to be returned.
 
-     References
+    References
     ----------
-    .. [1] http://adas.cvc.uab.es/endoscene/
-    .. [2] https://endovis.grand-challenge.org/
+    .. [Polyps1] http://adas.cvc.uab.es/endoscene/
+    .. [Polyps2] https://endovis.grand-challenge.org/
     '''
     name = 'polyps912'
     non_void_nclasses = 2
@@ -43,9 +43,9 @@ class Polyps912Dataset(ThreadedDataset):
 
     # optional arguments
     _cmap = {
-        0: (0, 0, 0),       # Background
-        1: (255, 255, 255), # Polyp
-        2: (128, 128, 128), # Void
+        0: (0, 0, 0),        # Background
+        1: (255, 255, 255),  # Polyp
+        2: (128, 128, 128),  # Void
         }
     _mask_labels = {0: 'Background', 1: 'Polyp', 2: 'Void'}
 

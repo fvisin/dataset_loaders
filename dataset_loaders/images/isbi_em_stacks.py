@@ -15,14 +15,14 @@ class IsbiEmStacksDataset(ThreadedDataset):
     stacks dataset
 
     EM stacks dataset is the basis of 2D segmentation of neuronal processes
-    challenge [1]_. It provides a training set of 30 consecutive images
+    challenge [Isbi1]_. It provides a training set of 30 consecutive images
     (512 x 512 pixels) from a serial section transmission EM of the Drosophila
     first instar larva ventral nerve cord. The test set is a separate set of 30
     images, for which segmentation labels are not provided. The ground truth
     corresponds to a boundary map annotated by human experts, associating each
     pixel with one of 2 classes (cell or cell membrane).
 
-    The dataset should be downloaded from [2]_ into the `shared_path`
+    The dataset should be downloaded from [Isbi2]_ into the `shared_path`
     (that should be specified in the config.ini according to the
     instructions in ../README.md).
 
@@ -33,13 +33,14 @@ class IsbiEmStacksDataset(ThreadedDataset):
         the set to be returned.
     split: float
         A float indicating the dataset split between training and validation.
-        For example, if split=0.85, 85\% of the images will be used for training,
-        whereas 15\% will be used for validation.
+        For example, if split=0.85, 85\% of the images will be used for
+        training, whereas 15\% will be used for validation.
 
-     References
+    References
     ----------
-    .. [1] http://journal.frontiersin.org/article/10.3389/fnana.2015.00142/full
-    .. [2] http://brainiac2.mit.edu/isbi_challenge/home
+    .. [Isbi1]
+       http://journal.frontiersin.org/article/10.3389/fnana.2015.00142/full
+    .. [Isbi2] http://brainiac2.mit.edu/isbi_challenge/home
     '''
     name = 'isbi_em_stacks'
     non_void_nclasses = 2

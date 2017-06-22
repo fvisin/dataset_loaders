@@ -11,7 +11,7 @@ floatX = 'float32'
 class CamvidDataset(ThreadedDataset):
     '''The CamVid motion based segmentation dataset
 
-    The Cambridge-driving Labeled Video Database (CamVid) [1]_ provides
+    The Cambridge-driving Labeled Video Database (CamVid) [Camvid1]_ provides
     high-quality videos acquired at 30 Hz with the corresponding
     semantically labeled masks at 1 Hz and in part, 15 Hz. The ground
     truth labels associate each pixel with one of 32 semantic classes.
@@ -21,9 +21,9 @@ class CamvidDataset(ThreadedDataset):
     the ground truth to a subset of 11 semantic classes, plus a void
     class.
 
-    The dataset should be downloaded from [2]_ into the `shared_path`
-    (that should be specified in the config.ini according to the
-    instructions in ../README.md).
+    The dataset should be downloaded from [Camvid2]_ into the
+    `shared_path` (that should be specified in the config.ini according
+    to the instructions in ../README.md).
 
     Parameters
     ----------
@@ -31,10 +31,11 @@ class CamvidDataset(ThreadedDataset):
         A string in ['train', 'val', 'valid', 'test'], corresponding to
         the set to be returned.
 
-     References
+    References
     ----------
-    .. [1] http://mi.eng.cam.ac.uk/research/projects/VideoRec/CamVid/
-    .. [2] https://github.com/alexgkendall/SegNet-Tutorial/tree/master/CamVid
+    .. [Camvid1] http://mi.eng.cam.ac.uk/research/projects/VideoRec/CamVid/
+    .. [Camvid2]
+       https://github.com/alexgkendall/SegNet-Tutorial/tree/master/CamVid
     '''
     name = 'camvid'
     non_void_nclasses = 11

@@ -356,7 +356,7 @@ def random_transform(x, y=None,
     '''Random Transform.
 
     A function to perform data augmentation of images and masks during
-    the training  (on-the-fly). Based on [1]_.
+    the training  (on-the-fly). Based on [RandomTransform1]_.
 
     Parameters
     ----------
@@ -429,9 +429,10 @@ def random_transform(x, y=None,
     void_label: int
         The index of the void label, if any. Used for padding.
 
-    Reference
-    ---------
-    [1] https://github.com/fchollet/keras/blob/master/keras/preprocessing/image.py
+    References
+    ----------
+    .. [RandomTransform1]
+       https://github.com/fchollet/keras/blob/master/keras/preprocessing/image.py
     '''
     # Set this to a dir, if you want to save augmented images samples
     save_to_dir = None

@@ -13,23 +13,25 @@ class CityscapesDataset(ThreadedDataset):
     '''The cityscapes dataset
 
     To prepare the dataset with the correct class mapping, use the scripts
-    provided by the authors: [2]_
+    provided by the authors in [Cityscapes1]_.
 
     Notes
     -----
     To change the class mapping it suffices to edit
     `cityscapesscripts/helpers/labels.py`:
-        * id = -1  ignores the class when building the GT
-        * id = 255 considers the class as void/unlabeled when building the GT
+
+    * id = -1  ignores the class when building the GT
+    * id = 255 considers the class as void/unlabeled when building the GT
+
     and run the script
     `cityscapesscripts/preparation/createTrainIdLabelImgs.py`
     in order to generate the new ground truth images. The `_cmap`,
     `_mask_labels`, `GTclasses`, `_void_labels` and `non_void_nclasses`
     attributes of the dataset class must be modified accordingly.
 
-    The dataset should be downloaded from [1]_ into the `shared_path`
-    (that should be specified in the config.ini according to the
-    instructions in ../README.md).
+    The dataset should be downloaded from [Cityscapes2]_ into the
+    `shared_path` (that should be specified in the config.ini according
+    to the instructions in ../README.md).
 
     Notes
     -----
@@ -44,8 +46,8 @@ class CityscapesDataset(ThreadedDataset):
 
     References
     ----------
-    .. [1] https://www.cityscapes-dataset.com
-    .. [2] https://github.com/mcordts/cityscapesScripts
+    .. [Cityscapes1] https://github.com/mcordts/cityscapesScripts
+    .. [Cityscapes2] https://www.cityscapes-dataset.com
     '''
     name = 'cityscapes'
     non_void_nclasses = 19

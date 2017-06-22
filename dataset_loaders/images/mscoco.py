@@ -15,13 +15,13 @@ floatX = 'float32'
 class MSCocoDataset(ThreadedDataset):
     '''The Microsoft Common Object in Context (COCO) dataset
 
-    The MS COCO dataset [1]_ consists of more than 300,000 images and over
+    The MS COCO dataset [Coco1]_ consists of more than 300,000 images and over
     2 Million annotated instances.
 
     This loader only loads the segmentation information, but the other
     annotations could added as well with little effort (PR welcome!).
 
-    The dataset should be downloaded from [1]_ into the `shared_path`
+    The dataset should be downloaded from [Coco1]_ into the `shared_path`
     (that should be specified in the config.ini according to the
     instructions in ../README.md).
 
@@ -35,9 +35,9 @@ class MSCocoDataset(ThreadedDataset):
         loader will raise a warning when a grayscale image is loaded,
         providing the name of the image.
 
-     References
+    References
     ----------
-    .. [1] http://mscoco.org/
+    .. [Coco1] http://mscoco.org/
     '''
     name = 'mscoco'
     non_void_nclasses = 80

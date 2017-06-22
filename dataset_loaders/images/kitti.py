@@ -12,24 +12,27 @@ floatX = 'float32'
 class KITTIdataset(ThreadedDataset):
     '''The KITTI Vision Benchmark Suite for semantic segmentation
 
-    KITTI Vision Benchmark is a dataset [1]_, which provides high-resolution
-    videos acquired by equpipping a standard station wagon with two high-
-    resolution color and grayscale video cameras. The dataset was captured by
-    driving around Karlsruhe, in rural areas and on highways. Up to 15 cars and
-    30 pedestrians are visible per image.
+    KITTI Vision Benchmark is a dataset [Kitti1]_, which provides
+    high-resolution videos acquired by equpipping a standard station
+    wagon with two high-resolution color and grayscale video cameras.
+    The dataset was captured by driving around Karlsruhe, in rural areas
+    and on highways. Up to 15 cars and 30 pedestrians are visible per
+    image.
 
-    This loader is intended for the semantic segmentation task of the KITTI
-    dataset. Since KITTI does not provide a semantic segmentation benchmark,
-    a number of researchers have annotated the images with semantic labels [2]_.
+    This loader is intended for the semantic segmentation task of the
+    KITTI dataset. Since KITTI does not provide a semantic segmentation
+    benchmark, a number of researchers have annotated the images with
+    semantic labels [Kitti2]_.
 
-    This loader is intended for the KITTI segmentation benchmark in [3]_, which
-    consists in 146 images and annotations from the original KITTI visual
-    odometry dataset. The ground truth labels associate each pixel with one of
-    11 semantic classes, plus one void class.
+    This loader is intended for the KITTI segmentation benchmark in
+    [Kitti3]_, which consists in 146 images and annotations from the
+    original KITTI visual odometry dataset. The ground truth labels
+    associate each pixel with one of 11 semantic classes, plus one void
+    class.
 
-    The dataset should be downloaded from [3]_ into the `shared_path`
-    (that should be specified in the config.ini according to the
-    instructions in ../README.md).
+    The dataset should be downloaded from [Kitti3]_ into the
+    `shared_path` (that should be specified in the config.ini according
+    to the instructions in ../README.md).
 
     Parameters
     ----------
@@ -38,14 +41,14 @@ class KITTIdataset(ThreadedDataset):
         the set to be returned.
     split: float
         A float indicating the dataset split between training and validation.
-        For example, if split=0.85, 85\% of the images will be used for training,
-        whereas 15\% will be used for validation.
+        For example, if split=0.85, 85\% of the images will be used for
+        training, whereas 15\% will be used for validation.
 
-     References
-    ----------
-    .. [1] http://www.cvlibs.net/datasets/kitti/index.php
-    .. [2] http://www.cvlibs.net/datasets/kitti/eval_semantics.php
-    .. [3] http://adas.cvc.uab.es/s2uad/
+    References
+    -----------
+    .. [Kitti1] http://www.cvlibs.net/datasets/kitti/index.php
+    .. [Kitti2] http://www.cvlibs.net/datasets/kitti/eval_semantics.php
+    .. [Kitti3] http://adas.cvc.uab.es/s2uad
     '''
     name = 'kitti'
     non_void_nclasses = 11
