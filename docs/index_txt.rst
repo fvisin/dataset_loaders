@@ -35,7 +35,7 @@ Quick start
 
 2. Install the package::
 
-       pip install [--user] -e <dataset_loaders path>
+       pip install [--user] -e <dataset_loaders path> -r requirements.txt
 
 3. The framework assumes that the datasets are stored in some *shared paths*,
    accessible by everyone, and should be copied locally on the machines that
@@ -65,7 +65,7 @@ Quick start
        make all
 
 4. You will need to install
-   `SimpleITK <https://itk.org/Wiki/SimpleITK/GettingStarted#Generic_Distribution>`_
+   `SimpleITK <https://simpleitk.readthedocs.io/en/master/index.html>`_
    and `openCV <http://opencv.org/>`_ if you intend to use the *warp_spline* or
    the *optical flow* data augmentations respectively.
 
