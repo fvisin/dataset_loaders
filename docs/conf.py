@@ -38,7 +38,7 @@ class Mock(MagicMock):
             return MagicMock()
 
 
-MOCK_MODULES = ['argparse', 'numpy', 'scikit-image']
+MOCK_MODULES = ['argparse', 'matplotlib', 'numpy', 'scikit-image']
 
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
