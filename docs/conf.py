@@ -38,7 +38,12 @@ class Mock(MagicMock):
             return MagicMock()
 
 
-MOCK_MODULES = ['argparse', 'matplotlib', 'numpy', 'scikit-image']
+MOCK_MODULES = ['argparse', 'cPickle', 'cv2', 'matplotlib',
+                'matplotlib.pyplot', 'numpy', 'numpy.random',
+                'pycocotools', 'pycocotools.coco', 'pycocotools.mask',
+                'scikit-image', 'scikit-image.io', 'scikit-image.ndimage',
+                'scikit-image.color' 'scipy', 'scipy.misc',
+                'scipy.ndimage', 'SimpleITK']
 
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
