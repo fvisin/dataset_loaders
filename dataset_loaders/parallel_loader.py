@@ -722,20 +722,18 @@ class ThreadedDataset(object):
         # Reset the queues
         if self.use_threads:
             # Empty names_queue
-            with self.names_queue.mutex:
-                done = False
-                while not done:
-                    try:
-                        self.names_queue.get(False)
-                        self.names_queue.task_done()
-                    except Queue.Empty:
-                        done = True
+            done = False
+            while not done:
+                try:
+                    self.names_queue.get(False)
+                    self.names_queue.task_done()
+                except Queue.Empty:
+                    done = True
             # Wait for the fetchers to be done
-            while not self.names_queue.unfinished_tasks:
+            while self.names_queue.unfinished_tasks:
                 sleep(self._wait_time)
             # Empty the data_queue
             self.data_queue.queue.clear()
-            self.data_queue.all_tasks_done.notify_all()
             self.data_queue.unfinished_tasks = 0
 
             # Refill the names queue
