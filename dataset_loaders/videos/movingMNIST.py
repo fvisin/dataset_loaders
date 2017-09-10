@@ -1,10 +1,11 @@
 import numpy as np
 import os
 import copy
+import h5py
+import time
 from scipy.ndimage.interpolation import zoom
 
 from dataset_loaders.parallel_loader import ThreadedDataset
-from dataset_loaders.utils_parallel_loader import natural_keys
 
 
 class MovingMNISTDataset(ThreadedDataset):
@@ -17,19 +18,23 @@ class MovingMNISTDataset(ThreadedDataset):
     ----------
     which_set: string
         A string in ['train', 'valid', 'test'], corresponding to the
-        subset from where the digits are selected to generate the video
+        subset from where the digits are taken to generate the video
         sequences
-    num_vids: int
-        The number of video sequences to be generated for the chosen set
+    seq_per_subset: int or np.inf
+        "For this dataset, `seq_per_subset` specifies the number of generated
+        sequences rather than the number of sequences to be used as usual. Note
+        that by setting it to `np.inf` the dataset will return an infinite
+        number of sequences (i.e., it will generate random sequences forever,
+        without repetition)"
     frame_size: list of int
-        The size of the frames
+        The size [h, w] of the frames
     num_digits: int
-        The number of moving digits in the video sequence
+        The number of moving digits
     digits_sizes: list of int
-        The size (h, w) of the digits
+        The size [h, w] of the digits
     random_background: bool
-        If False the background will have zero values, otherwhise
-        it is initialized randomly
+        The background will be black if False, otherwise it will be
+        initialized randomly
     binarize: bool
         If True the frames in the sequence will be returned as binary
         images {0, 1}, otherwise the images will be in the range [0, 1].
@@ -38,24 +43,27 @@ class MovingMNISTDataset(ThreadedDataset):
         are set to 0 otherwise to 1. The value used for threshold is 0.8
         since it was empirically proved to be able to generate good
         non-blurry images.
-    init_speed_range: list of floats or list of lists of float
+    init_speed_range: list of float or list of lists of float
         The range of the initial linear speed of each digit. A digit
         speed in that range will be randomly sampled for each digit. If
         a single list is provided all the digits will have an initial
         speed sampled in the same range (although with different
         samples). Otherwise a list specifying the range of initial speed
         for each digit is expected.
-    delta_speed_range: list of floats or list of lists of float
-        The range in which the delta speed is sampled in each frame.
-        The more the value is high the more the sequence trajectory will be
-        'complex'. Putting this values to zero the direction of the digits
-        will never change.
-    steering_prob: float of list of floats
-        It represents the probability for each digit to change its speed
-        and direction between two consecutive frames. Putting this values
-        to zero the direction of the digits will never change.
+    delta_speed_range: list of float or list of lists of float
+        The range from which the variation of speed is sampled for each new
+        frame. The higher the value the more 'complex' the sequence trajectory
+        will be. When `delta_speed_range` is [0, 0] the digits move at constant
+        speed
+    steering_prob: float or list of float
+        The probability for all the digits (when float) or for each digit (when
+        list of floats) to randomly change direction at each frame. When zero,
+        the digits will always move in the same direction (until they bounce on
+        a frame border)
     rng:
-        If None the default random number generator is used (seed = 1).
+        The random number generator (rng) used to stochastically select the
+        speed and direction of the digits. If not specified, a default rng
+        (seed = 1) is created instead.
     """
     name = 'movingMNIST'
     # The number of *non void* classes
@@ -64,7 +72,7 @@ class MovingMNISTDataset(ThreadedDataset):
     # A list of the ids of the void labels
     _void_labels = []
 
-    def __init__(self, which_set='train', num_vids=1000, frame_size=[64, 64],
+    def __init__(self, which_set='train', frame_size=[64, 64],
                  num_digits=1, digits_sizes=[28, 28], random_background=False,
                  init_speed_range=[-0.3, 0.3], delta_speed_range=[-0.1, 0.1],
                  steering_prob=0., binarize=True, rng=None, *args, **kwargs):
@@ -72,41 +80,42 @@ class MovingMNISTDataset(ThreadedDataset):
         self.data_shape = frame_size + [1]
 
         self.which_set = 'validation' if 'valid' in which_set else which_set
-        self.num_vids = num_vids
         self.frame_size = frame_size
         self.num_digits = num_digits
         self.digits_sizes = digits_sizes
         self.random_background = random_background
         self.set_has_GT = False
+        if not kwargs['seq_per_subset'] or kwargs['seq_per_subset'] == 0:
+            raise RuntimeError('seq_per_subset must be an int or np.inf!')
         if isinstance(init_speed_range[0], list):
             assert len(init_speed_range) == self.num_digits, (
-                'The lenght of digits_speed list must be equal '
-                'to the number of digits')
+                'When `digits_speed` is a list of lists its length '
+                'must be equal to the number of digits')
             self.init_speed_range = init_speed_range
         else:
             self.init_speed_range = [init_speed_range for _ in
                                      range(self.num_digits)]
         if isinstance(delta_speed_range[0], list):
             assert len(delta_speed_range) == self.num_digits, (
-                'The lenght of delta_speed_range list must be equal '
-                'to the number of digits')
+                'When `delta_speed_range` is a list of lists its length '
+                'must be equal to the number of digits')
             self.delta_speed_range = delta_speed_range
         else:
             self.delta_speed_range = [delta_speed_range for _ in
                                       range(self.num_digits)]
         if isinstance(steering_prob, list):
             assert len(steering_prob) == self.num_digits, (
-                'The lenght of steering_prob list must be equal '
-                'to the number of digits')
+                'When `steering_prob` is a list of lists its length '
+                'must be equal to the number of digits')
             self.steering_prob = steering_prob
         else:
             self.steering_prob = [steering_prob for _ in
                                   range(self.num_digits)]
         self.binarize = binarize
         self._rng = rng if rng else np.random.RandomState(1)
-        self._origin_rng = copy.deepcopy(self._rng)
-        # self.path = self.shared_path
-        import h5py
+        # Used to reset 'self.rng' to the initial rng when the dataset
+        # is reset
+        self._initial_rng = copy.deepcopy(self._rng)
         try:
             f = h5py.File(os.path.join(self.path, 'mnist.h5'))
         except:
@@ -120,8 +129,10 @@ class MovingMNISTDataset(ThreadedDataset):
 
     def get_names(self):
         """Return a dict of names, per prefix/subset.
-           Note: The names will be ignored in load_sequence."""
-        return {'default': [None for _ in range(self.num_vids)]}
+           Note: called only when seq_per_subset is not inf."""
+        n_seq = self.seq_per_subset if self.seq_per_subset else 1
+        n_imgs = self.seq_length * n_seq
+        return {'default': ['gen_%i' % i for i in range(n_imgs)]}
 
     def _get_random_trajectory(self):
         # Increase the sequence by one, to account for the extra frame
@@ -168,16 +179,16 @@ class MovingMNISTDataset(ThreadedDataset):
             # Bounce off edges.
             for j in range(self.num_digits):
                 if x[j] <= 0.:
-                    x[j] = 0.
+                    x[j] = -x[j]
                     speed_x[j] = -speed_x[j]
                 elif x[j] >= 1.0:
-                    x[j] = 1.0
+                    x[j] = 2.0 - x[j]
                     speed_x[j] = -speed_x[j]
                 if y[j] <= 0.:
-                    y[j] = 0.
+                    y[j] = -y[j]
                     speed_y[j] = -speed_y[j]
                 elif y[j] >= 1.0:
-                    y[j] = 1.0
+                    y[j] = 2.0 - y[j]
                     speed_y[j] = -speed_y[j]
 
             trajectory_x[frame_id] = x
@@ -193,11 +204,11 @@ class MovingMNISTDataset(ThreadedDataset):
 
         # Minibatch data
         if self.random_background:
-            out_sequence = self._rng.rand(self.seq_length+1,
+            out_sequence = self._rng.rand(self.seq_length + 1,
                                           self.frame_size[0],
                                           self.frame_size[1], 1)
         else:
-            out_sequence = np.zeros((self.seq_length+1,
+            out_sequence = np.zeros((self.seq_length + 1,
                                      self.frame_size[0],
                                      self.frame_size[1], 1),
                                     dtype=np.float32)
@@ -208,7 +219,7 @@ class MovingMNISTDataset(ThreadedDataset):
             curr_data_idx = self._rng.randint(0, self._MNIST_data.shape[0] - 1)
             digit_image = self._MNIST_data[curr_data_idx]
 
-            zoom_factor = int(self.digits_sizes[digit_id]/28)
+            zoom_factor = int(self.digits_sizes[digit_id] / 28)
             if zoom_factor != 1:
                 digit_image = zoom(digit_image, zoom_factor)
             digit_size = digit_image.shape[0]
@@ -229,8 +240,7 @@ class MovingMNISTDataset(ThreadedDataset):
         """ This function is used to reset the rng and data index from
         where the digits are sampled to create the video sequence
         """
-        if self.which_set != 'train':
-            self._rng = copy.deepcopy(self._origin_rng)
+        self._rng = copy.deepcopy(self._initial_rng)
 
     def _fill_names_batches(self, *args, **kwargs):
         # Reset the digit generator at the end of the epoch
@@ -245,10 +255,17 @@ class MovingMNISTDataset(ThreadedDataset):
         Returns a dict with the images in [0, 1], their corresponding
         labels, their subset (i.e. category, clip, prefix) and their
         filenames.
+        train_nsamples = trainiter.nsamples
         """
         F = []
-        for frame_name, _ in sequence:
-            F.append(frame_name)
+        # if self.seq...
+        if self.seq_per_subset == np.inf:
+            for f_idx in range(self.seq_length):
+                F.append("gen_%i" % f_idx)
+        else:
+            for frame_name, _ in sequence:
+                F.append(frame_name)
+
         sequence = self._get_sequence()
         X = sequence[:-1]
         Y = sequence[-1]
@@ -266,3 +283,42 @@ class MovingMNISTDataset(ThreadedDataset):
         ret['subset'] = 'default'
         ret['filenames'] = np.array(F)
         return ret
+
+
+def test(inf_dataset=True):
+    trainiter = MovingMNISTDataset(
+        which_set='train',
+        batch_size=3,
+        seq_per_subset=np.inf if inf_dataset else 6,
+        seq_length=7,
+        overlap=0,
+        data_augm_kwargs={'crop_size': None},
+        return_one_hot=True,
+        return_01c=True,
+        use_threads=True,
+        shuffle_at_each_epoch=False)
+
+    start = time.time()
+    tot = 0
+    max_epochs = 2
+    for epoch in range(max_epochs):
+        for mb in range(2):
+            train_group = trainiter.next()
+
+            # time.sleep approximates running some model
+            time.sleep(1)
+            stop = time.time()
+            part = stop - start - 1
+            start = stop
+            tot += part
+            print("Minibatch %s (inf %s) - Threaded time: %s (%s)" %
+                  (str(mb), str(inf_dataset), part, tot))
+
+
+def run_tests():
+    test(False)
+    test(True)
+
+
+if __name__ == '__main__':
+    run_tests()
