@@ -25,7 +25,6 @@ class Davis2017Dataset(ThreadedDataset):
     #     1: (0, 0, 0)}              # foreground
     # _mask_labels = {0: 'background', 1: 'foreground'}
 
-    _unique_rgbs = None
     _filenames = None
     _image_sets_path = None
     _prefix_list = None
@@ -33,19 +32,15 @@ class Davis2017Dataset(ThreadedDataset):
     @property
     def prefix_list(self):
         if self._prefix_list is None:
+            which_set = ('test-dev' if self.which_set == 'test' else
+                         self.which_set)
             # Create a list of prefix out of the number of requested videos
             with open(os.path.join(self._image_sets_path,
-                                   self.which_set + '.txt')) as f:
+                                   which_set + '.txt')) as f:
                 content = f.readlines()
                 f.close()
             self._prefix_list = [prefix.strip() for prefix in content]
         return self._prefix_list
-
-    @property
-    def unique_rgbs(self):
-        if self._unique_rgbs is None:
-            self._unique_rgbs = np.load(self.rgb_values_local_path).item()
-        return self._unique_rgbs
 
     def save_rgbs(self):
         unique_rgbs = {}
@@ -54,18 +49,16 @@ class Davis2017Dataset(ThreadedDataset):
         for root, dirs, files in os.walk(self.mask_path):
             if files == []:
                 continue
-            mask_rgbs = []
             name = sorted(files)[0]
             # Unique list of rgbs
             mask = Image.open(os.path.join(root, name)).convert('RGB')
             # getcolors() returns a list of unique RGB values
             # contained in an image. The elements in the list are
-            # in the form [num, RGB] where num is simply an
-            # incremental id of the unique RGB values
+            # in the form [count, RGB] where count is the number of
+            # pixels to which the RGB value is associated
             # For each element in the list take only the RGB value
-            for rgb in mask.getcolors():
-                mask_rgbs.append(rgb[1])
-            unique_rgbs[os.path.split(root)[1]] = sorted(mask_rgbs)
+            mask_rgbs = [rgb for id_rgb, rgb in mask.getcolors()]
+            unique_rgbs[os.path.split(root)[-1]] = sorted(mask_rgbs)
         # Save the per-frame RGB values in a numpy file
         np.save(self.rgb_values_shared_path, unique_rgbs)
 
@@ -80,45 +73,47 @@ class Davis2017Dataset(ThreadedDataset):
                         self.image_path, vid_dir)):
                     for name in files:
                         self._filenames[vid_dir].append(os.path.join(
-                            os.path.split(root)[1], name[:-4]))
+                            os.path.split(root)[-1], name[:-4]))
                 self._filenames[vid_dir].sort(key=natural_keys)
         return self._filenames
 
     def __init__(self,
                  which_set='train',
-                 multiobject=True,
+                 foreground_background=True,
                  dataset_version='2017',
-                 threshold_masks=False,
-                 split=.75,
                  *args, **kwargs):
 
         """ The Davis 2017 dataset
         The following loader allows to load both the 2016 and 2017
         version of the Davis dataset.
 
+        The dataset is available at http://davischallenge.org/code.html
+        where it is possible to download the TrainVal and Test-Dev sets
+        in zip format containig the JPEG images and their corresponding
+        annotations. In the 2017 version there is an additional folder
+        'ImageSets' containing the '.txt' files where the training,
+        validation and test set images are listed by name for both the
+        2016 and 2017 versions of the dataset.
+
         Parameters
         ----------
         which_set: string
-            A string in ['train', 'val', 'test-dev'], corresponding to
-            the training, validation and test sets specifically.
-        multiobject: boolean
-            In the case of the last dataset version (2017), this
-            parameter allows to decide when to return the labels in
-            multi-object notation (more then one object instance) or in the
-            binary one (only two ids 0-1).
+            A string in ['train', 'valid', 'test'], corresponding to
+            the set to be loaded.
+        foreground_background: boolean
+            For the 2017 version of the dataset, determines whether to return
+            the instance segmentation masks or the foreground-background ones.
         dataset_version: string
-            A string in ['2016', '2017']. It allows to select the
-            version of Davis dataset to be loaded. Depending on this
-            parameter the files will be loaded from the most recent dataset
-            folder (2017) or from the previous one (2016).
-
+            A string in ['2016', '2017']. Allows to select which version of
+            Davis to load, i.e., whether to load the images and masks from the
+            path specified in the config.ini under 'davis' or 'davis2017'
+            respectively.
         """
 
-        if which_set not in {"train", "val", "test-dev"}:
+        if which_set not in {"train", "valid", "test"}:
             raise ValueError("Unknown set {}".format(which_set))
-        self.which_set = which_set
-        self.threshold_masks = threshold_masks
-        self.multiobject = multiobject
+        self.which_set = 'val' if which_set == 'valid' else which_set
+        self.foreground_background = foreground_background
         if dataset_version not in ['2016', '2017']:
             raise RuntimeError('Unknown dataset version')
         self._image_sets_path = os.path.join(self.path, 'ImageSets',
@@ -134,10 +129,8 @@ class Davis2017Dataset(ThreadedDataset):
         if not os.path.exists(self.rgb_values_shared_path):
             self.save_rgbs()
 
-        # Prepare data paths
-        self.split = 1. if self.which_set == 'test-dev' else split
-
         super(Davis2017Dataset, self).__init__(*args, **kwargs)
+        self.unique_rgbs = np.load(self.rgb_values_local_path).item()
 
     def get_names(self):
         """Return a dict of names, per prefix/subset."""
@@ -164,26 +157,28 @@ class Davis2017Dataset(ThreadedDataset):
             img = img.astype(floatX) / 255.
 
             if self.which_set in ['train', 'val']:
-                mask = np.asarray(Image.open(os.path.join(
+                mask = np.array(Image.open(os.path.join(
                     self.mask_path, frame_name + '.png')).convert('RGB'))
-            elif self.which_set == 'test-dev':
-                frame = self.filenames[prefix][0]
-                mask = np.asarray(Image.open(os.path.join(
-                    self.mask_path, frame + '.png')).convert('RGB'))
+            elif self.which_set == 'test':
+                # By construction the test-dev set of the 2017 version
+                # of the dataset provides the labels for the first frame
+                # only
+                first_frame = self.filenames[prefix][0]
+                mask = np.array(Image.open(os.path.join(
+                    self.mask_path, first_frame + '.png')).convert('RGB'))
             else:
                 raise RuntimeError()
 
             # Convert mask from RGB to ids format
             _id = 0
-            temp_mask = np.zeros(mask.shape[:-1], np.int32)
             for rgb in rgbs[prefix]:
-                temp_mask[np.all(mask == rgb, axis=-1)] = _id
-                if self.multiobject:
+                mask[np.all(mask == rgb, axis=-1), 0] = _id
+                if not self.foreground_background:
                     _id += 1
                 else:
                     _id = 1
 
-            Y.append(temp_mask)
+            Y.append(mask[..., 0])
             X.append(img)
             F.append(frame_name + '.jpg')
 
@@ -203,38 +198,33 @@ def test():
         seq_per_subset=0,
         seq_length=7,
         overlap=0,
-        data_augm_kwargs={
-
-            'crop_size': None},
-        split=0.75,
-        multiobject=True,
+        data_augm_kwargs={'crop_size': None},
+        foreground_background=False,
         return_one_hot=False,
         return_01c=True,
         use_threads=True,
         nthreads=3,
         shuffle_at_each_epoch=True)
     validiter = Davis2017Dataset(
-        which_set='val',
+        which_set='valid',
         dataset_version='2017',
         batch_size=2,
         seq_per_subset=0,
         seq_length=7,
         overlap=0,
-        split=.75,
-        multiobject=True,
+        foreground_background=True,
         return_one_hot=False,
         return_01c=True,
         use_threads=True,
         shuffle_at_each_epoch=False)
     testiter = Davis2017Dataset(
-        which_set='test-dev',
+        which_set='test',
         dataset_version='2017',
         batch_size=1,
         seq_per_subset=0,
         seq_length=1,
         overlap=0,
-        split=1.,
-        multiobject=True,
+        foreground_background=True,
         return_one_hot=False,
         return_01c=True,
         shuffle_at_each_epoch=False,
