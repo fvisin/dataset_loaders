@@ -55,10 +55,12 @@ class Davis2017Dataset(ThreadedDataset):
             # getcolors() returns a list of unique RGB values
             # contained in an image. The elements in the list are
             # in the form [count, RGB] where count is the number of
-            # pixels to which the RGB value is associated
-            # For each element in the list take only the RGB value
-            mask_rgbs = [rgb for id_rgb, rgb in mask.getcolors()]
-            unique_rgbs[os.path.split(root)[-1]] = sorted(mask_rgbs)
+            # pixels with the corresponding RGB value. We don't care
+            # about count here, and order the list by
+            mask_rgbs = {id_rgb: rgb for id_rgb, rgb in
+                         enumerate(sorted([el[1] for el in mask.getcolors()]))}
+            # unique_rgbs[os.path.split(root)[-1]] = sorted(mask_rgbs)
+            unique_rgbs[os.path.split(root)[-1]] = mask_rgbs
         # Save the per-frame RGB values in a numpy file
         np.save(self.rgb_values_shared_path, unique_rgbs)
 
@@ -170,15 +172,13 @@ class Davis2017Dataset(ThreadedDataset):
                 raise RuntimeError()
 
             # Convert mask from RGB to ids format
-            _id = 0
-            for rgb in rgbs[prefix]:
-                mask[np.all(mask == rgb, axis=-1), 0] = _id
-                if not self.foreground_background:
-                    _id += 1
-                else:
-                    _id = 1
+            for id_rgb, rgb in rgbs[prefix].iteritems():
+                mask[np.all(mask == rgb, axis=-1), 0] = id_rgb
+            mask = mask[..., 0]  # Keep only the id channel
+            if self.foreground_background:
+                mask[mask > 1] = 1
 
-            Y.append(mask[..., 0])
+            Y.append(mask)
             X.append(img)
             F.append(frame_name + '.jpg')
 
@@ -191,6 +191,7 @@ class Davis2017Dataset(ThreadedDataset):
 
 
 def test():
+    use_threads = True
     trainiter = Davis2017Dataset(
         which_set='train',
         dataset_version='2017',
@@ -202,7 +203,7 @@ def test():
         foreground_background=False,
         return_one_hot=False,
         return_01c=True,
-        use_threads=True,
+        use_threads=use_threads,
         nthreads=3,
         shuffle_at_each_epoch=True)
     validiter = Davis2017Dataset(
@@ -215,7 +216,7 @@ def test():
         foreground_background=True,
         return_one_hot=False,
         return_01c=True,
-        use_threads=True,
+        use_threads=use_threads,
         shuffle_at_each_epoch=False)
     testiter = Davis2017Dataset(
         which_set='test',
@@ -228,7 +229,7 @@ def test():
         return_one_hot=False,
         return_01c=True,
         shuffle_at_each_epoch=False,
-        use_threads=True)
+        use_threads=use_threads)
 
     train_nsamples = trainiter.nsamples
     valid_nsamples = validiter.nsamples
