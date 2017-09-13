@@ -10,6 +10,7 @@ import shutil
 import sys
 from threading import Thread
 from time import sleep
+import warnings
 import weakref
 
 import numpy as np
@@ -38,7 +39,7 @@ class ThreadedDataset(object):
 
     Parameters
     ----------
-    seq_per_subset: int
+    seq_per_subset: int or np.inf
         The *maximum* number of sequences per each subset (a.k.a. prefix
         or video). If 0, all sequences will be used. If greater than 0
         and `shuffle_at_each_epoch` is True, at each epoch a new
@@ -307,6 +308,8 @@ class ThreadedDataset(object):
 
         # Save parameters in object
         self.seq_per_subset = seq_per_subset
+        if seq_per_subset and seq_per_subset is np.inf:
+            self.nsamples = self.nbatches = np.inf
         self.return_sequence = seq_length is not None and seq_length != 0
         self.seq_length = seq_length
         self.overlap = max(seq_length - 1, 0) if overlap is None else overlap
@@ -346,17 +349,18 @@ class ThreadedDataset(object):
             self.data_shape = [data_shape[i] for i in
                                [2] + range(2) + range(3, len(data_shape))]
 
-        # Load a dict of names, per video/subset/prefix/...
-        self.names_per_subset = self.get_names()
+        if not self.seq_per_subset or self.seq_per_subset is not np.inf:
+            # Load a dict of names, per video/subset/prefix/...
+            self.names_per_subset = self.get_names()
 
-        # Create the list of sequences with format
-        # [[(prefix, name1), (prefix, name2), ..], ..]
-        self._fill_names_sequences()
-        if len(self.names_sequences) == 0:
-            raise RuntimeError('The name list cannot be empty')
-        # Potentially shuffle the `names_sequences` list and create the
-        # list of batches out of it
-        self._fill_names_batches(shuffle_at_each_epoch)
+            # Create the list of sequences with format
+            # [[(prefix, name1), (prefix, name2), ..], ..]
+            self._fill_names_sequences()
+            if len(self.names_sequences) == 0:
+                raise RuntimeError('The name list cannot be empty')
+            # Potentially shuffle the `names_sequences` list and create the
+            # list of batches out of it
+            self._fill_names_batches(shuffle_at_each_epoch)
 
         if self.use_threads:
             # Initialize the queues
@@ -385,7 +389,8 @@ class ThreadedDataset(object):
         dictionary is a list of filenames. The keys of the dictionary
         should be the prefixes, i.e., names of the subsets of the
         dataset. If the dataset has no subset, 'default' can be used as
-        a key.
+        a key. If the dataset is an infinite generator, get_names will
+        not be called.
         """
         raise NotImplementedError
 
@@ -470,12 +475,18 @@ class ThreadedDataset(object):
 
     def _init_names_queue(self):
         for _ in range(self.queues_size):
-            try:
-                name_batch = self.names_batches.next()
+            if self.seq_per_subset and self.seq_per_subset is np.inf:
+                name_batch = [[('default', 'inf-gen_%i_%i' % (b_idx, f_idx))
+                               for f_idx in range(self.seq_length)]
+                              for b_idx in range(self.batch_size)]
                 self.names_queue.put(name_batch)
-            except StopIteration:
-                # Queue is bigger than the tot number of batches
-                break
+            else:
+                try:
+                    name_batch = self.names_batches.next()
+                    self.names_queue.put(name_batch)
+                except StopIteration:
+                    # Queue is bigger than the tot number of batches
+                    break
 
     def __iter__(self):
         return self
@@ -518,16 +529,24 @@ class ThreadedDataset(object):
                                 isinstance(data_batch[1], BaseException)):
                             raise data_batch[0], data_batch[1], data_batch[2]
                     done = True
-                    # Refill the names queue, if we still have batches
-                    try:
-                        name_batch = self.names_batches.next()
+                    # When it's an infinite dataset, generate a fixed name
+                    if self.seq_per_subset and self.seq_per_subset is np.inf:
+                        name_batch = [['gen_%i_%i' % (b_idx, f_idx)
+                                       for f_idx in range(self.seq_length)]
+                                      for b_idx in range(self.batch_size)]
                         self.names_queue.put(name_batch)
-                    except StopIteration:
-                        pass
+                    else:
+                        try:
+                            name_batch = self.names_batches.next()
+                            self.names_queue.put(name_batch)
+                        except StopIteration:
+                            pass
                 # The data_queue is empty: the epoch is over or we
-                # consumed the data too fast
+                # consumed the data too fast. When the dataset is
+                # infinite, it's always the latter
                 except Queue.Empty:
-                    if not self.names_queue.unfinished_tasks:
+                    if (not self.seq_per_subset or self.seq_per_subset is not
+                            np.inf) and not self.names_queue.unfinished_tasks:
                         # END OF EPOCH - The data_queue is empty, i.e.
                         # the name_batches is empty: refill both
                         self._fill_names_batches(self.shuffle_at_each_epoch)
@@ -536,24 +555,33 @@ class ThreadedDataset(object):
                             raise StopIteration
             else:
                 # NO THREADS
-                try:
-                    name_batch = self.names_batches.next()
-                    data_batch = self.fetch_from_dataset(name_batch)
+                # Generate the filenames when the dataset is an infinite
+                # generator
+                if self.seq_per_subset and self.seq_per_subset is np.inf:
+                    batch_to_load = [['gen_%i_%i' % (b_idx, f_idx)
+                                      for f_idx in range(self.seq_length)]
+                                     for b_idx in range(self.batch_size)]
+                    data_batch = self.fetch_from_dataset(batch_to_load)
                     done = True
-                except StopIteration:
-                    # END OF EPOCH - The name_batches is empty: refill it
-                    self._fill_names_batches(self.shuffle_at_each_epoch)
-                    if not self.infinite_iterator:
-                        raise
-                    # else, loop to the next image
-                except IOError as e:
-                    if self.raise_IOErrors:
-                        raise
-                    else:
-                        print('WARNING: Image corrupted or missing!')
-                        print(e)
+                else:
+                    try:
+                        batch_to_load = self.names_batches.next()
+                        data_batch = self.fetch_from_dataset(batch_to_load)
+                        done = True
+                    except StopIteration:
+                        # END OF EPOCH - The name_batches is empty: refill it
+                        self._fill_names_batches(self.shuffle_at_each_epoch)
+                        if not self.infinite_iterator:
+                            raise
+                        # else, loop to the next image
+                    except IOError as e:
+                        if self.raise_IOErrors:
+                            raise
+                        else:
+                            print('WARNING: Image corrupted or missing!')
+                            print(e)
 
-        assert(data_batch is not None)
+        assert data_batch is not None
         return data_batch
 
     def fetch_from_dataset(self, batch_to_load):
@@ -709,6 +737,11 @@ class ThreadedDataset(object):
         reason `shuffle` should be used to reshuffle the data when the
         parameters of the dataset have not been modified.
         '''
+
+        if self.seq_per_subset and self.seq_per_subset is np.inf:
+            warnings.warn("You cannot reset an infinite dataset "
+                          "(seq_per_subset is inf)!")
+            return
         if reload_sequences_from_dataset:
             # Get all the sequences of names from the dataset, with the
             # desired overlap
@@ -743,6 +776,9 @@ class ThreadedDataset(object):
         '''Shuffles the sequences and creates new batches, according to
         the initial parameters. To account for changes in the parameters
         of the dataset use `reset`.'''
+        if self.seq_per_subset and self.seq_per_subset is np.inf:
+            warnings.warn("You cannot shuffle an infinite dataset!")
+            return
         self._fill_names_batches(True)
 
     def finish(self):

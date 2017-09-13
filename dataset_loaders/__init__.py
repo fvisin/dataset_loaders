@@ -15,6 +15,7 @@ from videos.change_detection import ChangeDetectionDataset
 from videos.davis import DavisDataset
 from videos.davis2017 import Davis2017Dataset
 from videos.gatech import GatechDataset
+from videos.movingMNIST import MovingMNISTDataset
 
 try:
     cwd = os.path.join(__path__[0], os.path.pardir)
@@ -37,4 +38,5 @@ __all__ = [
     "DavisDataset",
     "Davis2017Dataset",
     "GatechDataset",
+    "MovingMNISTDataset"
     ]
