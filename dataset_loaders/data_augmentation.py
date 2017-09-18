@@ -109,6 +109,7 @@ def save_img2(x, y, fname, cmap, void_label, rows_idx, cols_idx,
     pattern = [el for el in range(x.ndim) if el not in [rows_idx, cols_idx,
                                                         chan_idx]]
     pattern += [rows_idx, cols_idx, chan_idx]
+
     x_copy = x.transpose(pattern)
     if y is not None and len(y) > 0:
         y_copy = y.transpose(pattern)
@@ -118,12 +119,12 @@ def save_img2(x, y, fname, cmap, void_label, rows_idx, cols_idx,
     if y is not None and len(y) > 0:
         y_copy = y_copy[0, ..., 0]
 
-    label_mask = my_label2rgboverlay(y,
-                                     colors=cmap,
-                                     image=x,
+    label_mask = my_label2rgboverlay(y_copy,
+                                     cmap=cmap,
+                                     image=x_copy,
                                      bglabel=void_label,
                                      alpha=0.2)
-    combined_image = np.concatenate((x, label_mask),
+    combined_image = np.concatenate((x_copy, label_mask),
                                     axis=1)
     scipy.misc.toimage(combined_image).save(fname)
 
@@ -352,7 +353,8 @@ def random_transform(x, y=None,
                      chan_idx=3,  # No batch yet: (s, 0, 1, c)
                      rows_idx=1,  # No batch yet: (s, 0, 1, c)
                      cols_idx=2,  # No batch yet: (s, 0, 1, c)
-                     void_label=None):
+                     void_label=None,
+                     prescale=1.0):
     '''Random Transform.
 
     A function to perform data augmentation of images and masks during
@@ -435,10 +437,20 @@ def random_transform(x, y=None,
        https://github.com/fchollet/keras/blob/master/keras/preprocessing/image.py
     '''
     # Set this to a dir, if you want to save augmented images samples
-    save_to_dir = None
+    save_to_dir = None # "./"
 
     if rescale:
         raise NotImplementedError()
+
+    # Scale images
+    if prescale != 1.0:
+        import skimage.transform
+        x = [skimage.transform.rescale(x_image, prescale, order=1,
+                                       preserve_range=True) for x_image in x]
+        x = np.stack(x, 0)
+        y = [skimage.transform.rescale(y_image, prescale, order=0,
+                                       preserve_range=True) for y_image in y]
+        y = np.stack(y, 0)
 
     # Do not modify the original images
     x = x.copy()
@@ -512,6 +524,7 @@ def random_transform(x, y=None,
             zx, zy = 1, 1
         else:
             zx, zy = np.random.uniform(zoom_range[0], zoom_range[1], 2)
+        # print ('ZX: {} ZY: {}'.format(zx, zy))
         zoom_matrix = np.array([[zx, 0, 0],
                                 [0, zy, 0],
                                 [0, 0, 1]])
@@ -524,6 +537,7 @@ def random_transform(x, y=None,
         transform_matrix = transform_matrix_offset_center(transform_matrix,
                                                           h, w)
         # Apply all the transformations together
+        # print ('Before: X size: {} Y size: {}'.format(x.shape, y.shape))
         x = apply_transform(x, transform_matrix, fill_mode=fill_mode,
                             cval=cval, order=1, rows_idx=rows_idx,
                             cols_idx=cols_idx)
@@ -531,6 +545,7 @@ def random_transform(x, y=None,
             y = apply_transform(y, transform_matrix, fill_mode=fill_mode,
                                 cval=cval_mask, order=0, rows_idx=rows_idx,
                                 cols_idx=cols_idx)
+        # print ('After: X size: {} Y size: {}'.format(x.shape, y.shape))
 
     # Horizontal flip
     if np.random.random() < horizontal_flip:  # 0 = disabled
@@ -562,6 +577,17 @@ def random_transform(x, y=None,
                                     fill_mode=fill_mode,
                                     fill_constant=cval_mask,
                                     rows_idx=rows_idx, cols_idx=cols_idx))
+
+    # Save augmented images
+    if save_to_dir:
+        import seaborn as sns
+        cmap = sns.hls_palette(nclasses)
+        fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
+        if y is not None and len(y) > 0:
+            save_img2(x, y, os.path.join(save_to_dir, fname),
+                      cmap, void_label, rows_idx, cols_idx, chan_idx)
+        else:
+            scipy.misc.toimage(x[0]).save(fname)
 
     # Crop
     # Expects axes with shape (..., 0, 1)
@@ -615,14 +641,16 @@ def random_transform(x, y=None,
                             return_rgb=return_optical_flow == 'rgb')
         x = np.concatenate((x, flow), axis=chan_idx)
 
-    # Save augmented images
-    if save_to_dir:
-        import seaborn as sns
-        fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
-        print ('Save to dir'.format(fname))
-        cmap = sns.hls_palette(nclasses)
-        save_img2(x, y, os.path.join(save_to_dir, fname),
-                  cmap, void_label, rows_idx, cols_idx, chan_idx)
+    # # Save augmented images
+    # if save_to_dir:
+    #     import seaborn as sns
+    #     cmap = sns.hls_palette(nclasses)
+    #     fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
+    #     if y is not None and len(y) > 0:
+    #         save_img2(x, y, os.path.join(save_to_dir, fname),
+    #                   cmap, void_label, rows_idx, cols_idx, chan_idx)
+    #     else:
+    #         scipy.misc.toimage(x[0]).save(fname)
 
     # Undo extra dim
     if y is not None and len(y) > 0:
