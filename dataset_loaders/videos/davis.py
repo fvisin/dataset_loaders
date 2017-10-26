@@ -45,7 +45,7 @@ class DavisDataset(ThreadedDataset):
             for root, dirs, files in os.walk(self.image_path):
                 for name in files:
                     self._filenames.append(os.path.join(
-                        root[-root[::-1].index('/'):], name[:-3]))
+                          root[-root[::-1].index('/'):], name[:-4]))
 
             self._filenames.sort(key=natural_keys)
 
@@ -113,15 +113,15 @@ class DavisDataset(ThreadedDataset):
         for prefix, frame_name in sequence:
             frame = prefix + '/' + frame_name
 
-            img = io.imread(os.path.join(self.image_path, frame + 'jpg'))
-            mask = io.imread(os.path.join(self.mask_path, frame + 'png'))
+            img = io.imread(os.path.join(self.image_path, frame + '.jpg'))
+            mask = io.imread(os.path.join(self.mask_path, frame + '.png'))
 
             img = img.astype(floatX) / 255.
             mask = (mask / 255).astype('int32')
 
             X.append(img)
             Y.append(mask)
-            F.append(frame_name + 'jpg')
+            F.append(frame_name + '.jpg')
 
         ret = {}
         ret['data'] = np.array(X)
