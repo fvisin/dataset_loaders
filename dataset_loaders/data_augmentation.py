@@ -109,22 +109,24 @@ def save_img2(x, y, fname, cmap, void_label, rows_idx, cols_idx,
     pattern = [el for el in range(x.ndim) if el not in [rows_idx, cols_idx,
                                                         chan_idx]]
     pattern += [rows_idx, cols_idx, chan_idx]
+
     x_copy = x.transpose(pattern)
     if y is not None and len(y) > 0:
         y_copy = y.transpose(pattern)
 
-    # Take the first batch and drop extra dim on y
+    # Take only the first batch
     x_copy = x_copy[0]
     if y is not None and len(y) > 0:
+        # Take only the first batch and drop extra dim
         y_copy = y_copy[0, ..., 0]
-
-    label_mask = my_label2rgboverlay(y,
-                                     colors=cmap,
-                                     image=x,
-                                     bglabel=void_label,
-                                     alpha=0.2)
-    combined_image = np.concatenate((x, label_mask),
-                                    axis=1)
+        label_mask = my_label2rgboverlay(y_copy,
+                                         cmap=cmap,
+                                         image=x_copy,
+                                         bglabel=void_label,
+                                         alpha=0.2)
+        combined_image = np.concatenate((x_copy, label_mask), axis=1)
+    else:
+        combined_image = x_copy
     scipy.misc.toimage(combined_image).save(fname)
 
 
@@ -352,7 +354,8 @@ def random_transform(x, y=None,
                      chan_idx=3,  # No batch yet: (s, 0, 1, c)
                      rows_idx=1,  # No batch yet: (s, 0, 1, c)
                      cols_idx=2,  # No batch yet: (s, 0, 1, c)
-                     void_label=None):
+                     void_label=None,
+                     prescale=1.0):
     '''Random Transform.
 
     A function to perform data augmentation of images and masks during
@@ -435,7 +438,7 @@ def random_transform(x, y=None,
        https://github.com/fchollet/keras/blob/master/keras/preprocessing/image.py
     '''
     # Set this to a dir, if you want to save augmented images samples
-    save_to_dir = None
+    save_to_dir = None  # "./"
 
     if rescale:
         raise NotImplementedError()
@@ -445,6 +448,20 @@ def random_transform(x, y=None,
     if y is not None and len(y) > 0:
         y = y[..., None]  # Add extra dim to y to simplify computation
         y = y.copy()
+
+    # Prescale each image/mask in the batch
+    if prescale != 1.0:
+        import skimage.transform
+        x = [skimage.transform.rescale(x_image, prescale,
+                                       order=1,  # bilinear
+                                       preserve_range=True) for x_image in x]
+        x = np.stack(x, 0)
+        if y is not None and len(y) > 0:
+            y = [skimage.transform.rescale(y_image, prescale,
+                                           order=0,  # Nearest-neighbor
+                                           preserve_range=True)
+                 for y_image in y]
+            y = np.stack(y, 0)
 
     # listify zoom range
     if np.isscalar(zoom_range):
@@ -619,7 +636,6 @@ def random_transform(x, y=None,
     if save_to_dir:
         import seaborn as sns
         fname = 'data_augm_{}.png'.format(np.random.randint(1e4))
-        print ('Save to dir'.format(fname))
         cmap = sns.hls_palette(nclasses)
         save_img2(x, y, os.path.join(save_to_dir, fname),
                   cmap, void_label, rows_idx, cols_idx, chan_idx)
