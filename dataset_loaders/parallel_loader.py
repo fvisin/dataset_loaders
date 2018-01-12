@@ -446,6 +446,17 @@ class ThreadedDataset(object):
         * Set self.nsamples, self.nbatches and self.names_batches.
         * Set self.names_batches, an iterator over the batches of names.
         '''
+        # self.names_sequences has the following structure:
+        #   key: a subset
+        #   value: a tuple of *sequences* with structure
+        #       `((subset, filename1), (subset, filename2), ..)`
+        #       and length `seq_length`.
+        # E.g.,
+        # names_sequences['0001TP'][0] = (('0001TP', '0001TP_006690.png'),)
+        #
+        # Here we copy it in `names_sequences`, selecting a random subset
+        # of values per key in case a limit has been imposed via
+        # self.seq_per_subset.
         names_sequences = OrderedDict()
         for prefix, sequences in self.names_sequences.items():
 
@@ -459,21 +470,27 @@ class ThreadedDataset(object):
 
             names_sequences.setdefault(prefix, []).extend(sequences)
 
-        # Group the sequences into minibatches
+        # Group the sequences into minibatches of `batch_size` length
         if self.one_subset_per_batch:
+            # Group each subset separately
             names_batches = [el for seq in names_sequences.itervalues()
                              for el in grouper(seq, self.batch_size)]
             if shuffle:
                 self.rng.shuffle(names_batches)  # shuffle the batches
         else:
-            names_sequences = [el for outer_el in names_sequences.values()
-                               for el in outer_el]
+            # Concat the values in a unique list, get rid of the keys
+            names_sequences_flat = [el for outer_el in names_sequences.values()
+                                    for el in outer_el]
             if shuffle:
-                self.rng.shuffle(names_sequences)  # shuffle the sequences
-            names_batches = [el for el in grouper(names_sequences,
+                self.rng.shuffle(names_sequences_flat)  # shuffle the sequences
+            # Group all the subsets together
+            names_batches = [el for el in grouper(names_sequences_flat,
                                                   self.batch_size)]
         self.nsamples = len(names_sequences)
         self.nbatches = len(names_batches)
+        # `names_batches` contains three nested tuples and has shape
+        # (batch_size, seq_length, 2), where the most inner element is a
+        # tuple `(subset, filename)`.
         self.names_batches = iter(names_batches)
 
     def _init_names_queue(self):
