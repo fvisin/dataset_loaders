@@ -93,6 +93,9 @@ class ThreadedDataset(object):
         range [0, 1] as dtype `float32`. Default: False.
     use_threads: bool
         If True threads will be used to fetch the data from the dataset.
+        Note that when use_threads is True the batches will be returned
+        in a non-deterministic fashion even when the numpy random seed
+        is fixed.
         Default: False.
     nthreads: int
         The number of threads to use when `use_threads` is True. Default: 1.
