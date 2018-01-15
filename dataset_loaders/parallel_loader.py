@@ -218,10 +218,6 @@ class ThreadedDataset(object):
         default_data_augm_kwargs = {
             'crop_size': None,
             'crop_mode': 'random',
-            'smart_crop_threshold': 0.5,
-            'smart_crop_search_step': 10,
-            'smart_crop_random_h_shift_range': 0,
-            'smart_crop_random_v_shift_range': 0,
             'rotation_range': 0,
             'width_shift_range': 0,
             'height_shift_range': 0,
@@ -699,6 +695,7 @@ class ThreadedDataset(object):
                 seq_x, seq_y,
                 nclasses=self.nclasses,
                 void_label=self.void_labels,
+                mask_labels=self.mask_labels,
                 **self.data_augm_kwargs)
 
             # Transform targets seq_y to one hot code if return_one_hot

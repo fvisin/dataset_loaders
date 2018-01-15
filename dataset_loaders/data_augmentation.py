@@ -348,10 +348,6 @@ def random_transform(x, y=None,
                      warp_grid_size=3,
                      crop_size=None,
                      crop_mode='random',
-                     smart_crop_threshold=0.5,
-                     smart_crop_search_step=10,
-                     smart_crop_random_h_shift_range=0,
-                     smart_crop_random_v_shift_range=0,
                      return_optical_flow=False,
                      nclasses=None,
                      gamma=0.,
@@ -360,6 +356,7 @@ def random_transform(x, y=None,
                      rows_idx=1,  # No batch yet: (s, 0, 1, c)
                      cols_idx=2,  # No batch yet: (s, 0, 1, c)
                      void_label=None,
+                     mask_labels=[],
                      prescale=1.0):
     '''Random Transform.
 
@@ -418,24 +415,34 @@ def random_transform(x, y=None,
         The size of crop to be applied to images and masks (after any
         other transformation).
     crop_mode: string
-        The crop strategy, could be either 'random' or 'smart'.
+        The crop strategy. Can be either 'random' or 'smart'.
         The 'random' mode randomly places the crop in the image.
         The 'smart' mode centers the crop in one of the locations where
-        the non-background masks are more present through time (in case
-        of sequences) or in the image otherwise. To do so it looks for a
-        label called 'background' or 'void' to retrieve the mask id or
+        non-background masks are present more often (in a static image, or in
+        all the frames over time in the case of sequences). To do so it looks
+        for a label called 'background' or 'void' to retrieve the mask id or
         assumes the id of the background mask to be 0.
-    smart_crop_threshold: float in [0, 1]
-        The percentage of background requested in the cropped image. If
-        it is not possible to satisfy this constraint the smart cropping
-        procedure returns the best crop found.
-    smart_crop_search_step: int
-        The amount of displacement in terms of of pixels used to search
-        the best crop.
-    smart_crop_random_h_shift_range: int
-        The maximum horizontal random shift, in pixels, for 'smart' cropping
-    smart_crop_random_v_shift_range: int
-        The maximum vertical random shift, in pixels, for 'smart' cropping
+
+        When the crop is performed in 'smart' mode the image or the frames in a
+        video sequence are cropped trying to satisfy the costraint on the
+        percentage of background pixels in the crop. This allows to crop
+        in the area of the image where the foreground is more concentrated
+        (or not) and to extrapolate parts of a video sequence where the most of
+        the motion happens.
+        In the following heuristic the crop is performed starting by the
+        computation of the foreground mask that contains the foreground
+        pixels in the case of an image and the sum of the foregorund pixels
+        over all the sequence in the case of the video. The crop is first
+        centred in one of the point that has the maximum 'concentration of
+        foreground', then if foreground/background constraint is not
+        satisfied the heuristic searches for another crop center by moving
+        'smart_crop_search_step' in the direction chosen randomly between
+        the possible direction in the remaining quadrants of the image (with
+        respect to the quadrant where the current center is placed). The
+        heuristic terminates when the threshold constraint is satisfied or
+        when the border of the image is reached. If it is not possible to
+        satisfy the fg/bg constraint for tthe current image or video sequence,
+        the heuristic return the best crop found before.
     return_optical_flow: bool
         If not False a dense optical flow will be concatenated to the
         end of the channel axis of the image. If True, angle and
@@ -455,6 +462,9 @@ def random_transform(x, y=None,
         The index of the cols of the image.
     void_label: int
         The index of the void label, if any. Used for padding.
+    mask_labels: list of strings
+        The list of the mask labels. Used in smart cropping to look for
+        the background label.
 
     References
     ----------
@@ -610,83 +620,6 @@ def random_transform(x, y=None,
                                     fill_constant=cval_mask,
                                     rows_idx=rows_idx, cols_idx=cols_idx))
 
-    """ Smart Cropping
-    When the crop is performed in 'smart' mode the image or the frames in a
-    video sequence are cropped trying to satisfy the costraint on the
-    percentage of background pixels in the crop. This allows to crop
-    in the area of the image where the foreground is more concentrated (or not)
-    and to extrapolate parts of a video sequence where the most of the
-    motion happens.
-    In the following heuristic the crop is performed starting by the
-    computation of the foreground mask that contains the foreground
-    pixels in the case of an image and the sum of the foregorund pixels
-    over all the sequence in the case of the video. The crop is first
-    centred in one of the point that has the maximum 'concentration of
-    foreground', then if foreground/background constraint is not
-    satisfied the heuristic searches for another crop center by moving
-    'smart_crop_search_step' in the direction chosen randomly between
-    the possible direction in the remaining quadrants of the image (with
-    respect to the quadrant where the current center is placed). The
-    heuristic terminates when the threshold constraint is satisfied or
-    when the border of the image is reached. If it is not possible to satisfy
-    the fg/bg constraint for tthe current image or video sequence,
-    the heuristic return the best crop found before.
-    """
-    if crop_mode == 'smart':
-        # Compute a (n-1)D fg/bg binary mask (with nD input)
-        if y.shape[-1] == 3:
-            foreground_mask = (np.sum(y, axis=-1) > 0).astype(int)
-        elif y.shape[-1] == 1:
-            foreground_mask = np.squeeze((y > 0).astype(int), axis=-1)
-        else:
-            foreground_mask = np.squeeze(
-                (np.expand_dims(y, -1) > 0).astype(int), axis=-1)
-        # Accumulate masks over time
-        if len(foreground_mask.shape) != 2:
-            foreground_mask = np.sum(foreground_mask, axis=0)
-        # Get background concentration in the four quadrants of the mask
-        quadrants = []
-        m_height = foreground_mask.shape[0]
-        m_width = foreground_mask.shape[1]
-        # Select the four quadrants of mask
-        quadrants.append(foreground_mask[0:m_height // 2,
-                                         0:m_width // 2])
-
-        quadrants.append(foreground_mask[0:m_height // 2,
-                                         m_width // 2:m_width])
-        quadrants.append(foreground_mask[m_height // 2:m_height,
-                                         m_width // 2:m_width])
-        quadrants.append(foreground_mask[m_height // 2:m_height,
-                                         0:m_width // 2])
-        # Compute the max num of background pixels for each quadrant
-        background_concentrations = []
-        for quadrant in quadrants:
-            rows, cols = np.where(quadrant == 0)
-            background_concentrations.append(len(zip(rows, cols)))
-        max_background_quadrant = background_concentrations.index(
-            np.max(background_concentrations))
-        quadrant_mask = np.zeros(foreground_mask.shape, foreground_mask.dtype)
-        if max_background_quadrant == 0:
-            b_rows, b_cols = np.where(
-                foreground_mask[0:m_height // 2, 0:m_width // 2] == 0)
-            quadrant_mask[(b_rows, b_cols)] = 1
-        elif max_background_quadrant == 1:
-            b_rows, b_cols = np.where(foreground_mask[0:m_height // 2,
-                                      m_width // 2:m_width] == 0)
-            quadrant_mask[(b_rows, b_cols + m_width // 2)] = 1
-        elif max_background_quadrant == 2:
-            b_rows, b_cols = np.where(
-                foreground_mask[m_height // 2:m_height,
-                                m_width // 2:m_width] == 0)
-            quadrant_mask[(b_rows + m_height // 2, b_cols + m_width // 2)] = 1
-        else:
-            b_rows, b_cols = np.where(
-                foreground_mask[m_height // 2:m_height,
-                                0:m_width // 2] == 0)
-            quadrant_mask[(b_rows + m_height // 2, b_cols)] = 1
-        max_mask_value = np.max(foreground_mask)
-        max_rows, max_cols = np.where(foreground_mask == max_mask_value)
-
     # Crop
     # Expects axes with shape (..., 0, 1)
     # TODO: Add center crop
@@ -701,96 +634,58 @@ def random_transform(x, y=None,
         pad = [0, 0]
         h, w = x.shape[-2:]
 
-        # Compute amounts
+        # Compute crop and padding amounts
         if crop[0] < h:
-            # Do random crop
             if crop_mode == 'random':
                 top = np.random.randint(h - crop[0])
-            elif crop_mode == 'smart':
-                crop_center_row = np.random.choice(max_rows)
-                # Random vertical shift
-                v_shift = 0
-                if smart_crop_random_v_shift_range > 0:
-                    v_shift = np.random.randint(
-                        -smart_crop_random_v_shift_range,
-                        smart_crop_random_v_shift_range)
-                crop_center_row += v_shift
-                top = max(0, crop_center_row - crop_size[0] // 2)
-                top = min(top, h - crop[0])
         else:
-            # Set pad and reset crop
+            # Set pad and disable crop
             pad[0] = crop[0] - h
             top, crop[0] = 0, h
         if crop[1] < w:
-            # Do random crop
             if crop_mode == 'random':
                 left = np.random.randint(w - crop[1])
-            elif crop_mode == 'smart':
-                crop_center_col = np.random.choice(max_cols)
-                # Random horizontal shift
-                h_shift = 0
-                if smart_crop_random_h_shift_range:
-                    h_shift = np.random.randint(
-                        -smart_crop_random_h_shift_range,
-                        smart_crop_random_h_shift_range)
-                crop_center_col += h_shift
-                left = max(0, crop_center_col - crop_size[1] // 2)
-                left = min(left, w - crop[1])
         else:
-            # Set pad and reset crop
+            # Set pad and disable crop
             pad[1] = crop[1] - w
             left, crop[1] = 0, w
 
         if crop_mode == 'smart':
-            # Search for requested f/b threshold
-            background_portion = np.sum(
-                foreground_mask[top:top+crop[0], left:left+crop[1]] == 0)
-            current_threshold = background_portion / np.float(crop[0] *
-                                                              crop[1])
-            best_top = top
-            best_left = left
-            if current_threshold < smart_crop_threshold:
-                best_threshold_found = False
-                # Select randomly one of the background pixels of the
-                # selected quadrant mask
-                b_rows, b_cols = np.where(quadrant_mask == 1)
-                random_b_x = np.random.choice(b_cols)
-                random_b_y = np.random.choice(b_rows)
-                if crop_center_col - random_b_x > 0:
-                    max_left = 0
-                    search_direction_x = -1
-                else:
-                    max_left = w - crop[1]
-                    search_direction_x = 1
-                if crop_center_row - random_b_y > 0:
-                    max_top = 0
-                    search_direction_y = -1
-                else:
-                    max_top = h - crop[0]
-                    search_direction_y = 1
-                while not best_threshold_found:
-                    top += search_direction_y * smart_crop_search_step
-                    top = max(0, top)
-                    top = min(top, h - crop[0])
-                    left += search_direction_x * smart_crop_search_step
-                    left = max(0, left)
-                    left = min(left, w - crop[1])
-                    # Search for requested f/b threshold
-                    background_portion = np.sum(
-                        foreground_mask[top:top+crop[0],
-                                        left:left+crop[1]] == 0)
-                    old_threshold = current_threshold
-                    current_threshold = background_portion / np.float(crop[0] *
-                                                                      crop[1])
-                    if current_threshold > old_threshold:
-                        best_top = top
-                        best_left = left
-                    if current_threshold >= smart_crop_threshold:
-                        best_threshold_found = True
-                    elif top == max_top and left == max_left:
-                        best_threshold_found = True
-                        top = best_top
-                        left = best_left
+            if y is None or len(y) < 1:
+                raise RuntimeError('Cannot use smart cropping without labels')
+
+            if pad[0] == 0 or pad[1] == 0:  # We crop in at least one dimension
+                # Look for the background label, or assume it to be 0
+                bg_label = np.where([m.lower() == 'background' for m
+                                     in mask_labels])[0]
+                if len(bg_label) == 0:
+                    bg_label = np.where([m.lower() == 'void' for m
+                                         in mask_labels])[0]
+                bg_label = bg_label[0] if len(bg_label) else 0
+                # Sum the number of fg pixels in time in each location
+                fg_mask = y[..., 0] != bg_label  # 3D: seq, 0, 1
+                t_fg = fg_mask.sum(axis=0)  # accumulate over time --> 2D
+
+                # Compute the sum of the cumulated masks (i.e., the number of
+                # fg pixels over time) of each candidate crop. The result is a
+                # matrix of the cumulated fg values of the crop whose top-left
+                # corner is positioned in each location
+                from scipy.signal import fftconvolve
+                effective_crop_size = [cr if cr < sz else sz for cr, sz in
+                                       zip(crop_size, (h, w))]
+                crop_filter = np.ones(effective_crop_size)
+                cum_t_fg = fftconvolve(t_fg, crop_filter, 'valid')
+
+                # Convert the comulated mask to a probability
+                tot_t_fg = cum_t_fg.sum(dtype=float)
+                p = (cum_t_fg / tot_t_fg).flatten()
+
+                # Select some coordinates stochastically, with probability
+                # of each location proportional to the cumulative amount of
+                # foreground pixels in time
+                n_locations = np.prod(cum_t_fg.shape)
+                idx = np.random.choice(n_locations, p=p)  # 1D coord
+                top, left = np.unravel_index(idx, cum_t_fg.shape)  # 2D
 
         # Cropping
         x = x[..., top:top+crop[0], left:left+crop[1]]
