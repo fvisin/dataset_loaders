@@ -627,7 +627,12 @@ def random_transform(x, y=None,
                 (pad[0]//2, pad[0] - pad[0]//2),
                 (pad[1]//2, pad[1] - pad[1]//2))
             x = np.pad(x, pad_pattern, 'constant')
-            y = np.pad(y, pad_pattern, 'constant', constant_values=void_label)
+            try:
+                y = np.pad(y, pad_pattern, 'constant',
+                           constant_values=void_label)
+            except ValueError as e:
+                raise type(e)(e.message + '\nCannot pad the image: the '
+                              'dataset has no void class')
 
         x = x.transpose(inv_pattern)
         if y is not None and len(y) > 0:
