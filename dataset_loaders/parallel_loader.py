@@ -630,7 +630,7 @@ class ThreadedDataset(object):
                         batch_ret[k].append(batch_ret[k][-1])
                 continue
 
-            # Load sequence, format is (s, 0, 1, c)
+            # Load sequence, format is x:(s, 0, 1, c), y:(s, 0, 1)
             ret = self.load_sequence(el)
             assert all(el in ret.keys()
                        for el in ('data', 'labels', 'filenames', 'subset')), (
@@ -653,12 +653,11 @@ class ThreadedDataset(object):
             if self.divide_by_std:
                 seq_x /= getattr(self, 'std', 1)
 
-            # Make sure data is in 4D
+            # Make sure data is 4D and labels 3D
             if seq_x.ndim == 3:
                 seq_x = seq_x[np.newaxis, ...]
                 raw_data = raw_data[np.newaxis, ...]
             assert seq_x.ndim == 4
-            # and labels in 3D
             if self.set_has_GT:
                 if seq_y.ndim == 2:
                     seq_y = seq_y[np.newaxis, ...]

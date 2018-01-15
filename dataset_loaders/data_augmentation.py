@@ -440,6 +440,12 @@ def random_transform(x, y=None,
     # Set this to a dir, if you want to save augmented images samples
     save_to_dir = None  # "./"
 
+    if x.ndim != 4:
+        raise RuntimeError('The x input of random transform should have '
+                           '4 dimensions. Received %d instead.' % x.ndim)
+    if y.ndim != 3:
+        raise RuntimeError('The y input of random transform should have '
+                           '3 dimensions. Received %d instead.' % x.ndim)
     if rescale:
         raise NotImplementedError()
 
