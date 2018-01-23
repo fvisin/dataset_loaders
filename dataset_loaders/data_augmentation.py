@@ -675,6 +675,8 @@ def random_transform(x, y=None,
                                        zip(crop_size, (h, w))]
                 crop_filter = np.ones(effective_crop_size)
                 cum_t_fg = fftconvolve(t_fg, crop_filter, 'valid')
+                # Account for fft numerical instability
+                cum_t_fg = np.clip(cum_t_fg, 0, np.inf)
 
                 # Convert the comulated mask to a probability
                 tot_t_fg = cum_t_fg.sum(dtype=float)
