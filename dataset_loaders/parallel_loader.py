@@ -671,18 +671,11 @@ class ThreadedDataset(object):
                     seq_y = seq_y[np.newaxis, ...]
                 assert seq_y.ndim == 3
 
-            # Perform data augmentation, if needed
-            seq_x, seq_y = random_transform(
-                seq_x, seq_y,
-                nclasses=self.nclasses,
-                void_label=self.void_labels,
-                **self.data_augm_kwargs)
-
+            # Map all void classes to non_void_nclasses and shift the other
+            # values accordingly, so that the valid values are between 0 and
+            # non_void_nclasses-1 and the void_classes are all equal to
+            # non_void_nclasses.
             if self.set_has_GT and self._void_labels != []:
-                # Map all void classes to non_void_nclasses and shift the other
-                # values accordingly, so that the valid values are between 0
-                # and non_void_nclasses-1 and the void_classes are all equal to
-                # non_void_nclasses.
                 void_l = self._void_labels
                 void_l.sort(reverse=True)
                 mapping = self._mapping
@@ -700,6 +693,13 @@ class ThreadedDataset(object):
                 except KeyError:
                     # none of the original classes was self.non_void_nclasses
                     pass
+
+            # Perform data augmentation, if needed
+            seq_x, seq_y = random_transform(
+                seq_x, seq_y,
+                nclasses=self.nclasses,
+                void_label=self.void_labels,
+                **self.data_augm_kwargs)
 
             # Transform targets seq_y to one hot code if return_one_hot
             # is True
@@ -945,7 +945,7 @@ def threaded_fetch(weakself):
         except Queue.Empty:
             # names_queue is empty --> loop again
             pass
-        except:
+        except:  # noqa
             # If any uncaught exception, pass it along and move on
             self.data_queue.put(sys.exc_info())
             self.names_queue.task_done()
