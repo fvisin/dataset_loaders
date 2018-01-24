@@ -347,6 +347,7 @@ def random_transform(x, y=None,
                      warp_sigma=0.1,
                      warp_grid_size=3,
                      crop_size=None,
+                     crop_mode='random',
                      return_optical_flow=False,
                      nclasses=None,
                      gamma=0.,
@@ -355,6 +356,7 @@ def random_transform(x, y=None,
                      rows_idx=1,  # No batch yet: (s, 0, 1, c)
                      cols_idx=2,  # No batch yet: (s, 0, 1, c)
                      void_label=None,
+                     mask_labels=[],
                      prescale=1.0):
     '''Random Transform.
 
@@ -412,6 +414,35 @@ def random_transform(x, y=None,
     crop_size: tuple
         The size of crop to be applied to images and masks (after any
         other transformation).
+    crop_mode: string
+        The crop strategy. Can be either 'random' or 'smart'.
+        The 'random' mode randomly places the crop in the image.
+        The 'smart' mode centers the crop in one of the locations where
+        non-background masks are present more often (in a static image, or in
+        all the frames over time in the case of sequences). To do so it looks
+        for a label called 'background' or 'void' to retrieve the mask id or
+        assumes the id of the background mask to be 0.
+
+        When the crop is performed in 'smart' mode the image or the frames in a
+        video sequence are cropped trying to satisfy the costraint on the
+        percentage of background pixels in the crop. This allows to crop
+        in the area of the image where the foreground is more concentrated
+        (or not) and to extrapolate parts of a video sequence where the most of
+        the motion happens.
+        In the following heuristic the crop is performed starting by the
+        computation of the foreground mask that contains the foreground
+        pixels in the case of an image and the sum of the foregorund pixels
+        over all the sequence in the case of the video. The crop is first
+        centred in one of the point that has the maximum 'concentration of
+        foreground', then if foreground/background constraint is not
+        satisfied the heuristic searches for another crop center by moving
+        'smart_crop_search_step' in the direction chosen randomly between
+        the possible direction in the remaining quadrants of the image (with
+        respect to the quadrant where the current center is placed). The
+        heuristic terminates when the threshold constraint is satisfied or
+        when the border of the image is reached. If it is not possible to
+        satisfy the fg/bg constraint for tthe current image or video sequence,
+        the heuristic return the best crop found before.
     return_optical_flow: bool
         If not False a dense optical flow will be concatenated to the
         end of the channel axis of the image. If True, angle and
@@ -431,6 +462,9 @@ def random_transform(x, y=None,
         The index of the cols of the image.
     void_label: int
         The index of the void label, if any. Used for padding.
+    mask_labels: list of strings
+        The list of the mask labels. Used in smart cropping to look for
+        the background label.
 
     References
     ----------
@@ -600,21 +634,60 @@ def random_transform(x, y=None,
         pad = [0, 0]
         h, w = x.shape[-2:]
 
-        # Compute amounts
+        # Compute crop and padding amounts
         if crop[0] < h:
-            # Do random crop
-            top = np.random.randint(h - crop[0])
+            if crop_mode == 'random':
+                top = np.random.randint(h - crop[0])
         else:
-            # Set pad and reset crop
+            # Set pad and disable crop
             pad[0] = crop[0] - h
             top, crop[0] = 0, h
         if crop[1] < w:
-            # Do random crop
-            left = np.random.randint(w - crop[1])
+            if crop_mode == 'random':
+                left = np.random.randint(w - crop[1])
         else:
-            # Set pad and reset crop
+            # Set pad and disable crop
             pad[1] = crop[1] - w
             left, crop[1] = 0, w
+
+        if crop_mode == 'smart':
+            if y is None or len(y) < 1:
+                raise RuntimeError('Cannot use smart cropping without labels')
+
+            if pad[0] == 0 or pad[1] == 0:  # We crop in at least one dimension
+                # Look for the background label, or assume it to be 0
+                bg_label = np.where([m.lower() == 'background' for m
+                                     in mask_labels])[0]
+                if len(bg_label) == 0:
+                    bg_label = np.where([m.lower() == 'void' for m
+                                         in mask_labels])[0]
+                bg_label = bg_label[0] if len(bg_label) else 0
+                # Sum the number of fg pixels in time in each location
+                fg_mask = y[..., 0] != bg_label  # 3D: seq, 0, 1
+                t_fg = fg_mask.sum(axis=0)  # accumulate over time --> 2D
+
+                # Compute the sum of the cumulated masks (i.e., the number of
+                # fg pixels over time) of each candidate crop. The result is a
+                # matrix of the cumulated fg values of the crop whose top-left
+                # corner is positioned in each location
+                from scipy.signal import fftconvolve
+                effective_crop_size = [cr if cr < sz else sz for cr, sz in
+                                       zip(crop_size, (h, w))]
+                crop_filter = np.ones(effective_crop_size)
+                cum_t_fg = fftconvolve(t_fg, crop_filter, 'valid')
+                # Account for fft numerical instability
+                cum_t_fg = np.clip(cum_t_fg, 0, np.inf)
+
+                # Convert the comulated mask to a probability
+                tot_t_fg = cum_t_fg.sum(dtype=float)
+                p = (cum_t_fg / tot_t_fg).flatten()
+
+                # Select some coordinates stochastically, with probability
+                # of each location proportional to the cumulative amount of
+                # foreground pixels in time
+                n_locations = np.prod(cum_t_fg.shape)
+                idx = np.random.choice(n_locations, p=p)  # 1D coord
+                top, left = np.unravel_index(idx, cum_t_fg.shape)  # 2D
 
         # Cropping
         x = x[..., top:top+crop[0], left:left+crop[1]]
