@@ -531,7 +531,9 @@ class ThreadedDataset(object):
         done = False
         while not done:
             if self.use_threads:
+                # %%%%%%%%%%
                 # THREADS
+                # %%%%%%%%%%
                 # Kill main process if fetcher died
                 if all([df() is None or not df().isAlive()
                         for df in self.data_fetchers]):
@@ -539,9 +541,10 @@ class ThreadedDataset(object):
                     print('All fetchers threads died. I will suicide!')
                     sys.exit(0)
                 try:
-                    # Get one minibatch from the out queue
+                    # Get one minibatch from the data queue
                     data_batch = self.data_queue.get(False)
                     self.data_queue.task_done()
+
                     # Exception handling
                     if len(data_batch) == 3:
                         if (isinstance(data_batch[1], IOError) and not
@@ -553,8 +556,10 @@ class ThreadedDataset(object):
                                 isinstance(data_batch[1], BaseException)):
                             raise data_batch[0], data_batch[1], data_batch[2]
                     done = True
-                    # When it's an infinite dataset, generate a fixed name
+
+                    # Get a new name_batch and add it to the names queue
                     if self.seq_per_subset and self.seq_per_subset is np.inf:
+                        # It's an infinite dataset: generate a fixed name
                         name_batch = [['gen_%i_%i' % (b_idx, f_idx)
                                        for f_idx in range(self.seq_length)]
                                       for b_idx in range(self.batch_size)]
@@ -564,6 +569,10 @@ class ThreadedDataset(object):
                             name_batch = self.names_batches.next()
                             self.names_queue.put(name_batch)
                         except StopIteration:
+                            # The name queue is empty, we are close to
+                            # the end of the epoch. We wait for the
+                            # data_queue to be emptied before adding new
+                            # names to the names_queue.
                             pass
                 # The data_queue is empty: the epoch is over or we
                 # consumed the data too fast. When the dataset is
@@ -578,10 +587,11 @@ class ThreadedDataset(object):
                         if not self.infinite_iterator:
                             raise StopIteration
             else:
+                # %%%%%%%%%%
                 # NO THREADS
-                # Generate the filenames when the dataset is an infinite
-                # generator
+                # %%%%%%%%%%
                 if self.seq_per_subset and self.seq_per_subset is np.inf:
+                    # It's an infinite dataset: generate a fixed name
                     batch_to_load = [['gen_%i_%i' % (b_idx, f_idx)
                                       for f_idx in range(self.seq_length)]
                                      for b_idx in range(self.batch_size)]
@@ -605,7 +615,7 @@ class ThreadedDataset(object):
                             print('WARNING: Image corrupted or missing!')
                             print(e)
 
-        assert data_batch is not None
+        assert data_batch is not None, 'No data returned from the loader.'
         return data_batch
 
     def fetch_from_dataset(self, batch_to_load):
