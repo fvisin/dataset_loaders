@@ -21,6 +21,12 @@ import dataset_loaders
 from dataset_loaders.utils_parallel_loader import (classproperty, grouper,
                                                    overlap_grouper)
 
+WARN_STARVING = ('The data is being consumed faster than it is being produced.'
+                 ' If you receive many of these warnings in a short period you'
+                 ' should probably increase the number of threads. If you '
+                 'receive only a few of them you might need to increase the '
+                 'queue size.')
+
 
 class ThreadedDataset(object):
     _wait_time = 0.05
@@ -529,6 +535,7 @@ class ThreadedDataset(object):
         consumed too fast.
         '''
         done = False
+        starvation_counter = 0
         while not done:
             if self.use_threads:
                 # %%%%%%%%%%
@@ -574,6 +581,9 @@ class ThreadedDataset(object):
                             # data_queue to be emptied before adding new
                             # names to the names_queue.
                             pass
+                    # We are not starving. Decrease the counter by one.
+                    starvation_counter = min(0, starvation_counter - 1)
+
                 # The data_queue is empty: the epoch is over or we
                 # consumed the data too fast. When the dataset is
                 # infinite, it's always the latter
@@ -586,6 +596,15 @@ class ThreadedDataset(object):
                         self._init_names_queue()  # Fill the names queue
                         if not self.infinite_iterator:
                             raise StopIteration
+                    else:
+                        # We consumed the data too fast. This is bad.
+                        # Let's raise a warning if it happens twice in a
+                        # row or two times in less than ten iterations.
+                        starvation_counter += 10
+                        if starvation_counter > 10:
+                            warnings.filterwarnings('always',
+                                                    message=WARN_STARVING)
+                            warnings.warn(WARN_STARVING)
             else:
                 # %%%%%%%%%%
                 # NO THREADS
