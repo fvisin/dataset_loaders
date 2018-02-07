@@ -9,7 +9,7 @@ except ImportError:
 import shutil
 import sys
 from threading import Thread
-from time import sleep
+from time import sleep, time
 import warnings
 import weakref
 
@@ -21,11 +21,12 @@ import dataset_loaders
 from dataset_loaders.utils_parallel_loader import (classproperty, grouper,
                                                    overlap_grouper)
 
-WARN_STARVING = ('The data is being consumed faster than it is being produced.'
-                 ' If you receive many of these warnings in a short period you'
-                 ' should probably increase the number of threads. If you '
-                 'receive only a few of them you might need to increase the '
-                 'queue size.')
+WARN_STARVING = ('The data is being consumed faster than it is being '
+                 'produced. If you receive many of these warnings in a '
+                 'short period you should probably increase the number '
+                 'of threads. If you receive only a few of them you '
+                 'might need to increase the queue size. See '
+                 'the `starving_secs` parameter for more details.')
 
 
 class ThreadedDataset(object):
@@ -158,6 +159,13 @@ class ThreadedDataset(object):
     raise_IOErrors: bool
         If False in case of an IOError a message will be printed on
         screen but no Exception will be raised. Default: False.
+    starving_secs: float
+        The amount of time after which we consider the model is
+        starving, i.e., data is not being produced fast enough. This
+        value can be adjusted to the user's needs and according to the
+        machine specs. If set to None the warning is suppressed.
+
+
     rng: :class:`numpy.random.RandomState` instance
         The random number generator to use. If None, one will be created.
         Default: None.
@@ -214,6 +222,7 @@ class ThreadedDataset(object):
                  remove_per_img_mean=False,  # img stats
                  divide_by_per_img_std=False,  # img stats
                  raise_IOErrors=False,
+                 starving_secs=1.,
                  rng=None,
                  **kwargs):
 
@@ -345,6 +354,7 @@ class ThreadedDataset(object):
         self.remove_per_img_mean = remove_per_img_mean
         self.divide_by_per_img_std = divide_by_per_img_std
         self.raise_IOErrors = raise_IOErrors
+        self.starving_secs = starving_secs
         self.rng = rng if rng is not None else RandomState(0xbeef)
 
         self.set_has_GT = getattr(self, 'set_has_GT', True)
@@ -535,7 +545,7 @@ class ThreadedDataset(object):
         consumed too fast.
         '''
         done = False
-        starvation_counter = 0
+        last_hit_time = time()
         while not done:
             if self.use_threads:
                 # %%%%%%%%%%
@@ -544,7 +554,6 @@ class ThreadedDataset(object):
                 # Kill main process if fetcher died
                 if all([df() is None or not df().isAlive()
                         for df in self.data_fetchers]):
-                    import sys
                     print('All fetchers threads died. I will suicide!')
                     sys.exit(0)
                 try:
@@ -581,8 +590,8 @@ class ThreadedDataset(object):
                             # data_queue to be emptied before adding new
                             # names to the names_queue.
                             pass
-                    # We are not starving. Decrease the counter by one.
-                    starvation_counter = min(0, starvation_counter - 1)
+                    # We are not starving. Update the last hit timer.
+                    last_hit_time = time()
 
                 # The data_queue is empty: the epoch is over or we
                 # consumed the data too fast. When the dataset is
@@ -598,10 +607,11 @@ class ThreadedDataset(object):
                             raise StopIteration
                     else:
                         # We consumed the data too fast. This is bad.
-                        # Let's raise a warning if it happens twice in a
-                        # row or two times in less than ten iterations.
-                        starvation_counter += 10
-                        if starvation_counter > 10:
+                        # Let's raise a warning if it takes more than
+                        # starving_secs seconds to get some data out of
+                        # the queue.
+                        if (self.starving_secs is not None and
+                                time() - last_hit_time > self.starving_secs):
                             warnings.filterwarnings('always',
                                                     message=WARN_STARVING)
                             warnings.warn(WARN_STARVING)
